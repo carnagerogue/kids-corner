@@ -53,12 +53,12 @@ crafts, outdoor adventures, and kid-friendly rewards.
   on by default).
 - **🏆 Trophy Room** — levels with fun ranks (Sprout → Summer Hero), unlockable
   badges, streaks, and per-kid stats.
-- **💬 Messages** — each kid has a private chat thread with the grown-ups, and
-  the grown-ups reply from their dashboard. New messages **chime, raise a
-  notification, and show a toast** the moment they arrive — even when Kids Corner
-  is open in a **background tab** — and threads sync live across tabs in the same
-  browser. (Same-browser only — there's no server, so it doesn't sync across
-  different devices.)
+- **💬 Messages** — direct messaging both **kid ↔ grown-ups** and **kid ↔ kid**:
+  a kid picks who to chat with (the grown-ups or a sibling), and grown-ups reply
+  from their dashboard. Messages can include **photo attachments**. New messages
+  **chime, raise a notification, and show a toast** the moment they arrive — even
+  when Kids Corner is open in a **background tab** — and threads sync live across
+  tabs and (with a family sync code) across devices.
 - **🔒 Grown-Ups** — a PIN-gated dashboard where a parent reviews photo proof and
   **approves or sends back** each mission/assignment, **adds or removes kids**,
   **chooses which apps each kid can see**, **assigns chores**, **reads and

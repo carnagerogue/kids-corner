@@ -2688,10 +2688,96 @@ body.fun-cursor-on * {
 }
 .thread__compose {
   display: flex;
+  flex-direction: column;
   gap: 8px;
   padding: 12px;
   border-top: 2px solid var(--line);
   background: var(--paper-2);
+}
+.thread__composerow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.thread__photo {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  background: #fff;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+.thread__attach {
+  position: relative;
+  align-self: flex-start;
+}
+.thread__attach img {
+  max-height: 110px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--line);
+  display: block;
+}
+.thread__attach-x {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  font-weight: 800;
+}
+.bubble__photo {
+  max-width: 100%;
+  max-height: 220px;
+  border-radius: 12px;
+  display: block;
+}
+.bubble__from {
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+}
+
+/* Kid's conversation picker (grown-ups + each sibling) */
+.convopick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.convopick__btn {
+  position: relative;
+  border: 2px solid var(--line);
+  background: var(--paper);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.convopick__btn.is-active {
+  border-color: var(--kid);
+  background: var(--kid);
+  color: #fff;
+}
+.convopick__pip {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 0 2px var(--paper);
 }
 .thread__input {
   flex: 1;

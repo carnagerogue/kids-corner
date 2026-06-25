@@ -47,6 +47,38 @@ export function defaultVisibility(id: KidId): string[] {
   return [...(DEFAULT_VISIBLE_APPS[id] ?? DEFAULT_NEW_KID_APPS)];
 }
 
+/** Accept new-format messages; convert old kid↔parent ones; drop junk. */
+function migrateMessage(raw: unknown): Message | null {
+  const m = raw as Record<string, unknown>;
+  if (!m || typeof m.id !== "string" || typeof m.text !== "string") return null;
+  const photo = typeof m.photo === "string" ? { photo: m.photo } : {};
+  if (typeof m.from === "string" && typeof m.to === "string") {
+    return {
+      id: m.id,
+      from: m.from,
+      to: m.to,
+      text: m.text,
+      at: typeof m.at === "number" ? m.at : 0,
+      read: !!m.read,
+      ...photo,
+    };
+  }
+  // Old shape: { kidId, from: "kid"|"parent", readByKid, readByParent }
+  if (typeof m.kidId === "string" && typeof m.from === "string") {
+    const fromKid = m.from === "kid";
+    return {
+      id: m.id,
+      from: fromKid ? (m.kidId as string) : "parent",
+      to: fromKid ? "parent" : (m.kidId as string),
+      text: m.text,
+      at: typeof m.at === "number" ? m.at : 0,
+      read: fromKid ? !!m.readByParent : !!m.readByKid,
+      ...photo,
+    };
+  }
+  return null;
+}
+
 export function defaultState(): AppState {
   const kids: Record<KidId, KidState> = {};
   const kidPins: Record<KidId, string> = {};
@@ -161,7 +193,10 @@ export function loadState(): AppState {
       : [];
 
     const messages = Array.isArray(parsed.messages)
-      ? (parsed.messages as Message[]).slice(-MAX_MESSAGES)
+      ? (parsed.messages as unknown[])
+          .map(migrateMessage)
+          .filter((m): m is Message => m !== null)
+          .slice(-MAX_MESSAGES)
       : [];
 
     const activeKid =

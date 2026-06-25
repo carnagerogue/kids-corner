@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "../store/AppContext";
-import { messagesForKid } from "../store/selectors";
-import type { KidId, MessageFrom } from "../types";
+import { getKid, messagesBetween } from "../store/selectors";
+import { CameraCapture } from "./CameraCapture";
+import type { ParticipantId } from "../types";
 
 function fmtTime(at: number): string {
   return new Date(at).toLocaleTimeString([], {
@@ -10,23 +11,30 @@ function fmtTime(at: number): string {
   });
 }
 
-/** A chat thread between one kid and the grown-ups. `viewer` aligns bubbles. */
+/** A direct-message thread between `me` and `other`, with photo attachments. */
 export function MessageThread({
-  kidId,
-  viewer,
+  me,
+  other,
+  readOnly,
 }: {
-  kidId: KidId;
-  viewer: MessageFrom;
+  me: ParticipantId;
+  other: ParticipantId;
+  readOnly?: boolean;
 }) {
   const { state, dispatch } = useApp();
   const [text, setText] = useState("");
-  const msgs = messagesForKid(state, kidId);
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [camera, setCamera] = useState(false);
+  const msgs = messagesBetween(state, me, other);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Opening the thread (or a new message arriving) clears unread for this side.
+  const emojiOf = (id: ParticipantId) =>
+    id === "parent" ? "🧑‍🍼" : getKid(state, id).emoji;
+
+  // Opening the thread (or a new message arriving) clears unread for me.
   useEffect(() => {
-    dispatch({ type: "MARK_MESSAGES_READ", kidId, reader: viewer });
-  }, [kidId, viewer, msgs.length, dispatch]);
+    if (!readOnly) dispatch({ type: "MARK_MESSAGES_READ", me, other });
+  }, [me, other, msgs.length, readOnly, dispatch]);
 
   // Keep the newest message in view.
   useEffect(() => {
@@ -37,9 +45,16 @@ export function MessageThread({
   const send = (e: React.FormEvent) => {
     e.preventDefault();
     const t = text.trim();
-    if (!t) return;
-    dispatch({ type: "SEND_MESSAGE", kidId, from: viewer, text: t });
+    if (!t && !photo) return;
+    dispatch({
+      type: "SEND_MESSAGE",
+      from: me,
+      to: other,
+      text: t,
+      photo: photo ?? undefined,
+    });
     setText("");
+    setPhoto(null);
   };
 
   return (
@@ -51,31 +66,77 @@ export function MessageThread({
           msgs.map((m) => (
             <div
               key={m.id}
-              className={`bubble ${m.from === viewer ? "is-mine" : "is-theirs"}`}
+              className={`bubble ${m.from === me ? "is-mine" : "is-theirs"}`}
             >
-              <span className="bubble__text">{m.text}</span>
+              {readOnly && (
+                <span className="bubble__from">{emojiOf(m.from)}</span>
+              )}
+              {m.photo && (
+                <img className="bubble__photo" src={m.photo} alt="attachment" />
+              )}
+              {m.text && <span className="bubble__text">{m.text}</span>}
               <span className="bubble__time">{fmtTime(m.at)}</span>
             </div>
           ))
         )}
       </div>
-      <form className="thread__compose" onSubmit={send}>
-        <input
-          className="thread__input"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={viewer === "kid" ? "Message a grown-up…" : "Reply…"}
-          maxLength={500}
-          aria-label="Message"
+
+      {!readOnly && (
+        <form className="thread__compose" onSubmit={send}>
+          {photo && (
+            <div className="thread__attach">
+              <img src={photo} alt="attachment preview" />
+              <button
+                type="button"
+                className="thread__attach-x"
+                onClick={() => setPhoto(null)}
+                aria-label="Remove photo"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+          <div className="thread__composerow">
+            <button
+              type="button"
+              className="thread__photo"
+              onClick={() => setCamera(true)}
+              aria-label="Attach a photo"
+              title="Attach a photo"
+            >
+              📷
+            </button>
+            <input
+              className="thread__input"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Type a message…"
+              maxLength={500}
+              aria-label="Message"
+            />
+            <button
+              className="btn btn--primary"
+              type="submit"
+              disabled={!text.trim() && !photo}
+            >
+              Send
+            </button>
+          </div>
+        </form>
+      )}
+
+      {camera && (
+        <CameraCapture
+          title="Add a photo"
+          subtitle="Snap or upload a photo to send."
+          kidEmoji={emojiOf(me)}
+          onCancel={() => setCamera(false)}
+          onSubmit={(p) => {
+            setPhoto(p);
+            setCamera(false);
+          }}
         />
-        <button
-          className="btn btn--primary"
-          type="submit"
-          disabled={!text.trim()}
-        >
-          Send
-        </button>
-      </form>
+      )}
     </div>
   );
 }

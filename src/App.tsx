@@ -86,7 +86,7 @@ export function App() {
   return (
     <div className="app" style={themeStyle}>
       <ScheduleNotifier />
-      <MessageNotifier viewer="kid" kidId={user} />
+      <MessageNotifier viewer={user} />
       <TopBar tab={tab} onTab={setTab} user={user} onLogout={logout} />
       <main className="app__main">
         {tab === "home" && <CommandCenter onTab={setTab} />}

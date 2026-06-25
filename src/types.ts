@@ -156,17 +156,20 @@ export type ChoreAssignment = {
 
 // --- Messages (kid <-> parent) --------------------------------------------
 
-export type MessageFrom = "kid" | "parent";
+/** A conversation participant: a kid's id, or the grown-ups. */
+export type ParticipantId = KidId | "parent";
 
-/** A single message in a kid's thread with the grown-ups. */
+/** A direct message between two participants (kid↔kid or kid↔parent). */
 export type Message = {
   id: string;
-  kidId: KidId; // whose thread this belongs to
-  from: MessageFrom;
+  from: ParticipantId;
+  to: ParticipantId;
   text: string;
+  /** Optional downscaled image attachment (data URL). */
+  photo?: string;
   at: number; // epoch ms
-  readByKid: boolean;
-  readByParent: boolean;
+  /** Read by the recipient (`to`). */
+  read: boolean;
 };
 
 // --- Persisted state ------------------------------------------------------

@@ -7,6 +7,7 @@ import type {
   KidId,
   KidStats,
   Message,
+  ParticipantId,
   Submission,
   SubmissionStatus,
 } from "../types";
@@ -127,29 +128,40 @@ export function choreAssignmentsFor(
 
 // --- Messages -------------------------------------------------------------
 
-/** One kid's thread with the grown-ups, oldest first. */
-export function messagesForKid(state: AppState, kidId: KidId): Message[] {
+/** The conversation between two participants, oldest first. */
+export function messagesBetween(
+  state: AppState,
+  a: ParticipantId,
+  b: ParticipantId,
+): Message[] {
   return state.messages
-    .filter((m) => m.kidId === kidId)
-    .sort((a, b) => a.at - b.at);
+    .filter(
+      (m) => (m.from === a && m.to === b) || (m.from === b && m.to === a),
+    )
+    .sort((x, y) => x.at - y.at);
 }
 
-/** Messages a kid hasn't read yet (i.e. unread replies from a grown-up). */
-export function kidUnreadCount(state: AppState, kidId: KidId): number {
-  return state.messages.reduce(
-    (n, m) =>
-      m.kidId === kidId && m.from === "parent" && !m.readByKid ? n + 1 : n,
-    0,
-  );
-}
-
-/** Messages from kids the grown-ups haven't read yet (optionally one kid). */
-export function parentUnreadCount(state: AppState, kidId?: KidId): number {
+/** Unread messages addressed to `me` (optionally only from a given sender). */
+export function unreadFor(
+  state: AppState,
+  me: ParticipantId,
+  from?: ParticipantId,
+): number {
   return state.messages.reduce((n, m) => {
-    if (m.from !== "kid" || m.readByParent) return n;
-    if (kidId && m.kidId !== kidId) return n;
+    if (m.to !== me || m.read) return n;
+    if (from && m.from !== from) return n;
     return n + 1;
   }, 0);
+}
+
+/** Total unread messages for a kid (from the grown-ups or other kids). */
+export function kidUnreadCount(state: AppState, kidId: KidId): number {
+  return unreadFor(state, kidId);
+}
+
+/** Unread messages waiting for the grown-ups (optionally from one kid). */
+export function parentUnreadCount(state: AppState, kidId?: KidId): number {
+  return unreadFor(state, "parent", kidId);
 }
 
 export function pendingSubmissions(state: AppState): Submission[] {

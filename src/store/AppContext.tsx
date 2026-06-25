@@ -12,7 +12,7 @@ import type {
   Kid,
   KidId,
   Message,
-  MessageFrom,
+  ParticipantId,
   Submission,
   SubmissionKind,
   ThemeId,
@@ -75,8 +75,14 @@ export type Action =
   | { type: "ASSIGN_CHORE"; kidId: KidId; refId: string }
   | { type: "UNASSIGN_CHORE"; assignmentId: string }
   | { type: "SET_THEME"; kidId: KidId; theme: ThemeId }
-  | { type: "SEND_MESSAGE"; kidId: KidId; from: MessageFrom; text: string }
-  | { type: "MARK_MESSAGES_READ"; kidId: KidId; reader: MessageFrom }
+  | {
+      type: "SEND_MESSAGE";
+      from: ParticipantId;
+      to: ParticipantId;
+      text: string;
+      photo?: string;
+    }
+  | { type: "MARK_MESSAGES_READ"; me: ParticipantId; other: ParticipantId }
   | { type: "INGEST_MESSAGES"; messages: Message[] }
   | { type: "SET_CONFIG"; config: SyncConfig }
   | { type: "INGEST_SUBMISSIONS"; submissions: Submission[] }
@@ -302,16 +308,16 @@ function reducer(state: AppState, action: Action): AppState {
 
     case "SEND_MESSAGE": {
       const text = action.text.trim();
-      if (!text) return state;
+      if ((!text && !action.photo) || action.from === action.to) return state;
       const message: Message = {
         id: newId(),
-        kidId: action.kidId,
         from: action.from,
+        to: action.to,
         text: text.slice(0, 500),
         at: Date.now(),
-        // The sender has obviously already "read" their own message.
-        readByKid: action.from === "kid",
-        readByParent: action.from === "parent",
+        read: false,
+        // Omit photo entirely when absent (Firebase rejects `undefined`).
+        ...(action.photo ? { photo: action.photo } : {}),
       };
       return { ...state, messages: [...state.messages, message].slice(-300) };
     }
@@ -319,14 +325,9 @@ function reducer(state: AppState, action: Action): AppState {
     case "MARK_MESSAGES_READ": {
       let changed = false;
       const messages = state.messages.map((m) => {
-        if (m.kidId !== action.kidId) return m;
-        if (action.reader === "kid" && !m.readByKid) {
+        if (m.to === action.me && m.from === action.other && !m.read) {
           changed = true;
-          return { ...m, readByKid: true };
-        }
-        if (action.reader === "parent" && !m.readByParent) {
-          changed = true;
-          return { ...m, readByParent: true };
+          return { ...m, read: true };
         }
         return m;
       });
@@ -463,7 +464,9 @@ function reducer(state: AppState, action: Action): AppState {
         choreAssignments: state.choreAssignments.filter(
           (c) => c.kidId !== action.kidId,
         ),
-        messages: state.messages.filter((m) => m.kidId !== action.kidId),
+        messages: state.messages.filter(
+          (m) => m.from !== action.kidId && m.to !== action.kidId,
+        ),
         activeKid:
           state.activeKid === action.kidId
             ? kidProfiles[0].id

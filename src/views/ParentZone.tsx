@@ -582,7 +582,7 @@ function ParentMessages() {
           );
         })}
       </div>
-      <MessageThread kidId={sel} viewer="parent" />
+      <MessageThread me="parent" other={sel} />
     </>
   );
 }
