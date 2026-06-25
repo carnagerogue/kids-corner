@@ -155,6 +155,8 @@ export type AppState = {
   activeKid: KidId;
   /** Light gate so kids can't approve their own work. Not real security. */
   parentPin: string;
+  /** Each kid's login PIN. Parents manage these in the Grown-Ups area. */
+  kidPins: Record<KidId, string>;
   kids: Record<KidId, KidState>;
   /** All photo-proof submissions across every kid. */
   submissions: Submission[];

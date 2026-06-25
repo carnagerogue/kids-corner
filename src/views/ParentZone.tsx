@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useApp } from "../store/AppContext";
-import { KIDS } from "../data/kids";
+import { KIDS, KID_LIST } from "../data/kids";
 import { pendingSubmissions } from "../store/selectors";
-import type { Submission } from "../types";
+import type { KidId, Submission } from "../types";
 
 export function ParentZone({ onExit }: { onExit: () => void }) {
   const [unlocked, setUnlocked] = useState(false);
@@ -229,11 +229,22 @@ function ParentSettings() {
 
   return (
     <>
+      <h3 className="section-title">🔑 Kid Login PINs</h3>
+      <div className="settings">
+        {KID_LIST.map((k) => (
+          <KidPinRow key={k.id} kidId={k.id} />
+        ))}
+        <p className="settings__hint">
+          Each kid enters their PIN to log in. Give each child a PIN only they
+          know so they can't log in as a sibling.
+        </p>
+      </div>
+
       <h3 className="section-title">⚙️ Settings</h3>
       <div className="settings">
         <form className="settings__row" onSubmit={savePin}>
           <label className="settings__label">
-            Change PIN
+            Change grown-up PIN
             <input
               className="settings__input"
               type="password"
@@ -254,10 +265,41 @@ function ParentSettings() {
           </button>
         </div>
         <p className="settings__hint">
-          Current default PIN is <code>{state.parentPin}</code>. This is a light
+          Current grown-up PIN is <code>{state.parentPin}</code>. This is a light
           gate to keep kids out — not real security.
         </p>
       </div>
     </>
+  );
+}
+
+function KidPinRow({ kidId }: { kidId: KidId }) {
+  const { state, dispatch } = useApp();
+  const kid = KIDS[kidId];
+  const [pin, setPin] = useState(state.kidPins[kidId]);
+  const dirty = pin !== state.kidPins[kidId];
+
+  const save = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pin.trim().length < 3) return;
+    dispatch({ type: "SET_KID_PIN", kidId, pin: pin.trim() });
+  };
+
+  return (
+    <form className="settings__row" onSubmit={save}>
+      <label className="settings__label">
+        {kid.emoji} {kid.firstName}'s PIN
+        <input
+          className="settings__input"
+          inputMode="numeric"
+          value={pin}
+          onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ""))}
+          placeholder="PIN (min 3 digits)"
+        />
+      </label>
+      <button className="btn btn--ghost" type="submit" disabled={!dirty}>
+        {dirty ? "Save" : "✓ Saved"}
+      </button>
+    </form>
   );
 }

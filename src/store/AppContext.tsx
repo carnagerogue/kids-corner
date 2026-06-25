@@ -42,6 +42,7 @@ export type Action =
       note?: string;
     }
   | { type: "SET_PARENT_PIN"; pin: string }
+  | { type: "SET_KID_PIN"; kidId: KidId; pin: string }
   | { type: "RESET_ALL" };
 
 function toggleInArray(arr: string[], id: string): string[] {
@@ -150,6 +151,15 @@ function reducer(state: AppState, action: Action): AppState {
 
     case "SET_PARENT_PIN":
       return { ...state, parentPin: action.pin || state.parentPin };
+
+    case "SET_KID_PIN":
+      return {
+        ...state,
+        kidPins: {
+          ...state.kidPins,
+          [action.kidId]: action.pin || state.kidPins[action.kidId],
+        },
+      };
 
     case "RESET_ALL":
       return defaultState();

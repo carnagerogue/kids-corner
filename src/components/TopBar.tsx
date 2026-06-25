@@ -1,18 +1,25 @@
 import { useApp } from "../store/AppContext";
-import { KID_LIST } from "../data/kids";
+import { KIDS } from "../data/kids";
 import { getLevelInfo } from "../data/levels";
 import { getKidXp, pendingCount } from "../store/selectors";
 import { TABS, type TabId } from "../App";
+import type { KidId } from "../types";
 
 export function TopBar({
   tab,
   onTab,
+  user,
+  onLogout,
 }: {
   tab: TabId;
   onTab: (t: TabId) => void;
+  user: KidId;
+  onLogout: () => void;
 }) {
-  const { state, dispatch } = useApp();
+  const { state } = useApp();
   const pending = pendingCount(state);
+  const kid = KIDS[user];
+  const level = getLevelInfo(getKidXp(state, user));
 
   return (
     <header className="topbar">
@@ -24,32 +31,22 @@ export function TopBar({
         </div>
       </div>
 
-      <div className="kidswitch" role="tablist" aria-label="Choose a kid">
-        {KID_LIST.map((kid) => {
-          const active = kid.id === state.activeKid;
-          const level = getLevelInfo(getKidXp(state, kid.id));
-          return (
-            <button
-              key={kid.id}
-              role="tab"
-              aria-selected={active}
-              className={`kidswitch__btn ${active ? "is-active" : ""}`}
-              style={{
-                ["--this-kid" as string]: kid.color,
-                ["--this-kid-soft" as string]: kid.colorSoft,
-              }}
-              onClick={() => dispatch({ type: "SET_ACTIVE_KID", kidId: kid.id })}
-            >
-              <span className="kidswitch__avatar">{kid.emoji}</span>
-              <span className="kidswitch__meta">
-                <span className="kidswitch__name">{kid.firstName}</span>
-                <span className="kidswitch__lvl">
-                  {level.rank.emoji} Lv {level.rank.level}
-                </span>
-              </span>
-            </button>
-          );
-        })}
+      <div className="whoami">
+        <span
+          className="whoami__avatar"
+          style={{ ["--this-kid" as string]: kid.color }}
+        >
+          {kid.emoji}
+        </span>
+        <span className="whoami__meta">
+          <span className="whoami__name">{kid.firstName}</span>
+          <span className="whoami__lvl">
+            {level.rank.emoji} Lv {level.rank.level}
+          </span>
+        </span>
+        <button className="whoami__logout" onClick={onLogout}>
+          Log out
+        </button>
       </div>
 
       <nav className="tabs" aria-label="Sections">

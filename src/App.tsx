@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { useApp } from "./store/AppContext";
 import { KIDS } from "./data/kids";
+import { readSession, writeSession } from "./store/storage";
 import { TopBar } from "./components/TopBar";
+import { LoginScreen } from "./components/LoginScreen";
 import { CommandCenter } from "./views/CommandCenter";
 import { ScheduleView } from "./views/ScheduleView";
 import { ApplicationsView } from "./views/ApplicationsView";
 import { MissionBoard } from "./views/MissionBoard";
 import { TrophyRoom } from "./views/TrophyRoom";
 import { ParentZone } from "./views/ParentZone";
+import type { KidId } from "./types";
 
 export type TabId =
   | "home"
@@ -26,10 +29,41 @@ export const TABS: { id: TabId; label: string; emoji: string }[] = [
 ];
 
 export function App() {
-  const { state } = useApp();
+  const { dispatch } = useApp();
+  const [user, setUser] = useState<KidId | null>(() => readSession());
   const [tab, setTab] = useState<TabId>("home");
-  const kid = KIDS[state.activeKid];
 
+  const login = (kidId: KidId) => {
+    setUser(kidId);
+    writeSession(kidId);
+    dispatch({ type: "SET_ACTIVE_KID", kidId });
+    setTab("home");
+  };
+
+  const logout = () => {
+    setUser(null);
+    writeSession(null);
+    setTab("home");
+  };
+
+  // Not logged in: show the login screen — unless a grown-up is heading to the
+  // parent area, which has its own PIN gate.
+  if (user === null) {
+    if (tab === "parent") {
+      return (
+        <div className="app">
+          <main className="app__main">
+            <ParentZone onExit={() => setTab("home")} />
+          </main>
+        </div>
+      );
+    }
+    return (
+      <LoginScreen onLogin={login} onParent={() => setTab("parent")} />
+    );
+  }
+
+  const kid = KIDS[user];
   const themeStyle = {
     ["--kid" as string]: kid.color,
     ["--kid-dark" as string]: kid.colorDark,
@@ -38,7 +72,7 @@ export function App() {
 
   return (
     <div className="app" style={themeStyle}>
-      <TopBar tab={tab} onTab={setTab} />
+      <TopBar tab={tab} onTab={setTab} user={user} onLogout={logout} />
       <main className="app__main">
         {tab === "home" && <CommandCenter onTab={setTab} />}
         {tab === "schedule" && <ScheduleView onTab={setTab} />}

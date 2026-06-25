@@ -29,6 +29,19 @@ crafts, outdoor adventures, and kid-friendly rewards.
   **approves or sends back** each mission/assignment, changes the PIN, and resets
   progress.
 
+## Logging in
+
+The app opens to a **login screen**. Each kid taps their face and enters their
+own PIN on a kid-friendly keypad. Once logged in they're locked to their own
+corner — there's no avatar switcher, so they can't act as a sibling without
+logging out and entering that sibling's PIN. A **Log out** button is in the top
+bar. The session survives a page reload but clears when the browser closes, so
+the next kid has to log in.
+
+> **Starter kid PINs:** Claire `1111`, Coby `2222`, Hailee `3333`. Change them
+> under **Grown-Ups → Kid Login PINs** and give each child a PIN only they know.
+> Grown-ups have their own separate PIN (default `1234`).
+
 ## Proof & approval (no self-marking)
 
 Kids **cannot** mark their own missions or daily assignments complete. Instead:

@@ -93,12 +93,7 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
       <h3 className="section-title">The Crew</h3>
       <div className="crew">
         {KID_LIST.map((k) => (
-          <CrewCard
-            key={k.id}
-            kidId={k.id}
-            active={k.id === state.activeKid}
-            onPick={() => onTab("home")}
-          />
+          <CrewCard key={k.id} kidId={k.id} active={k.id === state.activeKid} />
         ))}
       </div>
 
@@ -133,16 +128,8 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
   );
 }
 
-function CrewCard({
-  kidId,
-  active,
-  onPick,
-}: {
-  kidId: KidId;
-  active: boolean;
-  onPick: () => void;
-}) {
-  const { state, dispatch } = useApp();
+function CrewCard({ kidId, active }: { kidId: KidId; active: boolean }) {
+  const { state } = useApp();
   const kid = KIDS[kidId];
   const level = getLevelInfo(getKidXp(state, kidId));
   const stats = computeStats(state, kidId);
@@ -156,18 +143,15 @@ function CrewCard({
   const pendingToday = todaysSubs.filter((s) => s.status === "pending").length;
 
   return (
-    <button
+    <div
       className={`crewcard ${active ? "is-active" : ""}`}
       style={{
         ["--this-kid" as string]: kid.color,
         ["--this-kid-dark" as string]: kid.colorDark,
         ["--this-kid-soft" as string]: kid.colorSoft,
       }}
-      onClick={() => {
-        dispatch({ type: "SET_ACTIVE_KID", kidId });
-        onPick();
-      }}
     >
+      {active && <span className="crewcard__you">You</span>}
       <div className="crewcard__head">
         <ProgressRing progress={level.progress} color={kid.color} size={66}>
           <span className="crewcard__avatar">{kid.emoji}</span>
@@ -201,6 +185,6 @@ function CrewCard({
           <span className="crewcard__pending">⏳ {pendingToday} pending</span>
         )}
       </div>
-    </button>
+    </div>
   );
 }

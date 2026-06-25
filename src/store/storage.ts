@@ -7,6 +7,15 @@ const STATE_VERSION = 2;
 /** Default grown-up PIN. Change it in the Grown-Ups area. */
 export const DEFAULT_PARENT_PIN = "1234";
 
+/** Default per-kid login PINs. Parents should change these in Grown-Ups. */
+export const DEFAULT_KID_PINS: Record<KidId, string> = {
+  claire: "1111",
+  coby: "2222",
+  hailee: "3333",
+};
+
+const SESSION_KEY = "kids-corner:session";
+
 /** Keep at most this many submissions to bound storage growth. */
 const MAX_SUBMISSIONS = 240;
 
@@ -27,6 +36,7 @@ export function defaultState(): AppState {
     version: STATE_VERSION,
     activeKid: "claire",
     parentPin: DEFAULT_PARENT_PIN,
+    kidPins: { ...DEFAULT_KID_PINS },
     kids: {
       claire: emptyKidState(),
       coby: emptyKidState(),
@@ -77,6 +87,14 @@ export function loadState(): AppState {
       ? prunePhotos(parsed.submissions as Submission[], todayKey())
       : [];
 
+    const kidPins = { ...DEFAULT_KID_PINS };
+    if (parsed.kidPins && typeof parsed.kidPins === "object") {
+      for (const id of KID_ORDER) {
+        const p = (parsed.kidPins as Record<string, unknown>)[id];
+        if (typeof p === "string" && p.length > 0) kidPins[id] = p;
+      }
+    }
+
     return {
       version: STATE_VERSION,
       activeKid: isKidId(parsed.activeKid) ? parsed.activeKid : "claire",
@@ -84,6 +102,7 @@ export function loadState(): AppState {
         typeof parsed.parentPin === "string" && parsed.parentPin.length > 0
           ? parsed.parentPin
           : DEFAULT_PARENT_PIN,
+      kidPins,
       kids,
       submissions,
     };
@@ -124,5 +143,27 @@ export function newId(): string {
     return crypto.randomUUID();
   } catch {
     return `id-${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+  }
+}
+
+// --- Login session --------------------------------------------------------
+// Who's currently logged in. Kept in sessionStorage so it survives a reload
+// but clears when the browser/tab closes (so the next kid must log in).
+
+export function readSession(): KidId | null {
+  try {
+    const v = sessionStorage.getItem(SESSION_KEY);
+    return isKidId(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeSession(kidId: KidId | null): void {
+  try {
+    if (kidId) sessionStorage.setItem(SESSION_KEY, kidId);
+    else sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    /* ignore */
   }
 }
