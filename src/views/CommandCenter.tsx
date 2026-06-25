@@ -19,6 +19,7 @@ import { ProgressRing } from "../components/ProgressRing";
 import { ProofButton } from "../components/ProofButton";
 import { ScheduleTimeline } from "../components/ScheduleTimeline";
 import { ReminderToggle } from "../components/ScheduleNotifier";
+import { MiniCalendar } from "../components/MiniCalendar";
 import { useClock, minutesSinceMidnight } from "../hooks/useClock";
 import type { TabId } from "../App";
 import type { KidId } from "../types";
@@ -62,6 +63,7 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
     <div className="view">
       <div className="dash">
         <aside className="dash__schedule">
+          <MiniCalendar />
           <div className="section-row">
             <h3 className="section-title">🗓️ Today's Schedule</h3>
             <div className="section-row__actions">

@@ -2478,6 +2478,68 @@ body.fun-cursor-on * {
 }
 
 /* ===========================================================================
+   Mini calendar (date + month grid in the schedule rail)
+   =========================================================================== */
+.cal {
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 14px;
+}
+.cal__today {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+}
+.cal__weekday {
+  font-family: var(--display);
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--kid-dark);
+  line-height: 1.1;
+}
+.cal__date {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.cal__grid--head {
+  margin-bottom: 4px;
+}
+.cal__wd {
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.cal__day {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink);
+  border-radius: 50%;
+}
+.cal__day.is-empty {
+  visibility: hidden;
+}
+.cal__day.is-today {
+  background: var(--kid);
+  color: #fff;
+  box-shadow: 0 4px 10px -4px var(--kid-dark);
+}
+
+/* ===========================================================================
    Schedule "it's time" toast
    =========================================================================== */
 .toast {
