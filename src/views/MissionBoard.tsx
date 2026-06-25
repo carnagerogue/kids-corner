@@ -2,9 +2,9 @@ import { useMemo, useState } from "react";
 import { useApp } from "../store/AppContext";
 import { KIDS } from "../data/kids";
 import {
-  ACTIVITIES,
   CATEGORY_META,
   CATEGORY_ORDER,
+  NON_CHORE_ACTIVITIES,
 } from "../data/activities";
 import { taskStatus } from "../store/selectors";
 import { ProofButton } from "../components/ProofButton";
@@ -23,6 +23,9 @@ const DIFF_META: Record<
   challenge: { label: "Challenge", emoji: "🔴" },
 };
 
+// Chores aren't free-picked here — a grown-up assigns those.
+const BOARD_CATEGORIES = CATEGORY_ORDER.filter((c) => c !== "chores");
+
 export function MissionBoard() {
   const { state } = useApp();
   const kid = KIDS[state.activeKid];
@@ -33,7 +36,7 @@ export function MissionBoard() {
   const [forMe, setForMe] = useState(false);
 
   const filtered = useMemo(() => {
-    return ACTIVITIES.filter((a) => {
+    return NON_CHORE_ACTIVITIES.filter((a) => {
       if (cat !== "all" && a.category !== cat) return false;
       if (place !== "all") {
         if (a.indoorOutdoor !== place && a.indoorOutdoor !== "either")
@@ -65,11 +68,13 @@ export function MissionBoard() {
             className={`chip ${cat === "all" ? "is-active" : ""}`}
             onClick={() => setCat("all")}
           >
-            ✨ All ({ACTIVITIES.length})
+            ✨ All ({NON_CHORE_ACTIVITIES.length})
           </button>
-          {CATEGORY_ORDER.map((c) => {
+          {BOARD_CATEGORIES.map((c) => {
             const meta = CATEGORY_META[c];
-            const count = ACTIVITIES.filter((a) => a.category === c).length;
+            const count = NON_CHORE_ACTIVITIES.filter(
+              (a) => a.category === c,
+            ).length;
             return (
               <button
                 key={c}

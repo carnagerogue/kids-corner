@@ -2192,3 +2192,123 @@ body.fun-cursor-on * {
     opacity: 0.5;
   }
 }
+
+/* ===========================================================================
+   Chores (parent-assigned)
+   =========================================================================== */
+.section-tag {
+  font-family: var(--sans);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #0f766e;
+  background: #ccfbf1;
+  border-radius: 999px;
+  padding: 3px 10px;
+  vertical-align: middle;
+}
+
+.chores {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.chore {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-left: 6px solid var(--cat, #14b8a6);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+}
+.chore__icon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+.chore__body {
+  flex: 1;
+  min-width: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.chore__title {
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+.chore__meta {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.chore__action {
+  min-width: 240px;
+}
+
+/* Grown-Ups: assign chores */
+.chore-assign {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.chore-assign select.settings__input {
+  flex: 1;
+  min-width: 130px;
+}
+.chore-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.chore-list__row {
+  display: grid;
+  grid-template-columns: minmax(90px, auto) 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+}
+.chore-list__kid {
+  color: var(--ink);
+}
+.chore-list__title {
+  color: var(--ink-soft);
+}
+.chore-list__status {
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+.chore-list__status.is-approved {
+  color: #15803d;
+}
+.chore-list__status.is-pending {
+  color: #b45309;
+}
+.chore-list__status.is-rejected {
+  color: #b91c1c;
+}
+.chore-list__status.is-none {
+  color: var(--ink-soft);
+}
+.btn--sm {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+@media (max-width: 560px) {
+  .chore-list__row {
+    grid-template-columns: 1fr auto;
+  }
+  .chore-list__title {
+    grid-column: 1 / -1;
+    order: 3;
+  }
+}

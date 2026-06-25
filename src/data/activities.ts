@@ -711,3 +711,13 @@ export const CATEGORY_ORDER: ActivityCategory[] = [
 export const ACTIVITY_BY_ID: Record<string, ActivityIdea> = Object.fromEntries(
   ACTIVITIES.map((a) => [a.id, a]),
 );
+
+/** Chores are assigned by a grown-up — never free-picked from the board. */
+export const CHORES: ActivityIdea[] = ACTIVITIES.filter(
+  (a) => a.category === "chores",
+);
+
+/** Everything kids can freely choose (the board + featured rotation). */
+export const NON_CHORE_ACTIVITIES: ActivityIdea[] = ACTIVITIES.filter(
+  (a) => a.category !== "chores",
+);

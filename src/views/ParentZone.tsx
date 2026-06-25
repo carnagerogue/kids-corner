@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { useApp } from "../store/AppContext";
 import { KIDS, KID_LIST } from "../data/kids";
-import { pendingSubmissions } from "../store/selectors";
+import { CHORES, ACTIVITY_BY_ID } from "../data/activities";
+import {
+  choreAssignmentsFor,
+  pendingSubmissions,
+  taskStatus,
+} from "../store/selectors";
 import type { KidId, Submission } from "../types";
 
 export function ParentZone({ onExit }: { onExit: () => void }) {
@@ -192,6 +197,8 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
         </>
       )}
 
+      <ChoreAssigner />
+
       <ParentSettings />
 
       {zoom && (
@@ -200,6 +207,101 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
         </div>
       )}
     </div>
+  );
+}
+
+function ChoreAssigner() {
+  const { state, dispatch } = useApp();
+  const [kidId, setKidId] = useState<KidId>(KID_LIST[0].id);
+  const [refId, setRefId] = useState<string>(CHORES[0]?.id ?? "");
+
+  const assign = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (refId) dispatch({ type: "ASSIGN_CHORE", kidId, refId });
+  };
+
+  // Everyone's chores for today, in kid order.
+  const todays = KID_LIST.flatMap((k) =>
+    choreAssignmentsFor(state, k.id).map((c) => ({ c, kid: k })),
+  );
+
+  const statusLabel: Record<string, string> = {
+    approved: "✓ Done",
+    pending: "⏳ Waiting",
+    rejected: "↩︎ Sent back",
+    none: "• To do",
+  };
+
+  return (
+    <>
+      <h3 className="section-title">🧹 Assign Chores</h3>
+      <div className="settings">
+        <form className="settings__row chore-assign" onSubmit={assign}>
+          <select
+            className="settings__input"
+            value={kidId}
+            onChange={(e) => setKidId(e.target.value as KidId)}
+            aria-label="Choose a kid"
+          >
+            {KID_LIST.map((k) => (
+              <option key={k.id} value={k.id}>
+                {k.emoji} {k.firstName}
+              </option>
+            ))}
+          </select>
+          <select
+            className="settings__input"
+            value={refId}
+            onChange={(e) => setRefId(e.target.value)}
+            aria-label="Choose a chore"
+          >
+            {CHORES.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.title} (+{a.xp} XP)
+              </option>
+            ))}
+          </select>
+          <button className="btn btn--primary" type="submit">
+            + Assign
+          </button>
+        </form>
+
+        {todays.length === 0 ? (
+          <p className="settings__hint">
+            No chores assigned for today. Pick a kid and a chore above — it'll
+            appear in their Command Center to finish with photo proof.
+          </p>
+        ) : (
+          <ul className="chore-list">
+            {todays.map(({ c, kid }) => {
+              const activity = ACTIVITY_BY_ID[c.refId];
+              const status = taskStatus(state, kid.id, c.refId).status;
+              return (
+                <li key={c.id} className="chore-list__row">
+                  <span className="chore-list__kid">
+                    {kid.emoji} {kid.firstName}
+                  </span>
+                  <span className="chore-list__title">
+                    🧹 {activity?.title ?? c.refId}
+                  </span>
+                  <span className={`chore-list__status is-${status}`}>
+                    {statusLabel[status] ?? status}
+                  </span>
+                  <button
+                    className="btn btn--reject btn--sm"
+                    onClick={() =>
+                      dispatch({ type: "UNASSIGN_CHORE", assignmentId: c.id })
+                    }
+                  >
+                    Remove
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </>
   );
 }
 

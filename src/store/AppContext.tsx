@@ -8,6 +8,7 @@ import {
 } from "react";
 import type {
   AppState,
+  ChoreAssignment,
   KidId,
   Submission,
   SubmissionKind,
@@ -43,6 +44,8 @@ export type Action =
     }
   | { type: "SET_PARENT_PIN"; pin: string }
   | { type: "SET_KID_PIN"; kidId: KidId; pin: string }
+  | { type: "ASSIGN_CHORE"; kidId: KidId; refId: string }
+  | { type: "UNASSIGN_CHORE"; assignmentId: string }
   | { type: "RESET_ALL" };
 
 function toggleInArray(arr: string[], id: string): string[] {
@@ -159,6 +162,37 @@ function reducer(state: AppState, action: Action): AppState {
           ...state.kidPins,
           [action.kidId]: action.pin || state.kidPins[action.kidId],
         },
+      };
+
+    case "ASSIGN_CHORE": {
+      const date = todayKey();
+      // Don't assign the same chore to the same kid twice in one day.
+      const exists = state.choreAssignments.some(
+        (c) =>
+          c.kidId === action.kidId &&
+          c.refId === action.refId &&
+          c.date === date,
+      );
+      if (exists) return state;
+      const assignment: ChoreAssignment = {
+        id: newId(),
+        kidId: action.kidId,
+        refId: action.refId,
+        date,
+        assignedAt: Date.now(),
+      };
+      return {
+        ...state,
+        choreAssignments: [...state.choreAssignments, assignment],
+      };
+    }
+
+    case "UNASSIGN_CHORE":
+      return {
+        ...state,
+        choreAssignments: state.choreAssignments.filter(
+          (c) => c.id !== action.assignmentId,
+        ),
       };
 
     case "RESET_ALL":

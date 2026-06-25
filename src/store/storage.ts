@@ -1,4 +1,10 @@
-import type { AppState, KidId, KidState, Submission } from "../types";
+import type {
+  AppState,
+  ChoreAssignment,
+  KidId,
+  KidState,
+  Submission,
+} from "../types";
 import { KID_ORDER } from "../data/kids";
 
 const STORAGE_KEY = "kids-corner:v2";
@@ -43,6 +49,7 @@ export function defaultState(): AppState {
       hailee: emptyKidState(),
     },
     submissions: [],
+    choreAssignments: [],
   };
 }
 
@@ -87,6 +94,14 @@ export function loadState(): AppState {
       ? prunePhotos(parsed.submissions as Submission[], todayKey())
       : [];
 
+    // Keep only today's (and future) chore assignments — stale ones expire.
+    const today = todayKey();
+    const choreAssignments = Array.isArray(parsed.choreAssignments)
+      ? (parsed.choreAssignments as ChoreAssignment[]).filter(
+          (c) => c && typeof c.date === "string" && c.date >= today,
+        )
+      : [];
+
     const kidPins = { ...DEFAULT_KID_PINS };
     if (parsed.kidPins && typeof parsed.kidPins === "object") {
       for (const id of KID_ORDER) {
@@ -105,6 +120,7 @@ export function loadState(): AppState {
       kidPins,
       kids,
       submissions,
+      choreAssignments,
     };
   } catch {
     return defaultState();

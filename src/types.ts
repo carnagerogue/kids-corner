@@ -136,6 +136,18 @@ export type Submission = {
   note?: string;
 };
 
+// --- Chore assignments (parent-decided) -----------------------------------
+
+/** A chore a grown-up has assigned to one kid for a given day. */
+export type ChoreAssignment = {
+  id: string;
+  kidId: KidId;
+  /** ActivityIdea id of a "chores" activity */
+  refId: string;
+  date: string; // YYYY-MM-DD the chore is assigned for
+  assignedAt: number; // epoch ms
+};
+
 // --- Persisted state ------------------------------------------------------
 
 export type DayProgress = {
@@ -160,6 +172,8 @@ export type AppState = {
   kids: Record<KidId, KidState>;
   /** All photo-proof submissions across every kid. */
   submissions: Submission[];
+  /** Chores a grown-up has assigned. Kids can't pick chores themselves. */
+  choreAssignments: ChoreAssignment[];
 };
 
 // Derived, read-only stats used by selectors / badges.

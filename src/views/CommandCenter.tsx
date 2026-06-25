@@ -2,13 +2,18 @@ import { useApp } from "../store/AppContext";
 import { KIDS } from "../data/kids";
 import { getLevelInfo } from "../data/levels";
 import {
+  choreAssignmentsFor,
   computeStats,
   getDay,
   getKidXp,
 } from "../store/selectors";
 import { todayKey } from "../store/storage";
 import { SCHEDULE } from "../data/schedule";
-import { ACTIVITIES, CATEGORY_META } from "../data/activities";
+import {
+  ACTIVITY_BY_ID,
+  CATEGORY_META,
+  NON_CHORE_ACTIVITIES,
+} from "../data/activities";
 import { ProgressRing } from "../components/ProgressRing";
 import { ProofButton } from "../components/ProofButton";
 import { useClock, minutesSinceMidnight } from "../hooks/useClock";
@@ -32,9 +37,15 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
   );
   const upcomingBlock = SCHEDULE.find((b) => b.startMinutes > nowMin);
 
-  // Featured mission is stable for the whole day.
-  const featured = ACTIVITIES[dayOfYear(now) % ACTIVITIES.length];
+  // Featured mission is stable for the whole day (chores are excluded —
+  // those are assigned by a grown-up, not auto-suggested).
+  const featured =
+    NON_CHORE_ACTIVITIES[dayOfYear(now) % NON_CHORE_ACTIVITIES.length];
   const featuredMeta = CATEGORY_META[featured.category];
+
+  // Chores a grown-up assigned to this kid for today.
+  const chores = choreAssignmentsFor(state, kid.id);
+  const choreMeta = CATEGORY_META.chores;
 
   const greeting =
     now.getHours() < 12
@@ -89,6 +100,43 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
           )}
         </div>
       </section>
+
+      {chores.length > 0 && (
+        <>
+          <h3 className="section-title">
+            🧹 Today's Chores{" "}
+            <span className="section-tag">from a grown-up</span>
+          </h3>
+          <div className="chores" style={{ ["--cat" as string]: choreMeta.color }}>
+            {chores.map((c) => {
+              const activity = ACTIVITY_BY_ID[c.refId];
+              if (!activity) return null;
+              return (
+                <div key={c.id} className="chore">
+                  <span className="chore__icon">{choreMeta.emoji}</span>
+                  <div className="chore__body">
+                    <strong className="chore__title">{activity.title}</strong>
+                    <span className="chore__meta">
+                      ⚡ {activity.xp} XP · ⏱️ {activity.estimatedMinutes} min
+                    </span>
+                  </div>
+                  <div className="chore__action">
+                    <ProofButton
+                      kidId={kid.id}
+                      kind="mission"
+                      refId={activity.id}
+                      title={activity.title}
+                      emoji={choreMeta.emoji}
+                      xp={activity.xp}
+                      subtitle="Snap a photo of your finished chore."
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       <h3 className="section-title">Your Corner</h3>
       <div className="crew crew--solo">

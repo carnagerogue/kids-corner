@@ -21,13 +21,18 @@ crafts, outdoor adventures, and kid-friendly rewards.
   25-min-work / 5-min-break rule), and the full weekly plan.
 - **🎯 Mission Board** — a big library of activities (arts & crafts, drawing,
   building, outdoor, science, writing, music, brain games, family, kindness,
-  chores, quiet time). Filter by category, indoor/outdoor, difficulty, or
-  "best for this kid." Each card has supplies and step-by-step instructions.
+  quiet time). Filter by category, indoor/outdoor, difficulty, or "best for this
+  kid." Each card has supplies and step-by-step instructions. (**Chores aren't
+  here** — a grown-up assigns those; see below.)
+- **🧹 Chores are parent-decided** — kids can't pick chores themselves. A
+  grown-up assigns a chore to a specific kid in the Grown-Ups area, and it then
+  shows up under **Today's Chores** on that kid's Command Center to finish with
+  photo proof (just like any other task).
 - **🏆 Trophy Room** — levels with fun ranks (Sprout → Summer Hero), unlockable
   badges, streaks, and per-kid stats.
 - **🔒 Grown-Ups** — a PIN-gated dashboard where a parent reviews photo proof and
-  **approves or sends back** each mission/assignment, changes the PIN, and resets
-  progress.
+  **approves or sends back** each mission/assignment, **assigns chores** to each
+  kid, changes the PIN, and resets progress.
 
 ## Logging in
 

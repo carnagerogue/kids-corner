@@ -1,6 +1,7 @@
 import type {
   ActivityCategory,
   AppState,
+  ChoreAssignment,
   DayProgress,
   KidId,
   KidStats,
@@ -59,6 +60,17 @@ export function taskStatus(
     .sort((a, b) => a.submittedAt - b.submittedAt);
   const latest = matches[matches.length - 1] ?? null;
   return { status: latest ? latest.status : "none", submission: latest };
+}
+
+/** Chores a grown-up assigned to one kid for a given day. */
+export function choreAssignmentsFor(
+  state: AppState,
+  kidId: KidId,
+  date: string = todayKey(),
+): ChoreAssignment[] {
+  return state.choreAssignments
+    .filter((c) => c.kidId === kidId && c.date === date)
+    .sort((a, b) => a.assignedAt - b.assignedAt);
 }
 
 export function pendingSubmissions(state: AppState): Submission[] {
