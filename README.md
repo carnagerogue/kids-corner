@@ -10,8 +10,9 @@ crafts, outdoor adventures, and kid-friendly rewards.
 - **🛰️ Command Center** — a home dashboard with a **schedule rail** on the left
   (a mini month calendar showing today's day/date, plus the day's timeline) and,
   on the right, the logged-in kid's level, XP, streak, badges, any assigned
-  chores, and a featured "Mission of the Day." (Each kid only sees their own
-  corner.)
+  chores, and a few **"Missions of the Day"** to choose from (with indoor and
+  outdoor options so weather or supervision is never a blocker). (Each kid only
+  sees their own corner.)
 - **🗓️ Today's Schedule** — the family's daily rhythm (Breakfast → Study →
   Recess → Choice Studio → Lunch → Fun Learning → Clean Up → Free Time), shown
   on both the dashboard and its own tab. The current block highlights live,

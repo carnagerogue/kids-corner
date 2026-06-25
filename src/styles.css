@@ -2510,25 +2510,71 @@ body.fun-cursor-on * {
   border-radius: 8px;
 }
 
-/* Right column: balanced card grid (Your Corner + Featured side by side). */
-.dash__cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 18px;
-  align-items: start;
-  margin: 22px 0;
-}
-.dash__cards .section-title {
-  margin-top: 0;
-}
-.dash__cards .crew--solo {
+/* Your Corner fills the right column on the dashboard. */
+.dash__main .crew--solo {
   grid-template-columns: 1fr;
 }
-.dash__card .featured {
-  height: 100%;
+
+/* ===========================================================================
+   Missions of the Day — a few options the kid can pick from
+   =========================================================================== */
+.section-hint {
+  margin: -6px 0 14px;
+  color: var(--ink-soft);
+  font-weight: 600;
+  font-size: 0.9rem;
 }
-.dash__card .featured__cta {
-  flex-basis: 100%;
+.missionsday {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+.dmission {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-top: 5px solid var(--cat, var(--kid));
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.dmission:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+.dmission__head {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.dmission__icon {
+  font-size: 1.9rem;
+  line-height: 1;
+}
+.dmission__cat {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cat, var(--ink-soft));
+}
+.dmission__title {
+  font-family: var(--display);
+  font-size: 1.05rem;
+  color: var(--ink);
+  line-height: 1.15;
+}
+.dmission__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: auto;
 }
 
 /* ===========================================================================

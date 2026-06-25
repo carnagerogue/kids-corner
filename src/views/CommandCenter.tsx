@@ -22,12 +22,42 @@ import { ReminderToggle } from "../components/ScheduleNotifier";
 import { MiniCalendar } from "../components/MiniCalendar";
 import { useClock, minutesSinceMidnight } from "../hooks/useClock";
 import type { TabId } from "../App";
-import type { KidId } from "../types";
+import type { ActivityIdea, KidId } from "../types";
 
 function dayOfYear(d: Date): number {
   const start = new Date(d.getFullYear(), 0, 0);
   const diff = d.getTime() - start.getTime();
   return Math.floor(diff / 86_400_000);
+}
+
+/**
+ * A few stable-per-day mission options, guaranteeing at least one indoor and
+ * one outdoor pick so weather or supervision never leaves a kid stuck.
+ */
+function missionsOfTheDay(seed: number, count: number): ActivityIdea[] {
+  const indoor = NON_CHORE_ACTIVITIES.filter(
+    (a) => a.indoorOutdoor === "indoor" || a.indoorOutdoor === "either",
+  );
+  const outdoor = NON_CHORE_ACTIVITIES.filter(
+    (a) => a.indoorOutdoor === "outdoor",
+  );
+  const chosen: ActivityIdea[] = [];
+  const seen = new Set<string>();
+  const add = (a: ActivityIdea | undefined) => {
+    if (a && !seen.has(a.id)) {
+      seen.add(a.id);
+      chosen.push(a);
+    }
+  };
+  const pick = (arr: ActivityIdea[]) =>
+    arr.length ? arr[seed % arr.length] : undefined;
+
+  add(pick(indoor)); // always something doable inside
+  add(pick(outdoor)); // and something for nice weather
+  for (let i = 0; chosen.length < count && i < NON_CHORE_ACTIVITIES.length; i++) {
+    add(NON_CHORE_ACTIVITIES[(seed + i) % NON_CHORE_ACTIVITIES.length]);
+  }
+  return chosen.slice(0, count);
 }
 
 export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
@@ -42,11 +72,10 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
   );
   const upcomingBlock = SCHEDULE.find((b) => b.startMinutes > nowMin);
 
-  // Featured mission is stable for the whole day (chores are excluded —
-  // those are assigned by a grown-up, not auto-suggested).
-  const featured =
-    NON_CHORE_ACTIVITIES[dayOfYear(now) % NON_CHORE_ACTIVITIES.length];
-  const featuredMeta = CATEGORY_META[featured.category];
+  // A few mission options for today — stable per day, with indoor/outdoor
+  // variety so weather or supervision never leaves a kid without a fit.
+  // Chores are excluded (those are grown-up assigned).
+  const missions = missionsOfTheDay(dayOfYear(now), 3);
 
   // Chores a grown-up assigned to this kid for today.
   const chores = choreAssignmentsFor(state, kid.id);
@@ -162,46 +191,28 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
         </>
       )}
 
-      <div className="dash__cards">
-        <section className="dash__card">
-          <h3 className="section-title">Your Corner</h3>
-          <div className="crew crew--solo">
-            <CrewCard kidId={state.activeKid} active />
-          </div>
-        </section>
+      <h3 className="section-title">Your Corner</h3>
+      <div className="crew crew--solo">
+        <CrewCard kidId={state.activeKid} active />
+      </div>
 
-        <section className="dash__card">
-          <h3 className="section-title">⭐ Featured Mission of the Day</h3>
-          <div
-            className="featured"
-            style={{ ["--cat" as string]: featuredMeta.color }}
-          >
-            <div className="featured__icon">{featuredMeta.emoji}</div>
-            <div className="featured__body">
-              <span className="featured__cat">{featuredMeta.label}</span>
-              <strong className="featured__title">{featured.title}</strong>
-              <span className="featured__meta">
-                ⏱️ {featured.estimatedMinutes} min · ⚡ {featured.xp} XP ·{" "}
-                {featured.indoorOutdoor === "outdoor"
-                  ? "🌳 Outdoor"
-                  : featured.indoorOutdoor === "indoor"
-                    ? "🏠 Indoor"
-                    : "🔁 Anywhere"}
-              </span>
-            </div>
-            <div className="featured__cta">
-              <ProofButton
-                kidId={kid.id}
-                kind="mission"
-                refId={featured.id}
-                title={featured.title}
-                emoji={featuredMeta.emoji}
-                xp={featured.xp}
-                subtitle="Snap a photo of your finished mission."
-              />
-            </div>
-          </div>
-        </section>
+      <div className="section-row">
+        <h3 className="section-title">🎯 Missions of the Day</h3>
+        <button
+          className="btn btn--ghost btn--sm"
+          onClick={() => onTab("missions")}
+        >
+          More ideas →
+        </button>
+      </div>
+      <p className="section-hint">
+        Pick whichever fits today — sunny outside, cozy indoors, or one to do
+        with a grown-up.
+      </p>
+      <div className="missionsday">
+        {missions.map((m) => (
+          <DailyMissionCard key={m.id} activity={m} kidId={kid.id} />
+        ))}
       </div>
 
       <h3 className="section-title">
@@ -231,6 +242,50 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function DailyMissionCard({
+  activity,
+  kidId,
+}: {
+  activity: ActivityIdea;
+  kidId: KidId;
+}) {
+  const meta = CATEGORY_META[activity.category];
+  const place =
+    activity.indoorOutdoor === "outdoor"
+      ? "🌳 Outdoor"
+      : activity.indoorOutdoor === "indoor"
+        ? "🏠 Indoor"
+        : "🔁 Anywhere";
+  return (
+    <article className="dmission" style={{ ["--cat" as string]: meta.color }}>
+      <div className="dmission__head">
+        <span className="dmission__icon">{meta.emoji}</span>
+        <div>
+          <span className="dmission__cat">{meta.label}</span>
+          <strong className="dmission__title">{activity.title}</strong>
+        </div>
+      </div>
+      <div className="dmission__tags">
+        <span className="tag">{place}</span>
+        <span className="tag">⏱️ {activity.estimatedMinutes}m</span>
+        <span className="tag">⚡ {activity.xp}</span>
+        {activity.parentHelp && (
+          <span className="tag tag--help">🧑‍🍼 Grown-up</span>
+        )}
+      </div>
+      <ProofButton
+        kidId={kidId}
+        kind="mission"
+        refId={activity.id}
+        title={activity.title}
+        emoji={meta.emoji}
+        xp={activity.xp}
+        subtitle="Snap a photo of your finished mission."
+      />
+    </article>
   );
 }
 
