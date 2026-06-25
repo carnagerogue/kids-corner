@@ -7,13 +7,15 @@ crafts, outdoor adventures, and kid-friendly rewards.
 
 ## What's inside
 
-- **🛰️ Command Center** — a home dashboard showing each kid's level, XP, streak,
-  badges, today's progress (including anything **waiting for approval**), and a
-  featured "Mission of the Day."
+- **🛰️ Command Center** — a home dashboard showing the logged-in kid's level,
+  XP, streak, badges, **today's schedule**, any assigned chores, and a featured
+  "Mission of the Day." (Each kid only sees their own corner.)
 - **🗓️ Today's Schedule** — the family's daily rhythm (Breakfast → Study →
-  Recess → Choice Studio → Lunch → Fun Learning → Clean Up → Free Time). The
-  current block highlights live, checking off a block earns XP, and **Study Time
-  links straight to the Applications page**.
+  Recess → Choice Studio → Lunch → Fun Learning → Clean Up → Free Time), shown
+  on both the dashboard and its own tab. The current block highlights live,
+  checking off a block earns XP, and **Study Time links straight to the
+  Applications page**. Tap **🔔 Turn on reminders** and the app pops a
+  notification (and an in-app toast) the moment it's time for the next block.
 - **🧭 Applications** — each kid's **mandatory curriculum** (Claire → Edgenuity
   with her login, Coby → Ascend Math, Hailee → Coursera), **today's assignment**
   based on the day of the week (Mon Math, Tue Code, Wed Science, Thu Civics, Fri
