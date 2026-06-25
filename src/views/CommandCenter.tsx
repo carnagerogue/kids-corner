@@ -60,7 +60,25 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
 
   return (
     <div className="view">
-      <section className="hero">
+      <div className="dash">
+        <aside className="dash__schedule">
+          <div className="section-row">
+            <h3 className="section-title">🗓️ Today's Schedule</h3>
+            <div className="section-row__actions">
+              <ReminderToggle />
+              <button
+                className="btn btn--ghost btn--sm"
+                onClick={() => onTab("schedule")}
+              >
+                Full view →
+              </button>
+            </div>
+          </div>
+          <ScheduleTimeline onTab={onTab} />
+        </aside>
+
+        <div className="dash__main">
+          <section className="hero">
         <div className="hero__text">
           <p className="hero__eyebrow">{greeting}, mission control 🛰️</p>
           <h2 className="hero__title">
@@ -103,20 +121,9 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
             </>
           )}
         </div>
-      </section>
+          </section>
 
-      <div className="section-row">
-        <h3 className="section-title">🗓️ Today's Schedule</h3>
-        <div className="section-row__actions">
-          <ReminderToggle />
-          <button className="btn btn--ghost btn--sm" onClick={() => onTab("schedule")}>
-            Full view →
-          </button>
-        </div>
-      </div>
-      <ScheduleTimeline onTab={onTab} />
-
-      {chores.length > 0 && (
+          {chores.length > 0 && (
         <>
           <h3 className="section-title">
             🧹 Today's Chores{" "}
@@ -208,6 +215,8 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
             xp={featured.xp}
             subtitle="Snap a photo of your finished mission."
           />
+        </div>
+      </div>
         </div>
       </div>
     </div>

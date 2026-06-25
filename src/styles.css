@@ -2446,6 +2446,38 @@ body.fun-cursor-on * {
 }
 
 /* ===========================================================================
+   Dashboard split: schedule rail (left ~25%) + everything else (right ~75%)
+   =========================================================================== */
+.dash {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  align-items: start;
+}
+/* Mobile: main content first, schedule below. */
+.dash__schedule {
+  order: 2;
+}
+.dash__schedule .timeline {
+  margin-top: 4px;
+}
+@media (min-width: 900px) {
+  .dash {
+    grid-template-columns: minmax(240px, 25%) minmax(0, 1fr);
+  }
+  /* Desktop: schedule becomes the left rail. */
+  .dash__schedule {
+    order: 0;
+    position: sticky;
+    top: 16px;
+  }
+  /* In the narrow rail, drop the timeline's connecting spine indent. */
+  .dash__schedule .tblock__note {
+    font-size: 0.82rem;
+  }
+}
+
+/* ===========================================================================
    Schedule "it's time" toast
    =========================================================================== */
 .toast {
