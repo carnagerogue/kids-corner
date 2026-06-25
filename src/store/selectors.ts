@@ -5,6 +5,7 @@ import type {
   DayProgress,
   KidId,
   KidStats,
+  Message,
   Submission,
   SubmissionStatus,
 } from "../types";
@@ -71,6 +72,33 @@ export function choreAssignmentsFor(
   return state.choreAssignments
     .filter((c) => c.kidId === kidId && c.date === date)
     .sort((a, b) => a.assignedAt - b.assignedAt);
+}
+
+// --- Messages -------------------------------------------------------------
+
+/** One kid's thread with the grown-ups, oldest first. */
+export function messagesForKid(state: AppState, kidId: KidId): Message[] {
+  return state.messages
+    .filter((m) => m.kidId === kidId)
+    .sort((a, b) => a.at - b.at);
+}
+
+/** Messages a kid hasn't read yet (i.e. unread replies from a grown-up). */
+export function kidUnreadCount(state: AppState, kidId: KidId): number {
+  return state.messages.reduce(
+    (n, m) =>
+      m.kidId === kidId && m.from === "parent" && !m.readByKid ? n + 1 : n,
+    0,
+  );
+}
+
+/** Messages from kids the grown-ups haven't read yet (optionally one kid). */
+export function parentUnreadCount(state: AppState, kidId?: KidId): number {
+  return state.messages.reduce((n, m) => {
+    if (m.from !== "kid" || m.readByParent) return n;
+    if (kidId && m.kidId !== kidId) return n;
+    return n + 1;
+  }, 0);
 }
 
 export function pendingSubmissions(state: AppState): Submission[] {

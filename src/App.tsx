@@ -4,12 +4,14 @@ import { KIDS } from "./data/kids";
 import { readSession, writeSession } from "./store/storage";
 import { TopBar } from "./components/TopBar";
 import { ScheduleNotifier } from "./components/ScheduleNotifier";
+import { MessageNotifier } from "./components/MessageNotifier";
 import { LoginScreen } from "./components/LoginScreen";
 import { CommandCenter } from "./views/CommandCenter";
 import { ScheduleView } from "./views/ScheduleView";
 import { ApplicationsView } from "./views/ApplicationsView";
 import { MissionBoard } from "./views/MissionBoard";
 import { TrophyRoom } from "./views/TrophyRoom";
+import { MessagesView } from "./views/MessagesView";
 import { ParentZone } from "./views/ParentZone";
 import type { KidId } from "./types";
 
@@ -19,6 +21,7 @@ export type TabId =
   | "applications"
   | "missions"
   | "trophies"
+  | "messages"
   | "parent";
 
 export const TABS: { id: TabId; label: string; emoji: string }[] = [
@@ -27,6 +30,7 @@ export const TABS: { id: TabId; label: string; emoji: string }[] = [
   { id: "applications", label: "Applications", emoji: "🧭" },
   { id: "missions", label: "Missions", emoji: "🎯" },
   { id: "trophies", label: "Trophies", emoji: "🏆" },
+  { id: "messages", label: "Messages", emoji: "💬" },
 ];
 
 export function App() {
@@ -74,6 +78,7 @@ export function App() {
   return (
     <div className="app" style={themeStyle}>
       <ScheduleNotifier />
+      <MessageNotifier viewer="kid" kidId={user} />
       <TopBar tab={tab} onTab={setTab} user={user} onLogout={logout} />
       <main className="app__main">
         {tab === "home" && <CommandCenter onTab={setTab} />}
@@ -81,6 +86,7 @@ export function App() {
         {tab === "applications" && <ApplicationsView />}
         {tab === "missions" && <MissionBoard />}
         {tab === "trophies" && <TrophyRoom />}
+        {tab === "messages" && <MessagesView />}
         {tab === "parent" && <ParentZone onExit={() => setTab("home")} />}
       </main>
       <footer className="app__footer">

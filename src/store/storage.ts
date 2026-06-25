@@ -3,14 +3,18 @@ import type {
   ChoreAssignment,
   KidId,
   KidState,
+  Message,
   Submission,
   ThemeId,
 } from "../types";
 import { KID_ORDER } from "../data/kids";
 import { THEME_BY_ID } from "../data/themes";
 
-const STORAGE_KEY = "kids-corner:v2";
+export const STORAGE_KEY = "kids-corner:v2";
 const STATE_VERSION = 2;
+
+/** Keep at most this many messages to bound storage growth. */
+const MAX_MESSAGES = 300;
 
 /** Default grown-up PIN. Change it in the Grown-Ups area. */
 export const DEFAULT_PARENT_PIN = "1234";
@@ -54,6 +58,7 @@ export function defaultState(): AppState {
     choreAssignments: [],
     // Boy gets Adventure by default; the rest start on Sparkle. All editable.
     themes: { claire: "sparkle", coby: "adventure", hailee: "sparkle" },
+    messages: [],
   };
 }
 
@@ -122,6 +127,10 @@ export function loadState(): AppState {
       }
     }
 
+    const messages = Array.isArray(parsed.messages)
+      ? (parsed.messages as Message[]).slice(-MAX_MESSAGES)
+      : [];
+
     return {
       version: STATE_VERSION,
       activeKid: isKidId(parsed.activeKid) ? parsed.activeKid : "claire",
@@ -134,6 +143,7 @@ export function loadState(): AppState {
       submissions,
       choreAssignments,
       themes,
+      messages,
     };
   } catch {
     return defaultState();
@@ -142,7 +152,10 @@ export function loadState(): AppState {
 
 export function saveState(state: AppState): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const serialized = JSON.stringify(state);
+    // Skip no-op writes so cross-tab sync (storage events) can't ping-pong.
+    if (localStorage.getItem(STORAGE_KEY) === serialized) return;
+    localStorage.setItem(STORAGE_KEY, serialized);
   } catch {
     // Storage might be full (lots of photos) — drop reviewed photos and retry.
     try {

@@ -45,9 +45,15 @@ crafts, outdoor adventures, and kid-friendly rewards.
   choice is saved per kid; Coby starts on Adventure, the others on Sparkle.
 - **🏆 Trophy Room** — levels with fun ranks (Sprout → Summer Hero), unlockable
   badges, streaks, and per-kid stats.
+- **💬 Messages** — each kid has a private chat thread with the grown-ups, and
+  the grown-ups reply from their dashboard. New messages **chime, raise a
+  notification, and show a toast** the moment they arrive — even when Kids Corner
+  is open in a **background tab** — and threads sync live across tabs in the same
+  browser. (Same-browser only — there's no server, so it doesn't sync across
+  different devices.)
 - **🔒 Grown-Ups** — a PIN-gated dashboard where a parent reviews photo proof and
-  **approves or sends back** each mission/assignment, **assigns chores** to each
-  kid, changes the PIN, and resets progress.
+  **approves or sends back** each mission/assignment, **assigns chores**, **reads
+  and replies to each kid's messages**, changes the PIN, and resets progress.
 
 ## Logging in
 

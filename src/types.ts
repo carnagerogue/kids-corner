@@ -151,6 +151,21 @@ export type ChoreAssignment = {
   assignedAt: number; // epoch ms
 };
 
+// --- Messages (kid <-> parent) --------------------------------------------
+
+export type MessageFrom = "kid" | "parent";
+
+/** A single message in a kid's thread with the grown-ups. */
+export type Message = {
+  id: string;
+  kidId: KidId; // whose thread this belongs to
+  from: MessageFrom;
+  text: string;
+  at: number; // epoch ms
+  readByKid: boolean;
+  readByParent: boolean;
+};
+
 // --- Persisted state ------------------------------------------------------
 
 export type DayProgress = {
@@ -179,6 +194,8 @@ export type AppState = {
   choreAssignments: ChoreAssignment[];
   /** Each kid's chosen look for the cursor + background. */
   themes: Record<KidId, ThemeId>;
+  /** Messages between each kid and the grown-ups. */
+  messages: Message[];
 };
 
 // Derived, read-only stats used by selectors / badges.

@@ -4,9 +4,12 @@ import { KIDS, KID_LIST } from "../data/kids";
 import { CHORES, ACTIVITY_BY_ID } from "../data/activities";
 import {
   choreAssignmentsFor,
+  parentUnreadCount,
   pendingSubmissions,
   taskStatus,
 } from "../store/selectors";
+import { MessageThread } from "../components/MessageThread";
+import { MessageNotifier } from "../components/MessageNotifier";
 import type { KidId, Submission } from "../types";
 
 export function ParentZone({ onExit }: { onExit: () => void }) {
@@ -101,6 +104,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
 
   return (
     <div className="view">
+      <MessageNotifier viewer="parent" />
       <div className="view__header">
         <div>
           <h2 className="view__title">🧑‍🍼 Grown-Ups Dashboard</h2>
@@ -197,6 +201,8 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
         </>
       )}
 
+      <ParentMessages />
+
       <ChoreAssigner />
 
       <ParentSettings />
@@ -207,6 +213,33 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
         </div>
       )}
     </div>
+  );
+}
+
+function ParentMessages() {
+  const { state } = useApp();
+  const [sel, setSel] = useState<KidId>(KID_LIST[0].id);
+  return (
+    <>
+      <h3 className="section-title">💬 Messages</h3>
+      <div className="msgtabs">
+        {KID_LIST.map((k) => {
+          const unread = parentUnreadCount(state, k.id);
+          return (
+            <button
+              key={k.id}
+              className={`msgtab ${sel === k.id ? "is-active" : ""}`}
+              style={{ ["--this-kid" as string]: k.color }}
+              onClick={() => setSel(k.id)}
+            >
+              {k.emoji} {k.firstName}
+              {unread > 0 && <span className="msgtab__pip">{unread}</span>}
+            </button>
+          );
+        })}
+      </div>
+      <MessageThread kidId={sel} viewer="parent" />
+    </>
   );
 }
 

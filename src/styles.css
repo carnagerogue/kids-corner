@@ -184,6 +184,7 @@ button {
   overflow-x: auto;
 }
 .tabs__btn {
+  position: relative;
   flex: 1;
   border: none;
   background: transparent;
@@ -2624,6 +2625,135 @@ body.fun-cursor-on * {
   padding: 2px 8px;
   border-radius: 999px;
   letter-spacing: 0.04em;
+}
+
+/* ===========================================================================
+   Messenger (kid <-> grown-ups)
+   =========================================================================== */
+.thread {
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.thread__scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  min-height: 220px;
+  max-height: min(50vh, 440px);
+  overflow-y: auto;
+}
+.thread__empty {
+  margin: auto;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+.bubble {
+  max-width: 78%;
+  padding: 9px 13px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  box-shadow: var(--shadow-sm);
+}
+.bubble__text {
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.bubble__time {
+  font-size: 0.65rem;
+  font-weight: 700;
+  opacity: 0.65;
+  align-self: flex-end;
+}
+.bubble.is-mine {
+  align-self: flex-end;
+  background: linear-gradient(135deg, var(--kid), var(--kid-dark));
+  color: #fff;
+  border-bottom-right-radius: 5px;
+}
+.bubble.is-theirs {
+  align-self: flex-start;
+  background: var(--paper-2);
+  color: var(--ink);
+  border-bottom-left-radius: 5px;
+}
+.thread__compose {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 2px solid var(--line);
+  background: var(--paper-2);
+}
+.thread__input {
+  flex: 1;
+  min-width: 0;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 1rem;
+  background: #fff;
+  color: var(--ink);
+}
+.thread__input:focus {
+  outline: none;
+  border-color: var(--kid);
+}
+
+/* Grown-ups: per-kid thread switcher */
+.msgtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.msgtab {
+  position: relative;
+  border: 2px solid var(--line);
+  background: var(--paper);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-weight: 800;
+  color: var(--ink);
+  transition: all 0.12s ease;
+}
+.msgtab.is-active {
+  border-color: var(--this-kid);
+  background: var(--this-kid);
+  color: #fff;
+}
+.msgtab__pip {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 0 2px var(--paper);
+}
+
+/* The message toast sits just above the schedule toast slot. */
+.toast--msg {
+  border-color: #6366f1;
+  border-left-color: #6366f1;
+  bottom: 22px;
 }
 
 /* Required app — prominent on the dashboard. */

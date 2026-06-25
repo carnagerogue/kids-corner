@@ -10,6 +10,8 @@ import type {
   AppState,
   ChoreAssignment,
   KidId,
+  Message,
+  MessageFrom,
   Submission,
   SubmissionKind,
   ThemeId,
@@ -19,6 +21,7 @@ import {
   loadState,
   newId,
   saveState,
+  STORAGE_KEY,
   todayKey,
 } from "./storage";
 import { computeStats } from "./selectors";
@@ -49,6 +52,9 @@ export type Action =
   | { type: "ASSIGN_CHORE"; kidId: KidId; refId: string }
   | { type: "UNASSIGN_CHORE"; assignmentId: string }
   | { type: "SET_THEME"; kidId: KidId; theme: ThemeId }
+  | { type: "SEND_MESSAGE"; kidId: KidId; from: MessageFrom; text: string }
+  | { type: "MARK_MESSAGES_READ"; kidId: KidId; reader: MessageFrom }
+  | { type: "REPLACE_STATE"; state: AppState }
   | { type: "RESET_ALL" };
 
 function toggleInArray(arr: string[], id: string): string[] {
@@ -234,6 +240,42 @@ function reducer(state: AppState, action: Action): AppState {
         themes: { ...state.themes, [action.kidId]: action.theme },
       };
 
+    case "SEND_MESSAGE": {
+      const text = action.text.trim();
+      if (!text) return state;
+      const message: Message = {
+        id: newId(),
+        kidId: action.kidId,
+        from: action.from,
+        text: text.slice(0, 500),
+        at: Date.now(),
+        // The sender has obviously already "read" their own message.
+        readByKid: action.from === "kid",
+        readByParent: action.from === "parent",
+      };
+      return { ...state, messages: [...state.messages, message].slice(-300) };
+    }
+
+    case "MARK_MESSAGES_READ": {
+      let changed = false;
+      const messages = state.messages.map((m) => {
+        if (m.kidId !== action.kidId) return m;
+        if (action.reader === "kid" && !m.readByKid) {
+          changed = true;
+          return { ...m, readByKid: true };
+        }
+        if (action.reader === "parent" && !m.readByParent) {
+          changed = true;
+          return { ...m, readByParent: true };
+        }
+        return m;
+      });
+      return changed ? { ...state, messages } : state;
+    }
+
+    case "REPLACE_STATE":
+      return action.state;
+
     case "RESET_ALL":
       return defaultState();
 
@@ -255,6 +297,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     saveState(state);
   }, [state]);
+
+  // Keep every same-browser tab in sync: when another tab writes our storage
+  // key (e.g. sends a message), reload and replace state here.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        dispatch({ type: "REPLACE_STATE", state: loadState() });
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const value = useMemo(() => ({ state, dispatch }), [state]);
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
