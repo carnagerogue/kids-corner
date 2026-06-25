@@ -9,16 +9,18 @@ crafts, outdoor adventures, and kid-friendly rewards.
 
 - **🛰️ Command Center** — a home dashboard with a **schedule rail** on the left
   (a mini month calendar showing today's day/date, plus the day's timeline) and,
-  on the right, the logged-in kid's level, XP, streak, badges, any assigned
-  chores, and a few **"Missions of the Day"** to choose from (with indoor and
-  outdoor options so weather or supervision is never a blocker). (Each kid only
-  sees their own corner.)
+  on the right, the kid's **required curriculum app** (front and center), level,
+  XP, streak, badges, any assigned chores, and a few **"Missions of the Day"** to
+  choose from (with indoor and outdoor options so weather or supervision is never
+  a blocker). (Each kid only sees their own corner.)
 - **🗓️ Today's Schedule** — the family's daily rhythm (Breakfast → Study →
   Recess → Choice Studio → Lunch → Fun Learning → Clean Up → Free Time), shown
-  on both the dashboard and its own tab. The current block highlights live,
-  checking off a block earns XP, and **Study Time links straight to the
-  Applications page**. Tap **🔔 Turn on reminders** and the app pops a
-  notification (and an in-app toast) the moment it's time for the next block.
+  on both the dashboard and its own tab. It **auto-tracks the day**: blocks mark
+  themselves done as their time passes (no manual check-offs), the current block
+  shows **● NOW**, and the next one is flagged **▶ Up next**. When it's time for
+  a new block the app plays a **chime** and — if you tapped **🔔 Turn on
+  reminders** — a notification + in-app toast. **Study Time links straight to the
+  Applications page**.
 - **🧭 Applications** — each kid's **mandatory curriculum** (Claire → Edgenuity
   with her login, Coby → Ascend Math, Hailee → Coursera), **today's assignment**
   based on the day of the week (Mon Math, Tue Code, Wed Science, Thu Civics, Fri

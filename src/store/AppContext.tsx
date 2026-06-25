@@ -27,6 +27,7 @@ import { BADGES } from "../data/badges";
 export type Action =
   | { type: "SET_ACTIVE_KID"; kidId: KidId }
   | { type: "TOGGLE_SCHEDULE"; kidId: KidId; blockId: string }
+  | { type: "COMPLETE_SCHEDULE"; kidId: KidId; blockIds: string[] }
   | {
       type: "SUBMIT_TASK";
       kidId: KidId;
@@ -92,6 +93,36 @@ function reducer(state: AppState, action: Action): AppState {
                 date,
                 scheduleDone: toggleInArray(day.scheduleDone, action.blockId),
               },
+            },
+          },
+        },
+      };
+      return recomputeBadges(next, action.kidId);
+    }
+
+    case "COMPLETE_SCHEDULE": {
+      // Auto-mark blocks done as their time passes (idempotent union).
+      const date = todayKey();
+      const kid = state.kids[action.kidId];
+      const day = kid.history[date] ?? { date, scheduleDone: [] };
+      const set = new Set(day.scheduleDone);
+      let changed = false;
+      for (const id of action.blockIds) {
+        if (!set.has(id)) {
+          set.add(id);
+          changed = true;
+        }
+      }
+      if (!changed) return state;
+      const next: AppState = {
+        ...state,
+        kids: {
+          ...state.kids,
+          [action.kidId]: {
+            ...kid,
+            history: {
+              ...kid.history,
+              [date]: { ...day, date, scheduleDone: [...set] },
             },
           },
         },

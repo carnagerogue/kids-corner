@@ -2492,10 +2492,10 @@ body.fun-cursor-on * {
   .dash__schedule .tblock__applink {
     display: none;
   }
-  .dash__schedule .check {
-    width: 32px;
-    height: 32px;
-    font-size: 1rem;
+  .dash__schedule .tcheck {
+    width: 28px;
+    height: 28px;
+    font-size: 0.9rem;
     border-width: 2px;
   }
   .dash__schedule .cal {
@@ -2575,6 +2575,69 @@ body.fun-cursor-on * {
   flex-wrap: wrap;
   gap: 6px;
   margin-top: auto;
+}
+
+/* ===========================================================================
+   Auto-tracking schedule: status dot + "Up next" + required app
+   =========================================================================== */
+.tcheck {
+  align-self: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 3px solid var(--line);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 900;
+  color: transparent;
+}
+.tcheck.is-done {
+  background: linear-gradient(135deg, #34d399, #22c55e);
+  border-color: #22c55e;
+  color: #fff;
+}
+.tcheck.is-now {
+  border-color: var(--accent, var(--kid));
+}
+.tcheck.is-now::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent, var(--kid));
+  animation: pulse 1.4s ease-in-out infinite;
+}
+.tblock.is-next {
+  border-color: var(--accent);
+  border-style: dashed;
+}
+.tblock__next {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--accent);
+  background: var(--paper-2);
+  border: 1px solid var(--accent);
+  padding: 2px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+}
+
+/* Required app — prominent on the dashboard. */
+.reqapp .appcard {
+  border-width: 3px;
+}
+.reqapp .appcard__icon {
+  width: 64px;
+  height: 64px;
+  font-size: 2.4rem;
+}
+.reqapp .btn {
+  padding: 12px 22px;
+  font-size: 1.05rem;
 }
 
 /* ===========================================================================

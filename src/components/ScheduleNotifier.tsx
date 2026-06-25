@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { useApp } from "../store/AppContext";
 import { SCHEDULE } from "../data/schedule";
+import { todayKey } from "../store/storage";
 import { useClock, minutesSinceMidnight } from "../hooks/useClock";
+import { playChime } from "../chime";
 import type { ScheduleBlock } from "../types";
 
 function fireSystemNotification(block: ScheduleBlock) {
@@ -24,6 +27,8 @@ function fireSystemNotification(block: ScheduleBlock) {
  * for the block already in progress at load — only live transitions.
  */
 export function ScheduleNotifier() {
+  const { state, dispatch } = useApp();
+  const activeKid = state.activeKid;
   const now = useClock(20_000);
   const nowMin = minutesSinceMidnight(now);
   const current =
@@ -38,9 +43,26 @@ export function ScheduleNotifier() {
     lastId.current = current?.id ?? null;
     if (current) {
       fireSystemNotification(current);
+      playChime();
       setToast(current);
     }
   }, [current?.id]);
+
+  // Auto-pilot: mark blocks done as their end time passes (catches up on load
+  // too), so the schedule tracks the day without manual check-offs.
+  useEffect(() => {
+    const today = todayKey();
+    const doneSet = new Set(
+      state.kids[activeKid].history[today]?.scheduleDone ?? [],
+    );
+    const toAdd = SCHEDULE.filter(
+      (b) => b.endMinutes <= nowMin && !doneSet.has(b.id),
+    ).map((b) => b.id);
+    if (toAdd.length) {
+      dispatch({ type: "COMPLETE_SCHEDULE", kidId: activeKid, blockIds: toAdd });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nowMin, activeKid]);
 
   useEffect(() => {
     if (!toast) return;

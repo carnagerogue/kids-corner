@@ -20,6 +20,8 @@ import { ProofButton } from "../components/ProofButton";
 import { ScheduleTimeline } from "../components/ScheduleTimeline";
 import { ReminderToggle } from "../components/ScheduleNotifier";
 import { MiniCalendar } from "../components/MiniCalendar";
+import { AppCard } from "../components/AppCard";
+import { MANDATORY } from "../data/applications";
 import { useClock, minutesSinceMidnight } from "../hooks/useClock";
 import type { TabId } from "../App";
 import type { ActivityIdea, KidId } from "../types";
@@ -80,6 +82,9 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
   // Chores a grown-up assigned to this kid for today.
   const chores = choreAssignmentsFor(state, kid.id);
   const choreMeta = CATEGORY_META.chores;
+
+  // The kid's required curriculum platform — kept front and center.
+  const mandatory = MANDATORY[kid.id];
 
   const greeting =
     now.getHours() < 12
@@ -153,6 +158,21 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
           )}
         </div>
           </section>
+
+          <div className="section-row">
+            <h3 className="section-title">
+              ⭐ {kid.firstName}'s Required App
+            </h3>
+            <button
+              className="btn btn--ghost btn--sm"
+              onClick={() => onTab("applications")}
+            >
+              All apps →
+            </button>
+          </div>
+          <div className="reqapp">
+            <AppCard app={mandatory} required />
+          </div>
 
           {chores.length > 0 && (
         <>
