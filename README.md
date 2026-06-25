@@ -78,12 +78,13 @@ Kids **cannot** mark their own missions or daily assignments complete. Instead:
 
 ## Rewards system
 
-- **Approved** missions and assignments — plus schedule check-offs — earn **XP**.
-  (XP is derived only from approved work, so it can't be faked.)
+- **XP is effort-based**: only **approved** missions and assignments earn XP.
+  (It's derived only from approved photo-proof work, so it can't be faked.) The
+  schedule auto-tracks the day but does **not** award XP.
 - XP raises your **level / rank**.
 - Milestones unlock **badges** (first mission, scholar, outdoor explorer, perfect
   day, streaks, and more).
-- Activity in a day keeps your **streak** alive.
+- Activity in a day (schedule or approved work) keeps your **streak** alive.
 
 Each kid's progress is saved automatically in the browser (localStorage), so it
 persists between visits on the same device. No account or internet needed.

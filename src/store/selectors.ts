@@ -9,7 +9,7 @@ import type {
   SubmissionStatus,
 } from "../types";
 import { ACTIVITY_BY_ID, CATEGORY_ORDER } from "../data/activities";
-import { SCHEDULE, SCHEDULE_XP } from "../data/schedule";
+import { SCHEDULE } from "../data/schedule";
 import { todayKey } from "./storage";
 
 const EMPTY_DAY = (date: string): DayProgress => ({
@@ -38,12 +38,12 @@ export function approvedSubmissions(
   );
 }
 
-/** XP is derived: approved schedule check-offs + approved proof submissions. */
+/**
+ * XP is effort-based: only approved photo-proof work (missions + assignments)
+ * earns XP. The schedule auto-tracks the day but does not award XP.
+ */
 export function getKidXp(state: AppState, kidId: KidId): number {
   let xp = 0;
-  for (const day of Object.values(state.kids[kidId].history)) {
-    for (const id of day.scheduleDone) xp += SCHEDULE_XP[id] ?? 0;
-  }
   for (const s of approvedSubmissions(state, kidId)) xp += s.xp;
   return xp;
 }

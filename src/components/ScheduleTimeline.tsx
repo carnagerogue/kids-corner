@@ -46,7 +46,6 @@ export function ScheduleTimeline({ onTab }: { onTab: (t: TabId) => void }) {
                 <strong className="tblock__title">{block.title}</strong>
                 {isNow && <span className="tblock__live">● NOW</span>}
                 {isNext && <span className="tblock__next">▶ Up next</span>}
-                <span className="tblock__xp">⚡ {block.xp}</span>
               </div>
               <span className="tblock__time">{block.time}</span>
               {block.note && <p className="tblock__note">{block.note}</p>}
