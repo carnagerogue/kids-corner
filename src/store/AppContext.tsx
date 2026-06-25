@@ -9,6 +9,7 @@ import {
 import type {
   AppState,
   ChoreAssignment,
+  Kid,
   KidId,
   Message,
   MessageFrom,
@@ -16,6 +17,15 @@ import type {
   SubmissionKind,
   ThemeId,
 } from "../types";
+
+/** The shared "family setup" that syncs across devices (not per-device state). */
+export type SyncConfig = {
+  kidProfiles: Kid[];
+  kidPins: Record<string, string>;
+  themes: Record<string, ThemeId>;
+  appVisibility: Record<string, string[]>;
+  parentPin: string;
+};
 import {
   defaultState,
   emptyKidState,
@@ -65,6 +75,9 @@ export type Action =
   | { type: "SEND_MESSAGE"; kidId: KidId; from: MessageFrom; text: string }
   | { type: "MARK_MESSAGES_READ"; kidId: KidId; reader: MessageFrom }
   | { type: "INGEST_MESSAGES"; messages: Message[] }
+  | { type: "SET_CONFIG"; config: SyncConfig }
+  | { type: "INGEST_SUBMISSIONS"; submissions: Submission[] }
+  | { type: "INGEST_CHORES"; choreAssignments: ChoreAssignment[] }
   | { type: "REPLACE_STATE"; state: AppState }
   | {
       type: "ADD_KID";
@@ -302,6 +315,83 @@ function reducer(state: AppState, action: Action): AppState {
         .sort((a, b) => a.at - b.at)
         .slice(-300);
       return { ...state, messages: merged };
+    }
+
+    case "SET_CONFIG": {
+      // Adopt the shared family setup from another device (last write wins).
+      const cfg = action.config;
+      if (!Array.isArray(cfg.kidProfiles) || cfg.kidProfiles.length === 0) {
+        return state;
+      }
+      const kids = { ...state.kids };
+      for (const k of cfg.kidProfiles) {
+        if (!kids[k.id]) kids[k.id] = emptyKidState();
+      }
+      const activeKid = cfg.kidProfiles.some((k) => k.id === state.activeKid)
+        ? state.activeKid
+        : cfg.kidProfiles[0].id;
+      return {
+        ...state,
+        kidProfiles: cfg.kidProfiles,
+        kidPins: cfg.kidPins ?? state.kidPins,
+        themes: cfg.themes ?? state.themes,
+        appVisibility: cfg.appVisibility ?? state.appVisibility,
+        parentPin: cfg.parentPin || state.parentPin,
+        kids,
+        activeKid,
+      };
+    }
+
+    case "INGEST_SUBMISSIONS": {
+      // Merge submissions (incl. photos) from another device, by id. Prefer the
+      // more-reviewed copy so an approval isn't overwritten by a stale pending.
+      const byId = new Map(state.submissions.map((s) => [s.id, s]));
+      let changed = false;
+      const affected = new Set<KidId>();
+      for (const r of action.submissions) {
+        if (!r || !r.id) continue;
+        const l = byId.get(r.id);
+        if (!l) {
+          byId.set(r.id, r);
+          changed = true;
+          affected.add(r.kidId);
+          continue;
+        }
+        const lr = l.reviewedAt ?? 0;
+        const rr = r.reviewedAt ?? 0;
+        if (lr > 0 && rr === 0) continue; // don't downgrade a reviewed item
+        const differs =
+          l.status !== r.status ||
+          (l.reviewedAt ?? 0) !== rr ||
+          (l.note ?? "") !== (r.note ?? "") ||
+          !!l.photo !== !!r.photo;
+        if (rr >= lr && differs) {
+          byId.set(r.id, r);
+          changed = true;
+          affected.add(r.kidId);
+        }
+      }
+      if (!changed) return state;
+      let next: AppState = {
+        ...state,
+        submissions: [...byId.values()]
+          .sort((a, b) => a.submittedAt - b.submittedAt)
+          .slice(-240),
+      };
+      for (const kid of affected) next = recomputeBadges(next, kid);
+      return next;
+    }
+
+    case "INGEST_CHORES": {
+      const have = new Set(state.choreAssignments.map((c) => c.id));
+      const add = action.choreAssignments.filter(
+        (c) => c && c.id && !have.has(c.id),
+      );
+      if (!add.length) return state;
+      return {
+        ...state,
+        choreAssignments: [...state.choreAssignments, ...add],
+      };
     }
 
     case "REPLACE_STATE":
