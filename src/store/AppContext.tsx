@@ -21,6 +21,7 @@ import type {
 /** The shared "family setup" that syncs across devices (not per-device state). */
 export type SyncConfig = {
   kidProfiles: Kid[];
+  removedKids: string[];
   kidPins: Record<string, string>;
   themes: Record<string, ThemeId>;
   appVisibility: Record<string, string[]>;
@@ -346,27 +347,60 @@ function reducer(state: AppState, action: Action): AppState {
     }
 
     case "SET_CONFIG": {
-      // Adopt the shared family setup from another device (last write wins).
+      // Merge the shared family setup from another device. The roster is a
+      // UNION of both sides (so an add on one device is never clobbered by the
+      // other), minus the union of tombstones (so removals stick). Per-kid
+      // settings prefer the remote copy (propagates edits), falling back local.
       const cfg = action.config;
-      if (!Array.isArray(cfg.kidProfiles) || cfg.kidProfiles.length === 0) {
-        return state;
-      }
-      const kids = { ...state.kids };
+      if (!Array.isArray(cfg.kidProfiles)) return state;
+
+      const removed = Array.from(
+        new Set([...(state.removedKids ?? []), ...(cfg.removedKids ?? [])]),
+      );
+      const remoteById = new Map(cfg.kidProfiles.map((k) => [k.id, k]));
+      const kidProfiles: Kid[] = [];
       for (const k of cfg.kidProfiles) {
-        if (!kids[k.id]) kids[k.id] = emptyKidState();
+        if (!removed.includes(k.id)) kidProfiles.push(k);
       }
-      const activeKid = cfg.kidProfiles.some((k) => k.id === state.activeKid)
+      for (const k of state.kidProfiles) {
+        if (!removed.includes(k.id) && !remoteById.has(k.id)) {
+          kidProfiles.push(k);
+        }
+      }
+      if (kidProfiles.length === 0) return state; // never end up with no kids
+
+      const pick = <V,>(
+        rm: Record<string, V> | undefined,
+        lo: Record<string, V>,
+        id: string,
+        def: V,
+      ): V => (rm && id in rm ? rm[id] : id in lo ? lo[id] : def);
+
+      const kids = { ...state.kids };
+      const kidPins: Record<string, string> = {};
+      const themes: Record<string, ThemeId> = {};
+      const appVisibility: Record<string, string[]> = {};
+      const exploreHidden: Record<string, string[]> = {};
+      for (const k of kidProfiles) {
+        kids[k.id] = state.kids[k.id] ?? emptyKidState();
+        kidPins[k.id] = pick(cfg.kidPins, state.kidPins, k.id, "0000");
+        themes[k.id] = pick(cfg.themes, state.themes, k.id, "sparkle");
+        appVisibility[k.id] = pick(cfg.appVisibility, state.appVisibility, k.id, []);
+        exploreHidden[k.id] = pick(cfg.exploreHidden, state.exploreHidden, k.id, []);
+      }
+      const activeKid = kidProfiles.some((k) => k.id === state.activeKid)
         ? state.activeKid
-        : cfg.kidProfiles[0].id;
+        : kidProfiles[0].id;
       return {
         ...state,
-        kidProfiles: cfg.kidProfiles,
-        kidPins: cfg.kidPins ?? state.kidPins,
-        themes: cfg.themes ?? state.themes,
-        appVisibility: cfg.appVisibility ?? state.appVisibility,
-        exploreHidden: cfg.exploreHidden ?? state.exploreHidden,
-        parentPin: cfg.parentPin || state.parentPin,
+        kidProfiles,
+        removedKids: removed,
         kids,
+        kidPins,
+        themes,
+        appVisibility,
+        exploreHidden,
+        parentPin: cfg.parentPin || state.parentPin,
         activeKid,
       };
     }
@@ -439,6 +473,7 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         kidProfiles: [...state.kidProfiles, kid],
+        removedKids: state.removedKids.filter((x) => x !== id),
         kids: { ...state.kids, [id]: emptyKidState() },
         kidPins: { ...state.kidPins, [id]: action.pin.trim() || "0000" },
         themes: { ...state.themes, [id]: "sparkle" },
@@ -455,6 +490,9 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         kidProfiles,
+        removedKids: state.removedKids.includes(action.kidId)
+          ? state.removedKids
+          : [...state.removedKids, action.kidId],
         kids: omitKey(state.kids, action.kidId),
         kidPins: omitKey(state.kidPins, action.kidId),
         themes: omitKey(state.themes, action.kidId),

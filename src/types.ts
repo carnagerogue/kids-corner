@@ -190,6 +190,8 @@ export type AppState = {
   version: number;
   /** The parent-managed roster of kids (order = display order). */
   kidProfiles: Kid[];
+  /** Ids of kids removed by a grown-up — tombstones so removals sync. */
+  removedKids: KidId[];
   activeKid: KidId;
   /** Light gate so kids can't approve their own work. Not real security. */
   parentPin: string;

@@ -95,6 +95,7 @@ export function defaultState(): AppState {
   return {
     version: STATE_VERSION,
     kidProfiles: DEFAULT_KIDS.map((k) => ({ ...k })),
+    removedKids: [],
     activeKid: DEFAULT_KIDS[0].id,
     parentPin: DEFAULT_PARENT_PIN,
     kidPins,
@@ -204,9 +205,16 @@ export function loadState(): AppState {
         ? parsed.activeKid
         : ids[0] ?? base.activeKid;
 
+    const removedKids = Array.isArray(parsed.removedKids)
+      ? (parsed.removedKids as unknown[]).filter(
+          (x): x is string => typeof x === "string",
+        )
+      : [];
+
     return {
       version: STATE_VERSION,
       kidProfiles: profiles,
+      removedKids,
       activeKid,
       parentPin:
         typeof parsed.parentPin === "string" && parsed.parentPin.length > 0

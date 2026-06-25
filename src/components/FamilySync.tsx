@@ -13,6 +13,7 @@ import type {
 function pickConfig(s: AppState): SyncConfig {
   return {
     kidProfiles: s.kidProfiles,
+    removedKids: s.removedKids,
     kidPins: s.kidPins,
     themes: s.themes,
     appVisibility: s.appVisibility,
@@ -112,6 +113,7 @@ export function FamilySync() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     state.kidProfiles,
+    state.removedKids,
     state.kidPins,
     state.themes,
     state.appVisibility,
