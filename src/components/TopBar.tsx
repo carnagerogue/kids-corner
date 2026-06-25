@@ -1,7 +1,7 @@
 import { useApp } from "../store/AppContext";
-import { KIDS } from "../data/kids";
 import { getLevelInfo } from "../data/levels";
 import {
+  getKid,
   getKidXp,
   kidUnreadCount,
   parentUnreadCount,
@@ -25,7 +25,7 @@ export function TopBar({
   const pending = pendingCount(state);
   const kidUnread = kidUnreadCount(state, user);
   const grownupPip = pending + parentUnreadCount(state);
-  const kid = KIDS[user];
+  const kid = getKid(state, user);
   const level = getLevelInfo(getKidXp(state, user));
 
   return (

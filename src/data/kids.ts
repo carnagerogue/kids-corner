@@ -1,8 +1,9 @@
-import type { Kid, KidId } from "../types";
+import type { Kid, ThemeId } from "../types";
 
-// Colors mirror the family calendar: Claire = crimson, Coby = berry, Hailee = orange.
-export const KIDS: Record<KidId, Kid> = {
-  claire: {
+// The kids that ship by default. The roster is editable in the Grown-Ups area,
+// so this is only the starting point (stored in app state thereafter).
+export const DEFAULT_KIDS: Kid[] = [
+  {
     id: "claire",
     name: "Claire Moon",
     firstName: "Claire",
@@ -12,7 +13,7 @@ export const KIDS: Record<KidId, Kid> = {
     colorSoft: "#fde7ea",
     motto: "Dream big, shine bright.",
   },
-  coby: {
+  {
     id: "coby",
     name: "Coby Lee",
     firstName: "Coby",
@@ -22,7 +23,7 @@ export const KIDS: Record<KidId, Kid> = {
     colorSoft: "#fbe4ee",
     motto: "Build it, blast off!",
   },
-  hailee: {
+  {
     id: "hailee",
     name: "Hailee Lee",
     firstName: "Hailee",
@@ -32,8 +33,55 @@ export const KIDS: Record<KidId, Kid> = {
     colorSoft: "#ffe9df",
     motto: "Make today sunny.",
   },
+];
+
+/** Starting PIN / theme for the seeded kids. */
+export const DEFAULT_KID_PINS: Record<string, string> = {
+  claire: "1111",
+  coby: "2222",
+  hailee: "3333",
+};
+export const DEFAULT_KID_THEMES: Record<string, ThemeId> = {
+  claire: "sparkle",
+  coby: "adventure",
+  hailee: "sparkle",
 };
 
-export const KID_ORDER: KidId[] = ["claire", "coby", "hailee"];
+/** Color choices offered when a grown-up adds a new child. */
+export const KID_PALETTE: Pick<Kid, "color" | "colorDark" | "colorSoft">[] = [
+  { color: "#e21b3c", colorDark: "#a3122a", colorSoft: "#fde7ea" }, // crimson
+  { color: "#a8174f", colorDark: "#7a1039", colorSoft: "#fbe4ee" }, // berry
+  { color: "#ff5a1f", colorDark: "#c63d0d", colorSoft: "#ffe9df" }, // orange
+  { color: "#2563eb", colorDark: "#1e40af", colorSoft: "#e0ecff" }, // blue
+  { color: "#16a34a", colorDark: "#136f37", colorSoft: "#dcfce7" }, // green
+  { color: "#9333ea", colorDark: "#6b21a8", colorSoft: "#f3e8ff" }, // purple
+  { color: "#0891b2", colorDark: "#0e7490", colorSoft: "#cffafe" }, // teal
+  { color: "#db2777", colorDark: "#9d174d", colorSoft: "#fce7f3" }, // pink
+];
 
-export const KID_LIST: Kid[] = KID_ORDER.map((id) => KIDS[id]);
+/** Avatar choices offered when adding a child. */
+export const KID_EMOJIS = [
+  "🌙", "🚀", "☀️", "⭐", "🦄", "🐯", "🐲", "🦊",
+  "🐰", "🎮", "⚽", "🦖", "🌈", "🐬", "🦋", "🐼",
+];
+
+/** Build a Kid from a name + chosen emoji/color. */
+export function makeKid(opts: {
+  id: string;
+  firstName: string;
+  emoji: string;
+  paletteIndex: number;
+  motto?: string;
+}): Kid {
+  const pal = KID_PALETTE[opts.paletteIndex % KID_PALETTE.length];
+  return {
+    id: opts.id,
+    name: opts.firstName,
+    firstName: opts.firstName,
+    emoji: opts.emoji,
+    color: pal.color,
+    colorDark: pal.colorDark,
+    colorSoft: pal.colorSoft,
+    motto: opts.motto ?? "Let's have a great day!",
+  };
+}

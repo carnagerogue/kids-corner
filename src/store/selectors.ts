@@ -3,6 +3,7 @@ import type {
   AppState,
   ChoreAssignment,
   DayProgress,
+  Kid,
   KidId,
   KidStats,
   Message,
@@ -10,8 +11,49 @@ import type {
   SubmissionStatus,
 } from "../types";
 import { ACTIVITY_BY_ID, CATEGORY_ORDER } from "../data/activities";
+import { APP_CATALOG, type CatalogApp } from "../data/applications";
 import { SCHEDULE } from "../data/schedule";
 import { todayKey } from "./storage";
+
+// --- Kid roster -----------------------------------------------------------
+
+const FALLBACK_KID = (id: KidId): Kid => ({
+  id,
+  name: "Kid",
+  firstName: "Kid",
+  emoji: "🙂",
+  color: "#8a8a8a",
+  colorDark: "#5a5a5a",
+  colorSoft: "#ededed",
+  motto: "",
+});
+
+/** The current roster, in display order. */
+export function kidList(state: AppState): Kid[] {
+  return state.kidProfiles;
+}
+
+/** Look up a kid by id; returns a safe placeholder if it was removed. */
+export function getKid(state: AppState, id: KidId): Kid {
+  return state.kidProfiles.find((k) => k.id === id) ?? FALLBACK_KID(id);
+}
+
+// --- App visibility -------------------------------------------------------
+
+/** The catalog apps a kid is allowed to see, in catalog order. */
+export function visibleAppsFor(state: AppState, kidId: KidId): CatalogApp[] {
+  const vis = state.appVisibility[kidId] ?? [];
+  return APP_CATALOG.filter((a) => vis.includes(a.id));
+}
+
+/** A kid's main platform (first visible primary app, else first visible). */
+export function primaryAppFor(
+  state: AppState,
+  kidId: KidId,
+): CatalogApp | undefined {
+  const apps = visibleAppsFor(state, kidId);
+  return apps.find((a) => a.primary) ?? apps[0];
+}
 
 const EMPTY_DAY = (date: string): DayProgress => ({
   date,

@@ -1,14 +1,13 @@
 import { useApp } from "../store/AppContext";
-import { KIDS } from "../data/kids";
 import { getLevelInfo, RANKS } from "../data/levels";
 import { BADGES } from "../data/badges";
-import { computeStats, getKidXp } from "../store/selectors";
+import { computeStats, getKid, getKidXp } from "../store/selectors";
 import { ProgressRing } from "../components/ProgressRing";
 
 export function TrophyRoom() {
   const { state } = useApp();
-  const kid = KIDS[state.activeKid];
-  const kidState = state.kids[kid.id];
+  const kid = getKid(state, state.activeKid);
+  const kidState = state.kids[kid.id] ?? { badges: [], history: {} };
   const totalXp = getKidXp(state, kid.id);
   const level = getLevelInfo(totalXp);
   const stats = computeStats(state, kid.id);

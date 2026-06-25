@@ -1,12 +1,11 @@
 import { useMemo, useState } from "react";
 import { useApp } from "../store/AppContext";
-import { KIDS } from "../data/kids";
 import {
   CATEGORY_META,
   CATEGORY_ORDER,
   NON_CHORE_ACTIVITIES,
 } from "../data/activities";
-import { taskStatus } from "../store/selectors";
+import { getKid, taskStatus } from "../store/selectors";
 import { ProofButton } from "../components/ProofButton";
 import type { ActivityCategory, ActivityIdea } from "../types";
 
@@ -28,7 +27,7 @@ const BOARD_CATEGORIES = CATEGORY_ORDER.filter((c) => c !== "chores");
 
 export function MissionBoard() {
   const { state } = useApp();
-  const kid = KIDS[state.activeKid];
+  const kid = getKid(state, state.activeKid);
 
   const [cat, setCat] = useState<CatFilter>("all");
   const [place, setPlace] = useState<PlaceFilter>("all");
@@ -163,7 +162,7 @@ function Segmented({
 
 function MissionCard({ activity }: { activity: ActivityIdea }) {
   const { state } = useApp();
-  const kid = KIDS[state.activeKid];
+  const kid = getKid(state, state.activeKid);
   const [open, setOpen] = useState(false);
   const meta = CATEGORY_META[activity.category];
   const diff = DIFF_META[activity.difficulty];

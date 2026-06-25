@@ -2771,6 +2771,151 @@ body.fun-cursor-on * {
 }
 
 /* ===========================================================================
+   Grown-Ups: manage kids + per-kid app visibility
+   =========================================================================== */
+.kidmanage {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.kidmanage__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--this-kid, var(--line));
+  border-radius: var(--radius-sm);
+}
+.kidmanage__face {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+.kidmanage__name {
+  flex: 1;
+  font-weight: 800;
+  color: var(--ink);
+}
+.addkid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius-sm);
+}
+.addkid__title {
+  color: var(--ink);
+}
+.addkid__pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.avatarpick {
+  width: 38px;
+  height: 38px;
+  font-size: 1.2rem;
+  line-height: 1;
+  border: 2px solid var(--line);
+  background: #fff;
+  border-radius: 12px;
+}
+.avatarpick.is-active {
+  border-color: var(--kid);
+  background: var(--kid-soft);
+}
+.colorpick {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  box-shadow: 0 0 0 1px var(--line);
+}
+.colorpick.is-active {
+  border-color: #fff;
+  box-shadow: 0 0 0 3px var(--ink);
+}
+.addkid__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.addkid__row .settings__input {
+  flex: 1;
+  min-width: 160px;
+}
+.apptoggles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.apptoggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.apptoggle__icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+.apptoggle__name {
+  flex: 1;
+  font-weight: 800;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.apptoggle__badge {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--kid-dark);
+  background: var(--kid-soft);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+.switch {
+  flex: none;
+  width: 50px;
+  height: 28px;
+  border-radius: 999px;
+  border: none;
+  background: #cbd5e1;
+  position: relative;
+  transition: background 0.15s ease;
+}
+.switch.is-on {
+  background: #22c55e;
+}
+.switch__dot {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.switch.is-on .switch__dot {
+  transform: translateX(22px);
+}
+
+/* ===========================================================================
    Mini calendar (date + month grid in the schedule rail)
    =========================================================================== */
 .cal {

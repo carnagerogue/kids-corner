@@ -1,11 +1,12 @@
 import { useApp } from "../store/AppContext";
-import { KIDS } from "../data/kids";
 import { getLevelInfo } from "../data/levels";
 import {
   choreAssignmentsFor,
   computeStats,
   getDay,
+  getKid,
   getKidXp,
+  primaryAppFor,
 } from "../store/selectors";
 import { todayKey } from "../store/storage";
 import { SCHEDULE } from "../data/schedule";
@@ -21,7 +22,6 @@ import { ScheduleTimeline } from "../components/ScheduleTimeline";
 import { ReminderToggle } from "../components/ScheduleNotifier";
 import { MiniCalendar } from "../components/MiniCalendar";
 import { AppCard } from "../components/AppCard";
-import { MANDATORY } from "../data/applications";
 import { useClock, minutesSinceMidnight } from "../hooks/useClock";
 import type { TabId } from "../App";
 import type { ActivityIdea, KidId } from "../types";
@@ -65,7 +65,7 @@ function missionsOfTheDay(seed: number, count: number): ActivityIdea[] {
 export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
   const { state, dispatch } = useApp();
   const now = useClock();
-  const kid = KIDS[state.activeKid];
+  const kid = getKid(state, state.activeKid);
   const activeTheme = state.themes[kid.id];
   const nowMin = minutesSinceMidnight(now);
 
@@ -83,8 +83,8 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
   const chores = choreAssignmentsFor(state, kid.id);
   const choreMeta = CATEGORY_META.chores;
 
-  // The kid's required curriculum platform — kept front and center.
-  const mandatory = MANDATORY[kid.id];
+  // The kid's main platform (their primary visible app) — kept front and center.
+  const mandatory = primaryAppFor(state, kid.id);
 
   const greeting =
     now.getHours() < 12
@@ -159,20 +159,24 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
         </div>
           </section>
 
-          <div className="section-row">
-            <h3 className="section-title">
-              ⭐ {kid.firstName}'s Required App
-            </h3>
-            <button
-              className="btn btn--ghost btn--sm"
-              onClick={() => onTab("applications")}
-            >
-              All apps →
-            </button>
-          </div>
-          <div className="reqapp">
-            <AppCard app={mandatory} required />
-          </div>
+          {mandatory && (
+            <>
+              <div className="section-row">
+                <h3 className="section-title">
+                  ⭐ {kid.firstName}'s Main App
+                </h3>
+                <button
+                  className="btn btn--ghost btn--sm"
+                  onClick={() => onTab("applications")}
+                >
+                  All apps →
+                </button>
+              </div>
+              <div className="reqapp">
+                <AppCard app={mandatory} required />
+              </div>
+            </>
+          )}
 
           {chores.length > 0 && (
         <>
@@ -311,7 +315,7 @@ function DailyMissionCard({
 
 function CrewCard({ kidId, active }: { kidId: KidId; active: boolean }) {
   const { state } = useApp();
-  const kid = KIDS[kidId];
+  const kid = getKid(state, kidId);
   const level = getLevelInfo(getKidXp(state, kidId));
   const stats = computeStats(state, kidId);
   const today = getDay(state, kidId);

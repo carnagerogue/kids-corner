@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useApp } from "./store/AppContext";
-import { KIDS } from "./data/kids";
+import { getKid } from "./store/selectors";
 import { readSession, writeSession } from "./store/storage";
 import { TopBar } from "./components/TopBar";
 import { ScheduleNotifier } from "./components/ScheduleNotifier";
@@ -34,7 +34,7 @@ export const TABS: { id: TabId; label: string; emoji: string }[] = [
 ];
 
 export function App() {
-  const { dispatch } = useApp();
+  const { state, dispatch } = useApp();
   const [user, setUser] = useState<KidId | null>(() => readSession());
   const [tab, setTab] = useState<TabId>("home");
 
@@ -50,6 +50,14 @@ export function App() {
     writeSession(null);
     setTab("home");
   };
+
+  // If the logged-in kid was removed (here or in another tab), log out.
+  useEffect(() => {
+    if (user !== null && !state.kidProfiles.some((k) => k.id === user)) {
+      logout();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, state.kidProfiles]);
 
   // Not logged in: show the login screen — unless a grown-up is heading to the
   // parent area, which has its own PIN gate.
@@ -68,7 +76,7 @@ export function App() {
     );
   }
 
-  const kid = KIDS[user];
+  const kid = getKid(state, user);
   const themeStyle = {
     ["--kid" as string]: kid.color,
     ["--kid-dark" as string]: kid.colorDark,

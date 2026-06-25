@@ -1,7 +1,6 @@
 import { useApp } from "../store/AppContext";
-import { KIDS } from "../data/kids";
 import { SCHEDULE } from "../data/schedule";
-import { getDay } from "../store/selectors";
+import { getDay, getKid } from "../store/selectors";
 import { useClock, minutesSinceMidnight } from "../hooks/useClock";
 import type { TabId } from "../App";
 
@@ -15,7 +14,7 @@ export function ScheduleTimeline({ onTab }: { onTab: (t: TabId) => void }) {
   const { state } = useApp();
   const now = useClock();
   const nowMin = minutesSinceMidnight(now);
-  const kid = KIDS[state.activeKid];
+  const kid = getKid(state, state.activeKid);
   const today = getDay(state, kid.id);
   const doneSet = new Set(today.scheduleDone);
 

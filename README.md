@@ -21,8 +21,8 @@ crafts, outdoor adventures, and kid-friendly rewards.
   a new block the app plays a **chime** and — if you tapped **🔔 Turn on
   reminders** — a notification + in-app toast. **Study Time links straight to the
   Applications page**.
-- **🧭 Applications** — each kid's **mandatory curriculum** (Claire → Edgenuity
-  with her login, Coby → Ascend Math, Hailee → Coursera), **today's assignment**
+- **🧭 Applications** — the apps a grown-up has turned on for that kid (their
+  **main platform** plus learning tools), **today's assignment**
   based on the day of the week (Mon Math, Tue Code, Wed Science, Thu Civics, Fri
   Finish & Create), the house rules ("follow today's day only," plus Coby's
   25-min-work / 5-min-break rule), and the full weekly plan. Opening today's
@@ -52,8 +52,10 @@ crafts, outdoor adventures, and kid-friendly rewards.
   browser. (Same-browser only — there's no server, so it doesn't sync across
   different devices.)
 - **🔒 Grown-Ups** — a PIN-gated dashboard where a parent reviews photo proof and
-  **approves or sends back** each mission/assignment, **assigns chores**, **reads
-  and replies to each kid's messages**, changes the PIN, and resets progress.
+  **approves or sends back** each mission/assignment, **adds or removes kids**,
+  **chooses which apps each kid can see**, **assigns chores**, **reads and
+  replies to each kid's messages**, changes the PIN, and resets progress. The kid
+  roster ships with Claire, Coby & Hailee but is fully editable.
 
 ## Logging in
 

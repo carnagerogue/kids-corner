@@ -1,13 +1,19 @@
 import type {
   AppState,
   ChoreAssignment,
+  Kid,
   KidId,
   KidState,
   Message,
   Submission,
   ThemeId,
 } from "../types";
-import { KID_ORDER } from "../data/kids";
+import {
+  DEFAULT_KIDS,
+  DEFAULT_KID_PINS,
+  DEFAULT_KID_THEMES,
+} from "../data/kids";
+import { DEFAULT_NEW_KID_APPS, DEFAULT_VISIBLE_APPS } from "../data/applications";
 import { THEME_BY_ID } from "../data/themes";
 
 export const STORAGE_KEY = "kids-corner:v2";
@@ -18,13 +24,6 @@ const MAX_MESSAGES = 300;
 
 /** Default grown-up PIN. Change it in the Grown-Ups area. */
 export const DEFAULT_PARENT_PIN = "1234";
-
-/** Default per-kid login PINs. Parents should change these in Grown-Ups. */
-export const DEFAULT_KID_PINS: Record<KidId, string> = {
-  claire: "1111",
-  coby: "2222",
-  hailee: "3333",
-};
 
 const SESSION_KEY = "kids-corner:session";
 
@@ -43,27 +42,35 @@ export function emptyKidState(): KidState {
   return { badges: [], history: {} };
 }
 
-export function defaultState(): AppState {
-  return {
-    version: STATE_VERSION,
-    activeKid: "claire",
-    parentPin: DEFAULT_PARENT_PIN,
-    kidPins: { ...DEFAULT_KID_PINS },
-    kids: {
-      claire: emptyKidState(),
-      coby: emptyKidState(),
-      hailee: emptyKidState(),
-    },
-    submissions: [],
-    choreAssignments: [],
-    // Boy gets Adventure by default; the rest start on Sparkle. All editable.
-    themes: { claire: "sparkle", coby: "adventure", hailee: "sparkle" },
-    messages: [],
-  };
+/** Default visible apps for a kid id (seeded kids get their set; others basic). */
+export function defaultVisibility(id: KidId): string[] {
+  return [...(DEFAULT_VISIBLE_APPS[id] ?? DEFAULT_NEW_KID_APPS)];
 }
 
-function isKidId(value: unknown): value is KidId {
-  return typeof value === "string" && (KID_ORDER as string[]).includes(value);
+export function defaultState(): AppState {
+  const kids: Record<KidId, KidState> = {};
+  const kidPins: Record<KidId, string> = {};
+  const themes: Record<KidId, ThemeId> = {};
+  const appVisibility: Record<KidId, string[]> = {};
+  for (const k of DEFAULT_KIDS) {
+    kids[k.id] = emptyKidState();
+    kidPins[k.id] = DEFAULT_KID_PINS[k.id] ?? "0000";
+    themes[k.id] = DEFAULT_KID_THEMES[k.id] ?? "sparkle";
+    appVisibility[k.id] = defaultVisibility(k.id);
+  }
+  return {
+    version: STATE_VERSION,
+    kidProfiles: DEFAULT_KIDS.map((k) => ({ ...k })),
+    activeKid: DEFAULT_KIDS[0].id,
+    parentPin: DEFAULT_PARENT_PIN,
+    kidPins,
+    kids,
+    submissions: [],
+    choreAssignments: [],
+    themes,
+    messages: [],
+    appVisibility,
+  };
 }
 
 /**
@@ -87,23 +94,54 @@ export function loadState(): AppState {
     const parsed = JSON.parse(raw) as Partial<AppState>;
     if (parsed.version !== STATE_VERSION) return defaultState();
 
+    // The roster: use saved profiles if present & valid, else the defaults.
+    const profiles: Kid[] =
+      Array.isArray(parsed.kidProfiles) && parsed.kidProfiles.length
+        ? (parsed.kidProfiles as Kid[]).filter(
+            (k) =>
+              k && typeof k.id === "string" && typeof k.firstName === "string",
+          )
+        : DEFAULT_KIDS.map((k) => ({ ...k }));
+    const ids = profiles.map((p) => p.id);
+
     const base = defaultState();
-    const kids = { ...base.kids };
-    for (const id of KID_ORDER) {
+    const kids: Record<KidId, KidState> = {};
+    const kidPins: Record<KidId, string> = {};
+    const themes: Record<KidId, ThemeId> = {};
+    const appVisibility: Record<KidId, string[]> = {};
+    for (const id of ids) {
       const k = parsed.kids?.[id];
-      if (k) {
-        kids[id] = {
-          badges: Array.isArray(k.badges) ? k.badges : [],
-          history: k.history && typeof k.history === "object" ? k.history : {},
-        };
-      }
+      kids[id] = k
+        ? {
+            badges: Array.isArray(k.badges) ? k.badges : [],
+            history: k.history && typeof k.history === "object" ? k.history : {},
+          }
+        : emptyKidState();
+
+      const p = (parsed.kidPins as Record<string, unknown> | undefined)?.[id];
+      kidPins[id] =
+        typeof p === "string" && p.length > 0
+          ? p
+          : DEFAULT_KID_PINS[id] ?? "0000";
+
+      const t = (parsed.themes as Record<string, unknown> | undefined)?.[id];
+      themes[id] =
+        typeof t === "string" && t in THEME_BY_ID
+          ? (t as ThemeId)
+          : DEFAULT_KID_THEMES[id] ?? "sparkle";
+
+      const vis = (parsed.appVisibility as Record<string, unknown> | undefined)?.[
+        id
+      ];
+      appVisibility[id] = Array.isArray(vis)
+        ? (vis as unknown[]).filter((x): x is string => typeof x === "string")
+        : defaultVisibility(id);
     }
 
     const submissions = Array.isArray(parsed.submissions)
       ? prunePhotos(parsed.submissions as Submission[], todayKey())
       : [];
 
-    // Keep only today's (and future) chore assignments — stale ones expire.
     const today = todayKey();
     const choreAssignments = Array.isArray(parsed.choreAssignments)
       ? (parsed.choreAssignments as ChoreAssignment[]).filter(
@@ -111,29 +149,19 @@ export function loadState(): AppState {
         )
       : [];
 
-    const kidPins = { ...DEFAULT_KID_PINS };
-    if (parsed.kidPins && typeof parsed.kidPins === "object") {
-      for (const id of KID_ORDER) {
-        const p = (parsed.kidPins as Record<string, unknown>)[id];
-        if (typeof p === "string" && p.length > 0) kidPins[id] = p;
-      }
-    }
-
-    const themes = { ...base.themes };
-    if (parsed.themes && typeof parsed.themes === "object") {
-      for (const id of KID_ORDER) {
-        const t = (parsed.themes as Record<string, unknown>)[id];
-        if (typeof t === "string" && t in THEME_BY_ID) themes[id] = t as ThemeId;
-      }
-    }
-
     const messages = Array.isArray(parsed.messages)
       ? (parsed.messages as Message[]).slice(-MAX_MESSAGES)
       : [];
 
+    const activeKid =
+      typeof parsed.activeKid === "string" && ids.includes(parsed.activeKid)
+        ? parsed.activeKid
+        : ids[0] ?? base.activeKid;
+
     return {
       version: STATE_VERSION,
-      activeKid: isKidId(parsed.activeKid) ? parsed.activeKid : "claire",
+      kidProfiles: profiles,
+      activeKid,
       parentPin:
         typeof parsed.parentPin === "string" && parsed.parentPin.length > 0
           ? parsed.parentPin
@@ -144,6 +172,7 @@ export function loadState(): AppState {
       choreAssignments,
       themes,
       messages,
+      appVisibility,
     };
   } catch {
     return defaultState();
@@ -195,7 +224,7 @@ export function newId(): string {
 export function readSession(): KidId | null {
   try {
     const v = sessionStorage.getItem(SESSION_KEY);
-    return isKidId(v) ? v : null;
+    return v && v.length > 0 ? v : null;
   } catch {
     return null;
   }

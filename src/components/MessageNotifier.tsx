@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "../store/AppContext";
-import { KIDS } from "../data/kids";
+import { getKid } from "../store/selectors";
 import { playChime } from "../chime";
 import type { KidId, MessageFrom } from "../types";
 
@@ -50,7 +50,8 @@ export function MessageNotifier({
     if (!fresh.length) return;
     fresh.forEach((m) => seen.current!.add(m.id));
     const last = fresh[fresh.length - 1];
-    const who = viewer === "kid" ? "A grown-up" : KIDS[last.kidId].firstName;
+    const who =
+      viewer === "kid" ? "A grown-up" : getKid(state, last.kidId).firstName;
     playChime();
     notify(`💬 ${who}`, last.text);
     setToast({ who, text: last.text });

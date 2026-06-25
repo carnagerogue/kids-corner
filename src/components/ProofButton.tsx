@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useApp } from "../store/AppContext";
-import { KIDS } from "../data/kids";
-import { taskStatus } from "../store/selectors";
+import { getKid, taskStatus } from "../store/selectors";
 import { CameraCapture } from "./CameraCapture";
 import type { KidId, SubmissionKind } from "../types";
 
@@ -31,7 +30,7 @@ export function ProofButton({
   const { state, dispatch } = useApp();
   const [camera, setCamera] = useState(false);
   const { status, submission } = taskStatus(state, kidId, refId);
-  const kid = KIDS[kidId];
+  const kid = getKid(state, kidId);
 
   const submit = (photo: string) => {
     dispatch({ type: "SUBMIT_TASK", kidId, kind, refId, title, emoji, xp, photo });

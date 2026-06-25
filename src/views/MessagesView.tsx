@@ -1,11 +1,11 @@
 import { useApp } from "../store/AppContext";
-import { KIDS } from "../data/kids";
+import { getKid } from "../store/selectors";
 import { MessageThread } from "../components/MessageThread";
 
 /** The kid-facing messages page: a single thread with the grown-ups. */
 export function MessagesView() {
   const { state } = useApp();
-  const kid = KIDS[state.activeKid];
+  const kid = getKid(state, state.activeKid);
   return (
     <div className="view">
       <div className="view__header">

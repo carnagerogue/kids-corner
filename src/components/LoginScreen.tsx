@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useApp } from "../store/AppContext";
-import { KID_LIST, KIDS } from "../data/kids";
+import { getKid, kidList } from "../store/selectors";
 import { PinDots, PinPad } from "./PinPad";
 import type { KidId } from "../types";
 
@@ -16,8 +16,8 @@ export function LoginScreen({
   const [entry, setEntry] = useState("");
   const [error, setError] = useState(false);
 
-  const kid = picked ? KIDS[picked] : null;
-  const pin = picked ? state.kidPins[picked] : "";
+  const kid = picked ? getKid(state, picked) : null;
+  const pin = picked ? state.kidPins[picked] ?? "" : "";
 
   const reset = () => {
     setPicked(null);
@@ -57,7 +57,7 @@ export function LoginScreen({
           <>
             <h2 className="login__prompt">Who's here? 👋</h2>
             <div className="login__pick">
-              {KID_LIST.map((k) => (
+              {kidList(state).map((k) => (
                 <button
                   key={k.id}
                   className="loginkid"

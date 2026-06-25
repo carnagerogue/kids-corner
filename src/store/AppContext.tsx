@@ -18,6 +18,7 @@ import type {
 } from "../types";
 import {
   defaultState,
+  emptyKidState,
   loadState,
   newId,
   saveState,
@@ -26,6 +27,15 @@ import {
 } from "./storage";
 import { computeStats } from "./selectors";
 import { BADGES } from "../data/badges";
+import { makeKid } from "../data/kids";
+import { DEFAULT_NEW_KID_APPS } from "../data/applications";
+
+/** Return a copy of `obj` without `key`, preserving the value type. */
+function omitKey<V>(obj: Record<string, V>, key: string): Record<string, V> {
+  const rest: Record<string, V> = {};
+  for (const k of Object.keys(obj)) if (k !== key) rest[k] = obj[k];
+  return rest;
+}
 
 export type Action =
   | { type: "SET_ACTIVE_KID"; kidId: KidId }
@@ -55,6 +65,15 @@ export type Action =
   | { type: "SEND_MESSAGE"; kidId: KidId; from: MessageFrom; text: string }
   | { type: "MARK_MESSAGES_READ"; kidId: KidId; reader: MessageFrom }
   | { type: "REPLACE_STATE"; state: AppState }
+  | {
+      type: "ADD_KID";
+      firstName: string;
+      emoji: string;
+      paletteIndex: number;
+      pin: string;
+    }
+  | { type: "REMOVE_KID"; kidId: KidId }
+  | { type: "SET_APP_VISIBILITY"; kidId: KidId; appId: string; visible: boolean }
   | { type: "RESET_ALL" };
 
 function toggleInArray(arr: string[], id: string): string[] {
@@ -275,6 +294,63 @@ function reducer(state: AppState, action: Action): AppState {
 
     case "REPLACE_STATE":
       return action.state;
+
+    case "ADD_KID": {
+      const firstName = action.firstName.trim().slice(0, 24);
+      if (!firstName) return state;
+      const id = `kid-${newId().slice(0, 8)}`;
+      const kid = makeKid({
+        id,
+        firstName,
+        emoji: action.emoji,
+        paletteIndex: action.paletteIndex,
+      });
+      return {
+        ...state,
+        kidProfiles: [...state.kidProfiles, kid],
+        kids: { ...state.kids, [id]: emptyKidState() },
+        kidPins: { ...state.kidPins, [id]: action.pin.trim() || "0000" },
+        themes: { ...state.themes, [id]: "sparkle" },
+        appVisibility: { ...state.appVisibility, [id]: [...DEFAULT_NEW_KID_APPS] },
+      };
+    }
+
+    case "REMOVE_KID": {
+      const kidProfiles = state.kidProfiles.filter((k) => k.id !== action.kidId);
+      // Never remove the last child.
+      if (kidProfiles.length === state.kidProfiles.length) return state;
+      if (kidProfiles.length === 0) return state;
+      return {
+        ...state,
+        kidProfiles,
+        kids: omitKey(state.kids, action.kidId),
+        kidPins: omitKey(state.kidPins, action.kidId),
+        themes: omitKey(state.themes, action.kidId),
+        appVisibility: omitKey(state.appVisibility, action.kidId),
+        submissions: state.submissions.filter((s) => s.kidId !== action.kidId),
+        choreAssignments: state.choreAssignments.filter(
+          (c) => c.kidId !== action.kidId,
+        ),
+        messages: state.messages.filter((m) => m.kidId !== action.kidId),
+        activeKid:
+          state.activeKid === action.kidId
+            ? kidProfiles[0].id
+            : state.activeKid,
+      };
+    }
+
+    case "SET_APP_VISIBILITY": {
+      const cur = state.appVisibility[action.kidId] ?? [];
+      const has = cur.includes(action.appId);
+      if (action.visible === has) return state;
+      const next = action.visible
+        ? [...cur, action.appId]
+        : cur.filter((id) => id !== action.appId);
+      return {
+        ...state,
+        appVisibility: { ...state.appVisibility, [action.kidId]: next },
+      };
+    }
 
     case "RESET_ALL":
       return defaultState();

@@ -1,7 +1,6 @@
 import { useApp } from "../store/AppContext";
-import { KIDS } from "../data/kids";
 import { SCHEDULE } from "../data/schedule";
-import { getDay } from "../store/selectors";
+import { getDay, getKid } from "../store/selectors";
 import { useClock } from "../hooks/useClock";
 import { ScheduleTimeline } from "../components/ScheduleTimeline";
 import type { TabId } from "../App";
@@ -9,7 +8,7 @@ import type { TabId } from "../App";
 export function ScheduleView({ onTab }: { onTab: (t: TabId) => void }) {
   const { state } = useApp();
   const now = useClock();
-  const kid = KIDS[state.activeKid];
+  const kid = getKid(state, state.activeKid);
   const today = getDay(state, kid.id);
   const doneCount = today.scheduleDone.length;
   const pct = Math.round((doneCount / SCHEDULE.length) * 100);

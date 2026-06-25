@@ -2,7 +2,8 @@
 // Kids Corner — shared types
 // ---------------------------------------------------------------------------
 
-export type KidId = "claire" | "coby" | "hailee";
+// Kids are now a dynamic, parent-managed roster, so a KidId is just a string id.
+export type KidId = string;
 
 /** A look-and-feel for the animated cursor + background (see data/themes.ts). */
 export type ThemeId = "sparkle" | "adventure" | "ocean";
@@ -44,7 +45,7 @@ export type ActivityIdea = {
   estimatedMinutes: number;
   supplies: string[];
   difficulty: "easy" | "medium" | "challenge";
-  bestFor: Array<"claire" | "coby" | "hailee" | "everyone">;
+  bestFor: Array<KidId | "everyone">;
   indoorOutdoor: "indoor" | "outdoor" | "either";
   parentHelp: boolean;
   steps: string[];
@@ -182,6 +183,8 @@ export type KidState = {
 
 export type AppState = {
   version: number;
+  /** The parent-managed roster of kids (order = display order). */
+  kidProfiles: Kid[];
   activeKid: KidId;
   /** Light gate so kids can't approve their own work. Not real security. */
   parentPin: string;
@@ -196,6 +199,8 @@ export type AppState = {
   themes: Record<KidId, ThemeId>;
   /** Messages between each kid and the grown-ups. */
   messages: Message[];
+  /** App-catalog ids each kid is allowed to see (parent-controlled). */
+  appVisibility: Record<KidId, string[]>;
 };
 
 // Derived, read-only stats used by selectors / badges.

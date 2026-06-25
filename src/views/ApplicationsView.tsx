@@ -1,30 +1,27 @@
 import { useState } from "react";
 import { useApp } from "../store/AppContext";
-import { KIDS } from "../data/kids";
 import {
   DAILY_RULE,
   DAY_THEMES,
   KID_RULES,
-  MANDATORY,
-  SHARED_APPS,
   WEEKDAY_LABELS,
   assignmentFor,
   weeklyFor,
 } from "../data/applications";
 import { ProofButton } from "../components/ProofButton";
 import { AppCard } from "../components/AppCard";
-import { taskStatus } from "../store/selectors";
+import { getKid, taskStatus, visibleAppsFor } from "../store/selectors";
 import { useClock } from "../hooks/useClock";
 
 export function ApplicationsView() {
   const { state } = useApp();
   const now = useClock(60_000);
-  const kid = KIDS[state.activeKid];
+  const kid = getKid(state, state.activeKid);
   const day = now.getDay(); // 0 Sun … 6 Sat
   const isWeekday = day >= 1 && day <= 5;
   const themeMeta = DAY_THEMES[day];
   const todays = isWeekday ? assignmentFor(kid.id, day) : null;
-  const mandatory = MANDATORY[kid.id];
+  const apps = visibleAppsFor(state, kid.id);
   const kidRule = KID_RULES[kid.id];
   const week = weeklyFor(kid.id);
 
@@ -128,19 +125,24 @@ export function ApplicationsView() {
         </div>
       )}
 
-      <h3 className="section-title">⭐ {kid.firstName}'s Required App</h3>
-      <AppCard app={mandatory} required />
+      <h3 className="section-title">🧭 {kid.firstName}'s Apps</h3>
+      {apps.length === 0 ? (
+        <p className="empty">
+          No apps yet — a grown-up can turn some on in the Grown-Ups area.
+        </p>
+      ) : (
+        <div className="applist">
+          {apps.map((a) => (
+            <AppCard key={a.id} app={a} required={a.primary} />
+          ))}
+        </div>
+      )}
 
-      <h3 className="section-title">🧰 Shared Tools</h3>
-      <div className="applist">
-        {SHARED_APPS.map((a) => (
-          <AppCard key={a.id} app={a} />
-        ))}
-      </div>
-
-      <h3 className="section-title">🗓️ {kid.firstName}'s Week</h3>
-      <div className="weekgrid">
-        {week.map((a) => {
+      {week.length > 0 && (
+        <>
+          <h3 className="section-title">🗓️ {kid.firstName}'s Week</h3>
+          <div className="weekgrid">
+            {week.map((a) => {
           const isToday = a.day === day;
           const dm = DAY_THEMES[a.day];
           const status = taskStatus(state, kid.id, a.id).status;
@@ -170,8 +172,10 @@ export function ApplicationsView() {
               )}
             </div>
           );
-        })}
-      </div>
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }

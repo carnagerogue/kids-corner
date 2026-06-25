@@ -10,44 +10,60 @@ const localCredModules = import.meta.glob<{
 const LOCAL_CREDENTIALS: Partial<Record<KidId, Credential>> =
   Object.values(localCredModules)[0]?.CREDENTIALS ?? {};
 
-// Each kid's mandatory, always-available curriculum platform.
-export const MANDATORY: Record<KidId, AppLink> = {
-  claire: {
+/** An app a grown-up can switch on/off per kid. `primary` = a main platform. */
+export type CatalogApp = AppLink & { primary?: boolean };
+
+// Every app a grown-up can grant to a kid. Logins (if set locally) attach to
+// the three main platforms; they're never committed or deployed.
+export const APP_CATALOG: CatalogApp[] = [
+  {
     id: "edgenuity",
     name: "Edgenuity",
     url: "https://auth.edgenuity.com/Login/Login/Student",
     emoji: "🎓",
-    note: "Claire's main school platform.",
+    note: "Main school platform.",
+    primary: true,
     credential: LOCAL_CREDENTIALS.claire,
   },
-  coby: {
+  {
     id: "ascend-math",
     name: "Ascend Math",
     url: "https://www.ascendmath.com/",
     emoji: "📐",
-    note: "Coby's main math platform.",
+    note: "Adaptive math platform.",
+    primary: true,
     credential: LOCAL_CREDENTIALS.coby,
   },
-  hailee: {
+  {
     id: "coursera",
     name: "Coursera",
     url: "https://www.coursera.org/",
     emoji: "🎓",
-    note: "Hailee's main course platform.",
+    note: "Online courses.",
+    primary: true,
     credential: LOCAL_CREDENTIALS.hailee,
   },
+  { id: "scratch", name: "Scratch", url: "https://scratch.mit.edu/", emoji: "🐱", note: "Coding animations & games." },
+  { id: "prodigy", name: "Prodigy", url: "https://www.prodigygame.com/", emoji: "🐉", note: "Math practice game." },
+  { id: "mathigon", name: "Mathigon", url: "https://mathigon.org/", emoji: "📊", note: "Interactive math courses." },
+  { id: "phet", name: "PhET Simulations", url: "https://phet.colorado.edu/", emoji: "🔬", note: "Science & math simulations." },
+  { id: "icivics", name: "iCivics", url: "https://ed.icivics.org/", emoji: "🌍", note: "Civics games & lessons." },
+  { id: "labxchange", name: "LabXchange", url: "https://www.labxchange.org/", emoji: "🧪", note: "Science labs & lessons." },
+];
+
+export const APP_CATALOG_BY_ID: Record<string, CatalogApp> = Object.fromEntries(
+  APP_CATALOG.map((a) => [a.id, a]),
+);
+
+// What the seeded kids can see out of the box.
+export const DEFAULT_VISIBLE_APPS: Record<string, string[]> = {
+  claire: ["edgenuity", "scratch", "prodigy", "phet"],
+  coby: ["ascend-math", "scratch", "mathigon", "phet", "icivics"],
+  hailee: ["coursera", "scratch", "labxchange", "mathigon", "icivics"],
 };
 
-// Tools several kids share across the week.
-export const SHARED_APPS: AppLink[] = [
-  {
-    id: "scratch",
-    name: "Scratch",
-    url: "https://scratch.mit.edu/",
-    emoji: "🐱",
-    note: "Coding animations & games.",
-  },
-];
+/** What a brand-new child can see until a grown-up grants more. */
+export const DEFAULT_NEW_KID_APPS = ["scratch"];
 
 export const DAY_THEMES: Record<number, { theme: string; emoji: string }> = {
   1: { theme: "Math", emoji: "🔢" },

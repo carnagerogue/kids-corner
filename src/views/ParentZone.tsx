@@ -1,16 +1,19 @@
 import { useState } from "react";
 import { useApp } from "../store/AppContext";
-import { KIDS, KID_LIST } from "../data/kids";
+import { KID_EMOJIS, KID_PALETTE } from "../data/kids";
 import { CHORES, ACTIVITY_BY_ID } from "../data/activities";
+import { APP_CATALOG } from "../data/applications";
 import {
   choreAssignmentsFor,
+  getKid,
+  kidList,
   parentUnreadCount,
   pendingSubmissions,
   taskStatus,
 } from "../store/selectors";
 import { MessageThread } from "../components/MessageThread";
 import { MessageNotifier } from "../components/MessageNotifier";
-import type { KidId, Submission } from "../types";
+import type { Kid, KidId, Submission } from "../types";
 
 export function ParentZone({ onExit }: { onExit: () => void }) {
   const [unlocked, setUnlocked] = useState(false);
@@ -90,7 +93,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
 
   const reject = (s: Submission) => {
     const note = window.prompt(
-      "Send back to " + KIDS[s.kidId].firstName + "? Optional note:",
+      "Send back to " + getKid(state, s.kidId).firstName + "? Optional note:",
       "",
     );
     if (note === null) return; // cancelled
@@ -123,7 +126,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
       ) : (
         <div className="review">
           {pending.map((s) => {
-            const kid = KIDS[s.kidId];
+            const kid = getKid(state, s.kidId);
             return (
               <div
                 key={s.id}
@@ -180,7 +183,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
           <h3 className="section-title">🕘 Recently Reviewed</h3>
           <div className="reviewed">
             {reviewedToday.map((s) => {
-              const kid = KIDS[s.kidId];
+              const kid = getKid(state, s.kidId);
               return (
                 <div key={s.id} className="reviewedrow">
                   <span>
@@ -201,6 +204,10 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
         </>
       )}
 
+      <ParentKids />
+
+      <ParentApps />
+
       <ParentMessages />
 
       <ChoreAssigner />
@@ -216,14 +223,192 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
   );
 }
 
+function ParentKids() {
+  const { state, dispatch } = useApp();
+  const kids = kidList(state);
+  const [name, setName] = useState("");
+  const [emoji, setEmoji] = useState(KID_EMOJIS[0]);
+  const [palette, setPalette] = useState(3);
+  const [pin, setPin] = useState("");
+
+  const canAdd = name.trim().length > 0 && pin.trim().length >= 3;
+
+  const add = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canAdd) return;
+    dispatch({
+      type: "ADD_KID",
+      firstName: name.trim(),
+      emoji,
+      paletteIndex: palette,
+      pin: pin.trim(),
+    });
+    setName("");
+    setPin("");
+    setEmoji(KID_EMOJIS[0]);
+    setPalette((p) => (p + 1) % KID_PALETTE.length);
+  };
+
+  const remove = (kid: Kid) => {
+    if (kids.length <= 1) return;
+    if (
+      window.confirm(
+        `Remove ${kid.firstName}? Their progress, messages, and settings will be deleted. This can't be undone.`,
+      )
+    ) {
+      dispatch({ type: "REMOVE_KID", kidId: kid.id });
+    }
+  };
+
+  return (
+    <>
+      <h3 className="section-title">👧 Kids</h3>
+      <div className="settings">
+        <ul className="kidmanage">
+          {kids.map((k) => (
+            <li
+              key={k.id}
+              className="kidmanage__row"
+              style={{ ["--this-kid" as string]: k.color }}
+            >
+              <span className="kidmanage__face">{k.emoji}</span>
+              <span className="kidmanage__name">{k.firstName}</span>
+              <button
+                className="btn btn--reject btn--sm"
+                disabled={kids.length <= 1}
+                onClick={() => remove(k)}
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        <form className="addkid" onSubmit={add}>
+          <strong className="addkid__title">➕ Add a child</strong>
+          <input
+            className="settings__input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="First name"
+            maxLength={24}
+            aria-label="New child's name"
+          />
+          <div className="addkid__pick" aria-label="Pick an avatar">
+            {KID_EMOJIS.map((em) => (
+              <button
+                type="button"
+                key={em}
+                className={`avatarpick ${emoji === em ? "is-active" : ""}`}
+                onClick={() => setEmoji(em)}
+              >
+                {em}
+              </button>
+            ))}
+          </div>
+          <div className="addkid__pick" aria-label="Pick a color">
+            {KID_PALETTE.map((p, i) => (
+              <button
+                type="button"
+                key={i}
+                className={`colorpick ${palette === i ? "is-active" : ""}`}
+                style={{ background: p.color }}
+                onClick={() => setPalette(i)}
+                aria-label={`Color ${i + 1}`}
+              />
+            ))}
+          </div>
+          <div className="addkid__row">
+            <input
+              className="settings__input"
+              inputMode="numeric"
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ""))}
+              placeholder="Login PIN (min 3 digits)"
+              aria-label="New child's PIN"
+            />
+            <button className="btn btn--primary" type="submit" disabled={!canAdd}>
+              Add child
+            </button>
+          </div>
+        </form>
+      </div>
+    </>
+  );
+}
+
+function ParentApps() {
+  const { state, dispatch } = useApp();
+  const kids = kidList(state);
+  const [selRaw, setSel] = useState<KidId>(() => kids[0]?.id ?? "");
+  const sel = kids.some((k) => k.id === selRaw) ? selRaw : kids[0]?.id ?? "";
+  const selKid = getKid(state, sel);
+  const vis = state.appVisibility[sel] ?? [];
+
+  return (
+    <>
+      <h3 className="section-title">🧭 Apps Each Kid Can See</h3>
+      <div className="settings">
+        <div className="msgtabs">
+          {kids.map((k) => (
+            <button
+              key={k.id}
+              className={`msgtab ${sel === k.id ? "is-active" : ""}`}
+              style={{ ["--this-kid" as string]: k.color }}
+              onClick={() => setSel(k.id)}
+            >
+              {k.emoji} {k.firstName}
+            </button>
+          ))}
+        </div>
+        <ul className="apptoggles">
+          {APP_CATALOG.map((a) => {
+            const on = vis.includes(a.id);
+            return (
+              <li key={a.id} className="apptoggle">
+                <span className="apptoggle__icon">{a.emoji}</span>
+                <span className="apptoggle__name">
+                  {a.name}
+                  {a.primary && <span className="apptoggle__badge">main</span>}
+                </span>
+                <button
+                  className={`switch ${on ? "is-on" : ""}`}
+                  role="switch"
+                  aria-checked={on}
+                  aria-label={`${on ? "Hide" : "Show"} ${a.name} for ${selKid.firstName}`}
+                  onClick={() =>
+                    dispatch({
+                      type: "SET_APP_VISIBILITY",
+                      kidId: sel,
+                      appId: a.id,
+                      visible: !on,
+                    })
+                  }
+                >
+                  <span className="switch__dot" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="settings__hint">
+          Controls what {selKid.firstName} sees on their Applications page.
+        </p>
+      </div>
+    </>
+  );
+}
+
 function ParentMessages() {
   const { state } = useApp();
-  const [sel, setSel] = useState<KidId>(KID_LIST[0].id);
+  const kids = kidList(state);
+  const [selRaw, setSel] = useState<KidId>(() => kids[0]?.id ?? "");
+  const sel = kids.some((k) => k.id === selRaw) ? selRaw : kids[0]?.id ?? "";
   return (
     <>
       <h3 className="section-title">💬 Messages</h3>
       <div className="msgtabs">
-        {KID_LIST.map((k) => {
+        {kids.map((k) => {
           const unread = parentUnreadCount(state, k.id);
           return (
             <button
@@ -245,7 +430,9 @@ function ParentMessages() {
 
 function ChoreAssigner() {
   const { state, dispatch } = useApp();
-  const [kidId, setKidId] = useState<KidId>(KID_LIST[0].id);
+  const kids = kidList(state);
+  const [kidIdRaw, setKidId] = useState<KidId>(() => kids[0]?.id ?? "");
+  const kidId = kids.some((k) => k.id === kidIdRaw) ? kidIdRaw : kids[0]?.id ?? "";
   const [refId, setRefId] = useState<string>(CHORES[0]?.id ?? "");
 
   const assign = (e: React.FormEvent) => {
@@ -254,7 +441,7 @@ function ChoreAssigner() {
   };
 
   // Everyone's chores for today, in kid order.
-  const todays = KID_LIST.flatMap((k) =>
+  const todays = kids.flatMap((k) =>
     choreAssignmentsFor(state, k.id).map((c) => ({ c, kid: k })),
   );
 
@@ -276,7 +463,7 @@ function ChoreAssigner() {
             onChange={(e) => setKidId(e.target.value as KidId)}
             aria-label="Choose a kid"
           >
-            {KID_LIST.map((k) => (
+            {kids.map((k) => (
               <option key={k.id} value={k.id}>
                 {k.emoji} {k.firstName}
               </option>
@@ -366,7 +553,7 @@ function ParentSettings() {
     <>
       <h3 className="section-title">🔑 Kid Login PINs</h3>
       <div className="settings">
-        {KID_LIST.map((k) => (
+        {kidList(state).map((k) => (
           <KidPinRow key={k.id} kidId={k.id} />
         ))}
         <p className="settings__hint">
@@ -410,7 +597,7 @@ function ParentSettings() {
 
 function KidPinRow({ kidId }: { kidId: KidId }) {
   const { state, dispatch } = useApp();
-  const kid = KIDS[kidId];
+  const kid = getKid(state, kidId);
   const [pin, setPin] = useState(state.kidPins[kidId]);
   const dirty = pin !== state.kidPins[kidId];
 
