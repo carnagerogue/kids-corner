@@ -16,6 +16,7 @@ function pickConfig(s: AppState): SyncConfig {
     kidPins: s.kidPins,
     themes: s.themes,
     appVisibility: s.appVisibility,
+    exploreHidden: s.exploreHidden,
     parentPin: s.parentPin,
   };
 }
@@ -114,6 +115,7 @@ export function FamilySync() {
     state.kidPins,
     state.themes,
     state.appVisibility,
+    state.exploreHidden,
     state.parentPin,
     code,
     ready,

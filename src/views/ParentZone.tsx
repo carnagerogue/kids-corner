@@ -3,6 +3,7 @@ import { useApp } from "../store/AppContext";
 import { KID_EMOJIS, KID_PALETTE } from "../data/kids";
 import { CHORES, ACTIVITY_BY_ID } from "../data/activities";
 import { APP_CATALOG } from "../data/applications";
+import { RESOURCES, RESOURCE_CATEGORIES } from "../data/resources";
 import {
   choreAssignmentsFor,
   getKid,
@@ -210,6 +211,8 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
 
       <ParentApps />
 
+      <ParentExplore />
+
       <ParentMessages />
 
       <CloudSync />
@@ -397,6 +400,102 @@ function ParentApps() {
         </ul>
         <p className="settings__hint">
           Controls what {selKid.firstName} sees on their Applications page.
+        </p>
+      </div>
+    </>
+  );
+}
+
+function ParentExplore() {
+  const { state, dispatch } = useApp();
+  const kids = kidList(state);
+  const [selRaw, setSel] = useState<KidId>(() => kids[0]?.id ?? "");
+  const sel = kids.some((k) => k.id === selRaw) ? selRaw : kids[0]?.id ?? "";
+  const selKid = getKid(state, sel);
+  const hidden = state.exploreHidden[sel] ?? [];
+
+  const setAll = (visible: boolean) => {
+    for (const r of RESOURCES) {
+      dispatch({
+        type: "SET_EXPLORE_VISIBILITY",
+        kidId: sel,
+        resourceId: r.id,
+        visible,
+      });
+    }
+  };
+
+  return (
+    <>
+      <h3 className="section-title">🌟 Explore Sites Each Kid Can See</h3>
+      <div className="settings">
+        <div className="msgtabs">
+          {kids.map((k) => (
+            <button
+              key={k.id}
+              className={`msgtab ${sel === k.id ? "is-active" : ""}`}
+              style={{ ["--this-kid" as string]: k.color }}
+              onClick={() => setSel(k.id)}
+            >
+              {k.emoji} {k.firstName}
+            </button>
+          ))}
+        </div>
+        <div className="explore-bulk">
+          <button className="btn btn--ghost btn--sm" onClick={() => setAll(true)}>
+            Turn all on
+          </button>
+          <button
+            className="btn btn--ghost btn--sm"
+            onClick={() => setAll(false)}
+          >
+            Turn all off
+          </button>
+        </div>
+        {RESOURCE_CATEGORIES.map((c) => {
+          const items = RESOURCES.filter((r) => r.category === c.id);
+          if (!items.length) return null;
+          return (
+            <div key={c.id} className="explore-group">
+              <span
+                className="explore-group__label"
+                style={{ ["--cat" as string]: c.color }}
+              >
+                {c.emoji} {c.label}
+              </span>
+              <ul className="apptoggles">
+                {items.map((r) => {
+                  const on = !hidden.includes(r.id);
+                  return (
+                    <li key={r.id} className="apptoggle">
+                      <span className="apptoggle__icon">{r.emoji}</span>
+                      <span className="apptoggle__name">{r.name}</span>
+                      <button
+                        className={`switch ${on ? "is-on" : ""}`}
+                        role="switch"
+                        aria-checked={on}
+                        aria-label={`${on ? "Hide" : "Show"} ${r.name} for ${selKid.firstName}`}
+                        onClick={() =>
+                          dispatch({
+                            type: "SET_EXPLORE_VISIBILITY",
+                            kidId: sel,
+                            resourceId: r.id,
+                            visible: !on,
+                          })
+                        }
+                      >
+                        <span className="switch__dot" />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
+        <p className="settings__hint">
+          Controls what {selKid.firstName} sees on the Explore tab. (Everything
+          is on by default.)
         </p>
       </div>
     </>

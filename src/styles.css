@@ -2974,6 +2974,25 @@ body.fun-cursor-on * {
   color: var(--ink-soft);
 }
 
+/* Grown-Ups: Explore visibility toggles, grouped by category */
+.explore-bulk {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.explore-group {
+  margin-top: 8px;
+}
+.explore-group__label {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cat, var(--ink-soft));
+  margin: 4px 0 2px;
+}
+
 /* ===========================================================================
    Mini calendar (date + month grid in the schedule rail)
    =========================================================================== */

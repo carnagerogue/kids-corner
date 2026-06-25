@@ -24,6 +24,7 @@ export type SyncConfig = {
   kidPins: Record<string, string>;
   themes: Record<string, ThemeId>;
   appVisibility: Record<string, string[]>;
+  exploreHidden: Record<string, string[]>;
   parentPin: string;
 };
 import {
@@ -88,6 +89,12 @@ export type Action =
     }
   | { type: "REMOVE_KID"; kidId: KidId }
   | { type: "SET_APP_VISIBILITY"; kidId: KidId; appId: string; visible: boolean }
+  | {
+      type: "SET_EXPLORE_VISIBILITY";
+      kidId: KidId;
+      resourceId: string;
+      visible: boolean;
+    }
   | { type: "RESET_ALL" };
 
 function toggleInArray(arr: string[], id: string): string[] {
@@ -336,6 +343,7 @@ function reducer(state: AppState, action: Action): AppState {
         kidPins: cfg.kidPins ?? state.kidPins,
         themes: cfg.themes ?? state.themes,
         appVisibility: cfg.appVisibility ?? state.appVisibility,
+        exploreHidden: cfg.exploreHidden ?? state.exploreHidden,
         parentPin: cfg.parentPin || state.parentPin,
         kids,
         activeKid,
@@ -414,6 +422,7 @@ function reducer(state: AppState, action: Action): AppState {
         kidPins: { ...state.kidPins, [id]: action.pin.trim() || "0000" },
         themes: { ...state.themes, [id]: "sparkle" },
         appVisibility: { ...state.appVisibility, [id]: [...DEFAULT_NEW_KID_APPS] },
+        exploreHidden: { ...state.exploreHidden, [id]: [] },
       };
     }
 
@@ -429,6 +438,7 @@ function reducer(state: AppState, action: Action): AppState {
         kidPins: omitKey(state.kidPins, action.kidId),
         themes: omitKey(state.themes, action.kidId),
         appVisibility: omitKey(state.appVisibility, action.kidId),
+        exploreHidden: omitKey(state.exploreHidden, action.kidId),
         submissions: state.submissions.filter((s) => s.kidId !== action.kidId),
         choreAssignments: state.choreAssignments.filter(
           (c) => c.kidId !== action.kidId,
@@ -451,6 +461,20 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         appVisibility: { ...state.appVisibility, [action.kidId]: next },
+      };
+    }
+
+    case "SET_EXPLORE_VISIBILITY": {
+      // Stored as a "hidden" list, so default (not present) = visible.
+      const cur = state.exploreHidden[action.kidId] ?? [];
+      const hidden = cur.includes(action.resourceId);
+      if (action.visible === !hidden) return state;
+      const next = action.visible
+        ? cur.filter((id) => id !== action.resourceId)
+        : [...cur, action.resourceId];
+      return {
+        ...state,
+        exploreHidden: { ...state.exploreHidden, [action.kidId]: next },
       };
     }
 

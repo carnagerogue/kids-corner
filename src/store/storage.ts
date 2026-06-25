@@ -52,11 +52,13 @@ export function defaultState(): AppState {
   const kidPins: Record<KidId, string> = {};
   const themes: Record<KidId, ThemeId> = {};
   const appVisibility: Record<KidId, string[]> = {};
+  const exploreHidden: Record<KidId, string[]> = {};
   for (const k of DEFAULT_KIDS) {
     kids[k.id] = emptyKidState();
     kidPins[k.id] = DEFAULT_KID_PINS[k.id] ?? "0000";
     themes[k.id] = DEFAULT_KID_THEMES[k.id] ?? "sparkle";
     appVisibility[k.id] = defaultVisibility(k.id);
+    exploreHidden[k.id] = [];
   }
   return {
     version: STATE_VERSION,
@@ -70,6 +72,7 @@ export function defaultState(): AppState {
     themes,
     messages: [],
     appVisibility,
+    exploreHidden,
   };
 }
 
@@ -109,6 +112,7 @@ export function loadState(): AppState {
     const kidPins: Record<KidId, string> = {};
     const themes: Record<KidId, ThemeId> = {};
     const appVisibility: Record<KidId, string[]> = {};
+    const exploreHidden: Record<KidId, string[]> = {};
     for (const id of ids) {
       const k = parsed.kids?.[id];
       kids[id] = k
@@ -136,6 +140,13 @@ export function loadState(): AppState {
       appVisibility[id] = Array.isArray(vis)
         ? (vis as unknown[]).filter((x): x is string => typeof x === "string")
         : defaultVisibility(id);
+
+      const hid = (parsed.exploreHidden as Record<string, unknown> | undefined)?.[
+        id
+      ];
+      exploreHidden[id] = Array.isArray(hid)
+        ? (hid as unknown[]).filter((x): x is string => typeof x === "string")
+        : [];
     }
 
     const submissions = Array.isArray(parsed.submissions)
@@ -173,6 +184,7 @@ export function loadState(): AppState {
       themes,
       messages,
       appVisibility,
+      exploreHidden,
     };
   } catch {
     return defaultState();

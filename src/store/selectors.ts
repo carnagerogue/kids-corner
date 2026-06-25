@@ -12,6 +12,7 @@ import type {
 } from "../types";
 import { ACTIVITY_BY_ID, CATEGORY_ORDER } from "../data/activities";
 import { APP_CATALOG, type CatalogApp } from "../data/applications";
+import { RESOURCES, type Resource } from "../data/resources";
 import { SCHEDULE } from "../data/schedule";
 import { todayKey } from "./storage";
 
@@ -53,6 +54,14 @@ export function primaryAppFor(
 ): CatalogApp | undefined {
   const apps = visibleAppsFor(state, kidId);
   return apps.find((a) => a.primary) ?? apps[0];
+}
+
+/** Explore resources a kid can see (all except the ones a grown-up hid). */
+export function visibleResourcesFor(state: AppState, kidId: KidId): Resource[] {
+  const hidden = state.exploreHidden[kidId] ?? [];
+  return hidden.length
+    ? RESOURCES.filter((r) => !hidden.includes(r.id))
+    : RESOURCES;
 }
 
 const EMPTY_DAY = (date: string): DayProgress => ({

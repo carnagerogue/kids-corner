@@ -201,6 +201,8 @@ export type AppState = {
   messages: Message[];
   /** App-catalog ids each kid is allowed to see (parent-controlled). */
   appVisibility: Record<KidId, string[]>;
+  /** Explore resource ids each kid CANNOT see (default: none hidden). */
+  exploreHidden: Record<KidId, string[]>;
 };
 
 // Derived, read-only stats used by selectors / badges.

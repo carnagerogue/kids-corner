@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { useApp } from "../store/AppContext";
+import { visibleResourcesFor } from "../store/selectors";
 import {
-  RESOURCES,
   RESOURCE_CATEGORIES,
   RESOURCE_CAT_BY_ID,
   type ResourceCategory,
@@ -10,9 +11,11 @@ type CatFilter = ResourceCategory | "all";
 
 /** A browsable library of safe, fun, and educational websites. */
 export function ExploreView() {
+  const { state } = useApp();
   const [cat, setCat] = useState<CatFilter>("all");
+  const resources = visibleResourcesFor(state, state.activeKid);
   const list =
-    cat === "all" ? RESOURCES : RESOURCES.filter((r) => r.category === cat);
+    cat === "all" ? resources : resources.filter((r) => r.category === cat);
 
   return (
     <div className="view">
@@ -30,10 +33,11 @@ export function ExploreView() {
           className={`chip ${cat === "all" ? "is-active" : ""}`}
           onClick={() => setCat("all")}
         >
-          ✨ All ({RESOURCES.length})
+          ✨ All ({resources.length})
         </button>
         {RESOURCE_CATEGORIES.map((c) => {
-          const count = RESOURCES.filter((r) => r.category === c.id).length;
+          const count = resources.filter((r) => r.category === c.id).length;
+          if (count === 0) return null;
           return (
             <button
               key={c.id}
@@ -46,6 +50,13 @@ export function ExploreView() {
           );
         })}
       </div>
+
+      {resources.length === 0 && (
+        <p className="empty">
+          No Explore sites are turned on right now — a grown-up can enable some
+          in the Grown-Ups area.
+        </p>
+      )}
 
       <div className="reslist">
         {list.map((r) => {

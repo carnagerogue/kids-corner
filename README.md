@@ -46,7 +46,8 @@ crafts, outdoor adventures, and kid-friendly rewards.
 - **🌟 Explore** — a browsable library of ~25 hand-picked, free, kid-safe
   websites that are educational or just-plain-fun (Khan Academy, PBS Kids, NASA,
   Mystery Science, Storyline Online, Code.org, Chrome Music Lab, and more),
-  filterable by category and opening in a new tab.
+  filterable by category and opening in a new tab. Grown-ups can turn each site
+  on or off **per kid** in the Grown-Ups area (all on by default).
 - **🏆 Trophy Room** — levels with fun ranks (Sprout → Summer Hero), unlockable
   badges, streaks, and per-kid stats.
 - **💬 Messages** — each kid has a private chat thread with the grown-ups, and
