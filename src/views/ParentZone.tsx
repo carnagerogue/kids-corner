@@ -15,7 +15,7 @@ import {
 import { MessageThread } from "../components/MessageThread";
 import { MessageNotifier } from "../components/MessageNotifier";
 import { FIREBASE_READY } from "../firebase";
-import { readSyncCode, writeSyncCode } from "../sync";
+import { readSyncOverride, writeSyncCode } from "../sync";
 import type { Kid, KidId, Submission } from "../types";
 
 export function ParentZone({ onExit }: { onExit: () => void }) {
@@ -508,9 +508,9 @@ function ParentExplore() {
 }
 
 function CloudSync() {
-  const [code, setCode] = useState(() => readSyncCode());
+  const [code, setCode] = useState(() => readSyncOverride());
   const [saved, setSaved] = useState(false);
-  const active = readSyncCode();
+  const usingPrivate = readSyncOverride().length > 0;
 
   const save = (e: React.FormEvent) => {
     e.preventDefault();
@@ -525,32 +525,41 @@ function CloudSync() {
       <div className="settings">
         {!FIREBASE_READY ? (
           <p className="settings__hint">
-            Cloud sync isn't set up yet, so messages stay on each device. Once a
-            Firebase project is connected, a "family sync code" box will appear
-            here to link your devices.
+            Cloud sync isn't set up yet, so everything stays on this device.
           </p>
         ) : (
           <>
-            <form className="settings__row" onSubmit={save}>
-              <label className="settings__label">
-                Family sync code
-                <input
-                  className="settings__input"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.trim())}
-                  placeholder="A shared secret, e.g. moon-rocket-42"
-                  aria-label="Family sync code"
-                />
-              </label>
-              <button className="btn btn--primary" type="submit">
-                {saved ? "✓ Saved" : "Save"}
-              </button>
-            </form>
             <p className="settings__hint">
-              Enter the <strong>same code on every device</strong> (this
-              computer and the kids') — messages then sync across all of them in
-              real time. {active ? "Status: ✅ syncing on this device." : "Status: off."}
+              ✅ <strong>Sync is on.</strong> Every computer that opens Kids
+              Corner shares the same family automatically — kids, photos,
+              messages, and progress show up everywhere, no setup needed.
+              {usingPrivate
+                ? " (This device is using a private room.)"
+                : ""}
             </p>
+            <details className="cloudsync__adv">
+              <summary>Advanced: use a private room</summary>
+              <form className="settings__row" onSubmit={save}>
+                <label className="settings__label">
+                  Private room code
+                  <input
+                    className="settings__input"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.trim())}
+                    placeholder="Leave blank to use the shared family room"
+                    aria-label="Private room code"
+                  />
+                </label>
+                <button className="btn btn--primary" type="submit">
+                  {saved ? "✓ Saved" : "Save"}
+                </button>
+              </form>
+              <p className="settings__hint">
+                Set the <strong>same code on every device</strong> to keep your
+                family in a separate room from anyone else. Leave blank to use
+                the shared default.
+              </p>
+            </details>
           </>
         )}
       </div>

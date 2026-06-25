@@ -3060,6 +3060,19 @@ body.fun-cursor-on * {
   color: var(--ink-soft);
 }
 
+.cloudsync__adv {
+  margin-top: 8px;
+}
+.cloudsync__adv summary {
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: var(--kid-dark);
+}
+.cloudsync__adv[open] summary {
+  margin-bottom: 8px;
+}
+
 /* "Do it with a friend" partner picker on missions */
 .partnerpick {
   display: flex;
