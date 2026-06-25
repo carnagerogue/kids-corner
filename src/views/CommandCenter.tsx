@@ -1,5 +1,5 @@
 import { useApp } from "../store/AppContext";
-import { KIDS, KID_LIST } from "../data/kids";
+import { KIDS } from "../data/kids";
 import { getLevelInfo } from "../data/levels";
 import {
   computeStats,
@@ -90,11 +90,9 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
         </div>
       </section>
 
-      <h3 className="section-title">The Crew</h3>
-      <div className="crew">
-        {KID_LIST.map((k) => (
-          <CrewCard key={k.id} kidId={k.id} active={k.id === state.activeKid} />
-        ))}
+      <h3 className="section-title">Your Corner</h3>
+      <div className="crew crew--solo">
+        <CrewCard kidId={state.activeKid} active />
       </div>
 
       <h3 className="section-title">⭐ Featured Mission of the Day</h3>
