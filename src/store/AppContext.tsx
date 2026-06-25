@@ -61,6 +61,8 @@ export type Action =
       emoji: string;
       xp: number;
       photo: string;
+      /** If set, the mission was done together — both kids get a submission. */
+      partnerId?: KidId;
     }
   | {
       type: "REVIEW_SUBMISSION";
@@ -178,39 +180,57 @@ function reducer(state: AppState, action: Action): AppState {
 
     case "SUBMIT_TASK": {
       const date = todayKey();
-      // Already approved today? Don't allow a re-submit.
-      const alreadyApproved = state.submissions.some(
-        (s) =>
-          s.kidId === action.kidId &&
-          s.refId === action.refId &&
-          s.date === date &&
-          s.status === "approved",
-      );
-      if (alreadyApproved) return state;
+      const now = Date.now();
+      const partner =
+        action.partnerId && action.partnerId !== action.kidId
+          ? action.partnerId
+          : undefined;
+      // Each participant gets their own submission (so both earn XP), tagged
+      // with the other as their partner.
+      const participants: { kid: KidId; partner?: KidId }[] = [
+        { kid: action.kidId, partner },
+      ];
+      if (partner) participants.push({ kid: partner, partner: action.kidId });
 
-      // Drop any prior pending/rejected attempt for this task today.
-      const kept = state.submissions.filter(
-        (s) =>
-          !(
-            s.kidId === action.kidId &&
+      let submissions = state.submissions;
+      let changed = false;
+      for (const p of participants) {
+        const alreadyApproved = submissions.some(
+          (s) =>
+            s.kidId === p.kid &&
             s.refId === action.refId &&
-            s.date === date
-          ),
-      );
-      const submission: Submission = {
-        id: newId(),
-        kind: action.kind,
-        refId: action.refId,
-        title: action.title,
-        emoji: action.emoji,
-        kidId: action.kidId,
-        photo: action.photo,
-        status: "pending",
-        xp: action.xp,
-        date,
-        submittedAt: Date.now(),
-      };
-      return { ...state, submissions: [...kept, submission] };
+            s.date === date &&
+            s.status === "approved",
+        );
+        if (alreadyApproved) continue;
+        // Drop any prior pending/rejected attempt for this task today.
+        const kept = submissions.filter(
+          (s) =>
+            !(
+              s.kidId === p.kid &&
+              s.refId === action.refId &&
+              s.date === date
+            ),
+        );
+        const submission: Submission = {
+          id: newId(),
+          kind: action.kind,
+          refId: action.refId,
+          title: action.title,
+          emoji: action.emoji,
+          kidId: p.kid,
+          photo: action.photo,
+          status: "pending",
+          xp: action.xp,
+          date,
+          submittedAt: now,
+          partnerId: p.partner,
+        };
+        submissions = [...kept, submission];
+        changed = true;
+      }
+      if (!changed) return state;
+      return { ...state, submissions };
     }
 
     case "REVIEW_SUBMISSION": {

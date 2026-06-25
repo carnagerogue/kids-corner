@@ -33,8 +33,10 @@ crafts, outdoor adventures, and kid-friendly rewards.
 - **🎯 Mission Board** — a big library of activities (arts & crafts, drawing,
   building, outdoor, science, writing, music, brain games, family, kindness,
   quiet time). Filter by category, indoor/outdoor, difficulty, or "best for this
-  kid." Each card has supplies and step-by-step instructions. (**Chores aren't
-  here** — a grown-up assigns those; see below.)
+  kid." Each card has supplies and step-by-step instructions. A kid can also
+  **do a mission with a friend** — pick another child on the platform, and when
+  the photo is approved **both kids earn the XP**. (**Chores aren't here** — a
+  grown-up assigns those; see below.)
 - **🧹 Chores are parent-decided** — kids can't pick chores themselves. A
   grown-up assigns a chore to a specific kid in the Grown-Ups area, and it then
   shows up under **Today's Chores** on that kid's Command Center to finish with
@@ -43,11 +45,12 @@ crafts, outdoor adventures, and kid-friendly rewards.
   background** from the Command Center: **Sparkle** (stars & rainbows),
   **Adventure** (rockets, dinos & lightning), or **Ocean** (fish & bubbles). The
   choice is saved per kid; Coby starts on Adventure, the others on Sparkle.
-- **🌟 Explore** — a browsable library of ~25 hand-picked, free, kid-safe
-  websites that are educational or just-plain-fun (Khan Academy, PBS Kids, NASA,
-  Mystery Science, Storyline Online, Code.org, Chrome Music Lab, and more),
-  filterable by category and opening in a new tab. Grown-ups can turn each site
-  on or off **per kid** in the Grown-Ups area (all on by default).
+- **🌟 Explore** (inside the Applications page) — a browsable library of ~25
+  hand-picked, free, kid-safe websites that are educational or just-plain-fun
+  (Khan Academy, PBS Kids, NASA, Mystery Science, Storyline Online, Code.org,
+  Chrome Music Lab, and more), filterable by category and opening in a new tab.
+  Grown-ups can turn each site on or off **per kid** in the Grown-Ups area (all
+  on by default).
 - **🏆 Trophy Room** — levels with fun ranks (Sprout → Summer Hero), unlockable
   badges, streaks, and per-kid stats.
 - **💬 Messages** — each kid has a private chat thread with the grown-ups, and

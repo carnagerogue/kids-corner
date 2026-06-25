@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useApp } from "../store/AppContext";
-import { getKid, taskStatus } from "../store/selectors";
+import { getKid, kidList, taskStatus } from "../store/selectors";
 import { CameraCapture } from "./CameraCapture";
 import type { KidId, SubmissionKind } from "../types";
 
@@ -29,12 +29,26 @@ export function ProofButton({
 }) {
   const { state, dispatch } = useApp();
   const [camera, setCamera] = useState(false);
+  const [partner, setPartner] = useState<KidId | null>(null);
   const { status, submission } = taskStatus(state, kidId, refId);
   const kid = getKid(state, kidId);
+  // Missions can be done together with another kid on the platform.
+  const others = kind === "mission" ? kidList(state).filter((k) => k.id !== kidId) : [];
 
   const submit = (photo: string) => {
-    dispatch({ type: "SUBMIT_TASK", kidId, kind, refId, title, emoji, xp, photo });
+    dispatch({
+      type: "SUBMIT_TASK",
+      kidId,
+      kind,
+      refId,
+      title,
+      emoji,
+      xp,
+      photo,
+      partnerId: partner ?? undefined,
+    });
     setCamera(false);
+    setPartner(null);
   };
 
   return (
@@ -64,11 +78,35 @@ export function ProofButton({
               {submission?.note ? ` (${submission.note})` : ""}
             </p>
           )}
+          {others.length > 0 && (
+            <div className="partnerpick">
+              <span className="partnerpick__label">👫 Doing it with:</span>
+              <button
+                type="button"
+                className={`partnerpick__btn ${partner === null ? "is-active" : ""}`}
+                onClick={() => setPartner(null)}
+              >
+                Just me
+              </button>
+              {others.map((k) => (
+                <button
+                  type="button"
+                  key={k.id}
+                  className={`partnerpick__btn ${partner === k.id ? "is-active" : ""}`}
+                  style={{ ["--this-kid" as string]: k.color }}
+                  onClick={() => setPartner(partner === k.id ? null : k.id)}
+                >
+                  {k.emoji} {k.firstName}
+                </button>
+              ))}
+            </div>
+          )}
           <button
             className="btn btn--primary btn--full"
             onClick={() => setCamera(true)}
           >
             📸 Take photo to finish · +{xp} XP
+            {partner && ` · with ${getKid(state, partner).firstName}`}
           </button>
         </>
       )}

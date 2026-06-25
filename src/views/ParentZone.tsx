@@ -156,6 +156,11 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
                   <span className={`reviewcard__kind reviewcard__kind--${s.kind}`}>
                     {s.kind === "mission" ? "🎯 Mission" : "📚 Assignment"} · +{s.xp} XP
                   </span>
+                  {s.partnerId && (
+                    <span className="reviewcard__partner">
+                      🤝 together with {getKid(state, s.partnerId).firstName}
+                    </span>
+                  )}
                   <strong className="reviewcard__title">
                     {s.emoji} {s.title}
                   </strong>

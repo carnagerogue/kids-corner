@@ -2974,6 +2974,39 @@ body.fun-cursor-on * {
   color: var(--ink-soft);
 }
 
+/* "Do it with a friend" partner picker on missions */
+.partnerpick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.partnerpick__label {
+  font-weight: 800;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+.partnerpick__btn {
+  border: 2px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-weight: 800;
+  font-size: 0.82rem;
+}
+.partnerpick__btn.is-active {
+  border-color: var(--this-kid, var(--kid));
+  background: var(--this-kid, var(--kid));
+  color: #fff;
+}
+.reviewcard__partner {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #0f766e;
+}
+
 /* Grown-Ups: Explore visibility toggles, grouped by category */
 .explore-bulk {
   display: flex;

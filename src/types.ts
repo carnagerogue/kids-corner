@@ -138,6 +138,8 @@ export type Submission = {
   reviewedAt?: number;
   /** Optional grown-up note, e.g. why it was sent back. */
   note?: string;
+  /** The other kid this mission was done together with, if any. */
+  partnerId?: KidId;
 };
 
 // --- Chore assignments (parent-decided) -----------------------------------

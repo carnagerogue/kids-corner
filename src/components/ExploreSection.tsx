@@ -9,26 +9,22 @@ import {
 
 type CatFilter = ResourceCategory | "all";
 
-/** A browsable library of safe, fun, and educational websites. */
-export function ExploreView() {
+/**
+ * The Explore library (safe, fun, educational sites) — browsable and filterable,
+ * scoped to the active kid's allowed sites. Rendered inside the Applications
+ * page. Returns nothing if a grown-up has turned all of them off.
+ */
+export function ExploreSection() {
   const { state } = useApp();
   const [cat, setCat] = useState<CatFilter>("all");
   const resources = visibleResourcesFor(state, state.activeKid);
+  if (resources.length === 0) return null;
   const list =
     cat === "all" ? resources : resources.filter((r) => r.category === cat);
 
   return (
-    <div className="view">
-      <div className="view__header">
-        <div>
-          <h2 className="view__title">🌟 Explore</h2>
-          <p className="view__sub">
-            Safe, fun, and educational places to discover.
-          </p>
-        </div>
-      </div>
-
-      <div className="chips" role="group" aria-label="Category">
+    <>
+      <div className="chips" role="group" aria-label="Explore category">
         <button
           className={`chip ${cat === "all" ? "is-active" : ""}`}
           onClick={() => setCat("all")}
@@ -50,13 +46,6 @@ export function ExploreView() {
           );
         })}
       </div>
-
-      {resources.length === 0 && (
-        <p className="empty">
-          No Explore sites are turned on right now — a grown-up can enable some
-          in the Grown-Ups area.
-        </p>
-      )}
 
       <div className="reslist">
         {list.map((r) => {
@@ -89,6 +78,6 @@ export function ExploreView() {
           );
         })}
       </div>
-    </div>
+    </>
   );
 }

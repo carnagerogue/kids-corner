@@ -10,6 +10,7 @@ import {
 } from "../data/applications";
 import { ProofButton } from "../components/ProofButton";
 import { AppCard } from "../components/AppCard";
+import { ExploreSection } from "../components/ExploreSection";
 import { getKid, taskStatus, visibleAppsFor } from "../store/selectors";
 import { useClock } from "../hooks/useClock";
 
@@ -137,6 +138,12 @@ export function ApplicationsView() {
           ))}
         </div>
       )}
+
+      <h3 className="section-title">🌟 Explore</h3>
+      <p className="section-hint">
+        Safe, fun, and educational places to discover.
+      </p>
+      <ExploreSection />
 
       {week.length > 0 && (
         <>
