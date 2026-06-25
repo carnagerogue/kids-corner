@@ -28,6 +28,19 @@ export function ApplicationsView() {
   const kidRule = KID_RULES[kid.id];
   const week = weeklyFor(kid.id);
 
+  // Focus loop: opening the assignment keeps Kids Corner as home base and
+  // nudges the kid back to submit proof, instead of wandering off in a new tab.
+  const [workingSince, setWorkingSince] = useState<number | null>(null);
+  const status = todays ? taskStatus(state, kid.id, todays.id).status : "none";
+  // Only "in focus" while there's still work to show (not once submitted/done).
+  const inFocus =
+    workingSince !== null && (status === "none" || status === "rejected");
+  const workingMinutes = workingSince
+    ? Math.max(0, Math.floor((now.getTime() - workingSince) / 60_000))
+    : 0;
+  const startFocus = () => setWorkingSince((s) => s ?? Date.now());
+  const stopFocus = () => setWorkingSince(null);
+
   return (
     <div className="view">
       <div className="view__header">
@@ -53,7 +66,7 @@ export function ApplicationsView() {
 
       <h3 className="section-title">📌 Today's Assignment</h3>
       {todays ? (
-        <div className="assignment">
+        <div className={`assignment ${inFocus ? "assignment--focus" : ""}`}>
           <div className="assignment__top">
             <span className="assignment__theme">
               {themeMeta?.emoji} {WEEKDAY_LABELS[day]} · {todays.theme}
@@ -63,15 +76,38 @@ export function ApplicationsView() {
             </h4>
             <p className="assignment__task">{todays.task}</p>
           </div>
+
+          {inFocus && (
+            <div className="focusbar">
+              <span className="focusbar__tag">🎯 Working now</span>
+              <span className="focusbar__msg">
+                Come back here and tap{" "}
+                <strong>📸 Take photo to finish</strong> when you're done.
+              </span>
+              <span className="focusbar__time">⏱️ {workingMinutes} min</span>
+              {kid.id === "coby" && workingMinutes >= 25 && (
+                <span className="focusbar__break">
+                  🧃 25 minutes done — take a 5-minute break!
+                </span>
+              )}
+            </div>
+          )}
+
           <div className="assignment__actions">
             <a
               className="btn btn--primary"
               href={todays.url}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={startFocus}
             >
-              ↗ Open {todays.platform}
+              ↗ {inFocus ? `Reopen ${todays.platform}` : `Open ${todays.platform}`}
             </a>
+            {inFocus && (
+              <button className="btn btn--ghost" onClick={stopFocus}>
+                Not working on this
+              </button>
+            )}
           </div>
           <div className="assignment__proof">
             <ProofButton

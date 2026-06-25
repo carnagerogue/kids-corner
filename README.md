@@ -18,7 +18,11 @@ crafts, outdoor adventures, and kid-friendly rewards.
   with her login, Coby → Ascend Math, Hailee → Coursera), **today's assignment**
   based on the day of the week (Mon Math, Tue Code, Wed Science, Thu Civics, Fri
   Finish & Create), the house rules ("follow today's day only," plus Coby's
-  25-min-work / 5-min-break rule), and the full weekly plan.
+  25-min-work / 5-min-break rule), and the full weekly plan. Opening today's
+  assignment puts the card into a **focus mode** ("🎯 Working now…") with a live
+  timer that keeps Kids Corner as home base and nudges the kid back to submit
+  photo proof — the schoolwork opens in a new tab (the platforms block
+  embedding), so the app stays open underneath.
 - **🎯 Mission Board** — a big library of activities (arts & crafts, drawing,
   building, outdoor, science, writing, music, brain games, family, kindness,
   quiet time). Filter by category, indoor/outdoor, difficulty, or "best for this

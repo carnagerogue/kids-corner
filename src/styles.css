@@ -2312,3 +2312,64 @@ body.fun-cursor-on * {
     order: 3;
   }
 }
+
+/* ===========================================================================
+   Assignment focus loop
+   =========================================================================== */
+.assignment--focus {
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.85),
+    var(--shadow);
+}
+.assignment__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.assignment__actions .btn--ghost {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+}
+.focusbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px dashed rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+}
+.focusbar__tag {
+  font-weight: 800;
+  color: var(--kid-dark);
+  background: var(--kid-soft);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.focusbar__msg {
+  flex: 1;
+  min-width: 180px;
+  font-weight: 700;
+}
+.focusbar__time {
+  font-weight: 800;
+  color: var(--kid-dark);
+  white-space: nowrap;
+}
+.focusbar__break {
+  flex-basis: 100%;
+  font-weight: 800;
+  color: #b45309;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
