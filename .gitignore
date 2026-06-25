@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+.vite
+*.tsbuildinfo
+
+# Private logins — keep these off GitHub and out of the public build
+src/data/credentials.local.ts
