@@ -43,6 +43,10 @@ crafts, outdoor adventures, and kid-friendly rewards.
   background** from the Command Center: **Sparkle** (stars & rainbows),
   **Adventure** (rockets, dinos & lightning), or **Ocean** (fish & bubbles). The
   choice is saved per kid; Coby starts on Adventure, the others on Sparkle.
+- **🌟 Explore** — a browsable library of ~25 hand-picked, free, kid-safe
+  websites that are educational or just-plain-fun (Khan Academy, PBS Kids, NASA,
+  Mystery Science, Storyline Online, Code.org, Chrome Music Lab, and more),
+  filterable by category and opening in a new tab.
 - **🏆 Trophy Room** — levels with fun ranks (Sprout → Summer Hero), unlockable
   badges, streaks, and per-kid stats.
 - **💬 Messages** — each kid has a private chat thread with the grown-ups, and

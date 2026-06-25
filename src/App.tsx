@@ -10,6 +10,7 @@ import { CommandCenter } from "./views/CommandCenter";
 import { ScheduleView } from "./views/ScheduleView";
 import { ApplicationsView } from "./views/ApplicationsView";
 import { MissionBoard } from "./views/MissionBoard";
+import { ExploreView } from "./views/ExploreView";
 import { TrophyRoom } from "./views/TrophyRoom";
 import { MessagesView } from "./views/MessagesView";
 import { ParentZone } from "./views/ParentZone";
@@ -20,6 +21,7 @@ export type TabId =
   | "schedule"
   | "applications"
   | "missions"
+  | "explore"
   | "trophies"
   | "messages"
   | "parent";
@@ -29,6 +31,7 @@ export const TABS: { id: TabId; label: string; emoji: string }[] = [
   { id: "schedule", label: "Schedule", emoji: "🗓️" },
   { id: "applications", label: "Applications", emoji: "🧭" },
   { id: "missions", label: "Missions", emoji: "🎯" },
+  { id: "explore", label: "Explore", emoji: "🌟" },
   { id: "trophies", label: "Trophies", emoji: "🏆" },
   { id: "messages", label: "Messages", emoji: "💬" },
 ];
@@ -93,6 +96,7 @@ export function App() {
         {tab === "schedule" && <ScheduleView onTab={setTab} />}
         {tab === "applications" && <ApplicationsView />}
         {tab === "missions" && <MissionBoard />}
+        {tab === "explore" && <ExploreView />}
         {tab === "trophies" && <TrophyRoom />}
         {tab === "messages" && <MessagesView />}
         {tab === "parent" && <ParentZone onExit={() => setTab("home")} />}

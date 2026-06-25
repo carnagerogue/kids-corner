@@ -2916,6 +2916,65 @@ body.fun-cursor-on * {
 }
 
 /* ===========================================================================
+   Explore — library of safe fun + educational resources
+   =========================================================================== */
+.reslist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+.rescard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-top: 5px solid var(--cat, var(--kid));
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.rescard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+.rescard__head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.rescard__icon {
+  font-size: 2rem;
+  line-height: 1;
+  flex: none;
+}
+.rescard__cat {
+  display: block;
+  font-size: 0.66rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cat, var(--ink-soft));
+}
+.rescard__name {
+  font-family: var(--display);
+  font-size: 1.12rem;
+  color: var(--ink);
+  line-height: 1.15;
+}
+.rescard__blurb {
+  margin: 0;
+  flex: 1;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+/* ===========================================================================
    Mini calendar (date + month grid in the schedule rail)
    =========================================================================== */
 .cal {
