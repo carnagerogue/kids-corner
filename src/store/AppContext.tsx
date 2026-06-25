@@ -12,6 +12,7 @@ import type {
   KidId,
   Submission,
   SubmissionKind,
+  ThemeId,
 } from "../types";
 import {
   defaultState,
@@ -46,6 +47,7 @@ export type Action =
   | { type: "SET_KID_PIN"; kidId: KidId; pin: string }
   | { type: "ASSIGN_CHORE"; kidId: KidId; refId: string }
   | { type: "UNASSIGN_CHORE"; assignmentId: string }
+  | { type: "SET_THEME"; kidId: KidId; theme: ThemeId }
   | { type: "RESET_ALL" };
 
 function toggleInArray(arr: string[], id: string): string[] {
@@ -193,6 +195,12 @@ function reducer(state: AppState, action: Action): AppState {
         choreAssignments: state.choreAssignments.filter(
           (c) => c.id !== action.assignmentId,
         ),
+      };
+
+    case "SET_THEME":
+      return {
+        ...state,
+        themes: { ...state.themes, [action.kidId]: action.theme },
       };
 
     case "RESET_ALL":

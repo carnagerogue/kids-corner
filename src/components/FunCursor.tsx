@@ -1,16 +1,21 @@
 import { useEffect, useRef } from "react";
-
-const SPARKLES = ["✨", "⭐", "💫", "🌟"];
+import { useApp } from "../store/AppContext";
+import { resolveTheme } from "../data/themes";
 
 /**
- * A playful custom pointer: a spinning star that tracks the mouse exactly, a
- * soft glow ring that trails behind with easing, a sparkle trail on movement,
- * and a pop on click. Only activates on devices with a precise pointer (skips
- * touch) and tones down for `prefers-reduced-motion`.
+ * A playful custom pointer themed to the active kid's look: a pointer emoji that
+ * tracks the mouse exactly, a soft glow ring that trails behind with easing, a
+ * particle trail on movement, and a pop on click. Only activates on devices
+ * with a precise pointer (skips touch) and tones down for reduced motion.
  */
 export function FunCursor() {
+  const { state } = useApp();
+  const theme = resolveTheme(state.themes[state.activeKid]);
   const dotRef = useRef<HTMLDivElement>(null);
   const ringRef = useRef<HTMLDivElement>(null);
+  // Latest trail particles, read by the (mount-once) movement handler.
+  const trailRef = useRef(theme.cursor.trail);
+  trailRef.current = theme.cursor.trail;
 
   useEffect(() => {
     // No custom cursor on touch / coarse-pointer devices.
@@ -47,9 +52,10 @@ export function FunCursor() {
     };
 
     const spawnSparkle = (x: number, y: number) => {
+      const trail = trailRef.current;
       const s = document.createElement("span");
       s.className = "fun-sparkle";
-      s.textContent = SPARKLES[Math.floor(Math.random() * SPARKLES.length)];
+      s.textContent = trail[Math.floor(Math.random() * trail.length)];
       s.style.left = `${x}px`;
       s.style.top = `${y}px`;
       s.style.setProperty("--sx", `${Math.round((Math.random() * 2 - 1) * 18)}px`);
@@ -107,10 +113,18 @@ export function FunCursor() {
   return (
     <>
       <div ref={ringRef} className="fun-cursor-ring" aria-hidden="true">
-        <span className="fun-cursor-ring__in" />
+        <span
+          className="fun-cursor-ring__in"
+          style={
+            {
+              ["--cursor-ring" as string]: theme.cursor.ring,
+              ["--cursor-glow" as string]: theme.cursor.glow,
+            } as React.CSSProperties
+          }
+        />
       </div>
       <div ref={dotRef} className="fun-cursor-dot" aria-hidden="true">
-        <span className="fun-cursor-star">⭐</span>
+        <span className="fun-cursor-star">{theme.cursor.main}</span>
       </div>
     </>
   );

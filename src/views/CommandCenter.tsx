@@ -14,6 +14,7 @@ import {
   CATEGORY_META,
   NON_CHORE_ACTIVITIES,
 } from "../data/activities";
+import { THEMES } from "../data/themes";
 import { ProgressRing } from "../components/ProgressRing";
 import { ProofButton } from "../components/ProofButton";
 import { useClock, minutesSinceMidnight } from "../hooks/useClock";
@@ -27,9 +28,10 @@ function dayOfYear(d: Date): number {
 }
 
 export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   const now = useClock();
   const kid = KIDS[state.activeKid];
+  const activeTheme = state.themes[kid.id];
   const nowMin = minutesSinceMidnight(now);
 
   const currentBlock = SCHEDULE.find(
@@ -141,6 +143,31 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
       <h3 className="section-title">Your Corner</h3>
       <div className="crew crew--solo">
         <CrewCard kidId={state.activeKid} active />
+      </div>
+
+      <h3 className="section-title">
+        🎨 Pick Your Look{" "}
+        <span className="section-tag">mouse &amp; background</span>
+      </h3>
+      <div className="themepick">
+        {THEMES.map((t) => (
+          <button
+            key={t.id}
+            className={`themecard ${activeTheme === t.id ? "is-active" : ""}`}
+            onClick={() =>
+              dispatch({ type: "SET_THEME", kidId: kid.id, theme: t.id })
+            }
+          >
+            {activeTheme === t.id && (
+              <span className="themecard__check">✓</span>
+            )}
+            <span className="themecard__emoji">{t.emoji}</span>
+            <span className="themecard__name">{t.label}</span>
+            <span className="themecard__preview">
+              {t.background.floats.slice(0, 4).join(" ")}
+            </span>
+          </button>
+        ))}
       </div>
 
       <h3 className="section-title">⭐ Featured Mission of the Day</h3>

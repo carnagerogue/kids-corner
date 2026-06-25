@@ -4,6 +4,9 @@
 
 export type KidId = "claire" | "coby" | "hailee";
 
+/** A look-and-feel for the animated cursor + background (see data/themes.ts). */
+export type ThemeId = "sparkle" | "adventure" | "ocean";
+
 export type Kid = {
   id: KidId;
   name: string; // full name, e.g. "Claire Moon"
@@ -174,6 +177,8 @@ export type AppState = {
   submissions: Submission[];
   /** Chores a grown-up has assigned. Kids can't pick chores themselves. */
   choreAssignments: ChoreAssignment[];
+  /** Each kid's chosen look for the cursor + background. */
+  themes: Record<KidId, ThemeId>;
 };
 
 // Derived, read-only stats used by selectors / badges.

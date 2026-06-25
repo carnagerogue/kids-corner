@@ -2126,11 +2126,11 @@ body.fun-cursor-on * {
   height: 38px;
   margin: -19px 0 0 -19px;
   border-radius: 50%;
-  border: 3px solid rgba(255, 90, 140, 0.55);
+  border: 3px solid var(--cursor-ring, rgba(255, 90, 140, 0.55));
   box-shadow:
-    0 0 14px rgba(255, 120, 170, 0.45),
-    inset 0 0 10px rgba(168, 85, 247, 0.3);
-  background: radial-gradient(circle, rgba(255, 220, 150, 0.25), transparent 70%);
+    0 0 14px var(--cursor-glow, rgba(255, 120, 170, 0.45)),
+    inset 0 0 10px var(--cursor-glow, rgba(168, 85, 247, 0.3));
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.22), transparent 70%);
   transition: transform 0.15s ease, border-color 0.15s ease;
   animation: funRingPulse 2.4s ease-in-out infinite;
 }
@@ -2148,12 +2148,10 @@ body.fun-cursor-on * {
 /* Grows over clickable things, shrinks on press. */
 .fun-cursor-ring.is-hover .fun-cursor-ring__in {
   transform: scale(1.55);
-  border-color: rgba(168, 85, 247, 0.7);
   animation: none;
 }
 .fun-cursor-ring.is-down .fun-cursor-ring__in {
   transform: scale(0.7);
-  border-color: rgba(255, 200, 60, 0.9);
   animation: none;
 }
 
@@ -2372,4 +2370,57 @@ body.fun-cursor-on * {
   border: 1px solid #fed7aa;
   border-radius: var(--radius-sm);
   padding: 8px 10px;
+}
+
+/* ===========================================================================
+   Theme picker (mouse + background look)
+   =========================================================================== */
+.themepick {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.themecard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 12px;
+  background: var(--paper);
+  border: 3px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform 0.12s ease,
+    border-color 0.12s ease;
+}
+.themecard:hover {
+  transform: translateY(-2px);
+}
+.themecard.is-active {
+  border-color: var(--kid);
+  background: var(--kid-soft);
+}
+.themecard__emoji {
+  font-size: 2rem;
+  line-height: 1;
+}
+.themecard__name {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--ink);
+}
+.themecard__preview {
+  font-size: 1.05rem;
+  letter-spacing: 3px;
+}
+.themecard__check {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-weight: 900;
+  color: var(--kid-dark);
 }

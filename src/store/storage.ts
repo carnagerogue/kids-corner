@@ -4,8 +4,10 @@ import type {
   KidId,
   KidState,
   Submission,
+  ThemeId,
 } from "../types";
 import { KID_ORDER } from "../data/kids";
+import { THEME_BY_ID } from "../data/themes";
 
 const STORAGE_KEY = "kids-corner:v2";
 const STATE_VERSION = 2;
@@ -50,6 +52,8 @@ export function defaultState(): AppState {
     },
     submissions: [],
     choreAssignments: [],
+    // Boy gets Adventure by default; the rest start on Sparkle. All editable.
+    themes: { claire: "sparkle", coby: "adventure", hailee: "sparkle" },
   };
 }
 
@@ -110,6 +114,14 @@ export function loadState(): AppState {
       }
     }
 
+    const themes = { ...base.themes };
+    if (parsed.themes && typeof parsed.themes === "object") {
+      for (const id of KID_ORDER) {
+        const t = (parsed.themes as Record<string, unknown>)[id];
+        if (typeof t === "string" && t in THEME_BY_ID) themes[id] = t as ThemeId;
+      }
+    }
+
     return {
       version: STATE_VERSION,
       activeKid: isKidId(parsed.activeKid) ? parsed.activeKid : "claire",
@@ -121,6 +133,7 @@ export function loadState(): AppState {
       kids,
       submissions,
       choreAssignments,
+      themes,
     };
   } catch {
     return defaultState();

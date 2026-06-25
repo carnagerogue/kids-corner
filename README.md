@@ -32,6 +32,10 @@ crafts, outdoor adventures, and kid-friendly rewards.
   grown-up assigns a chore to a specific kid in the Grown-Ups area, and it then
   shows up under **Today's Chores** on that kid's Command Center to finish with
   photo proof (just like any other task).
+- **🎨 Pick Your Look** — each kid chooses a theme for the animated **cursor and
+  background** from the Command Center: **Sparkle** (stars & rainbows),
+  **Adventure** (rockets, dinos & lightning), or **Ocean** (fish & bubbles). The
+  choice is saved per kid; Coby starts on Adventure, the others on Sparkle.
 - **🏆 Trophy Room** — levels with fun ranks (Sprout → Summer Hero), unlockable
   badges, streaks, and per-kid stats.
 - **🔒 Grown-Ups** — a PIN-gated dashboard where a parent reviews photo proof and
@@ -127,5 +131,7 @@ and publishes it to GitHub Pages. The site is served from `/kids-corner/`
   in `src/types.ts`)
 - **Levels & ranks** — `src/data/levels.ts`
 - **Badges** — `src/data/badges.ts`
+- **Cursor & background themes** — `src/data/themes.ts` (add a theme to the
+  `THEMES` list and its id to the `ThemeId` type in `src/types.ts`)
 
 Built with React + TypeScript + Vite.
