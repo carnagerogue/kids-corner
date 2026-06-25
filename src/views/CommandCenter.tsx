@@ -162,9 +162,46 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
         </>
       )}
 
-      <h3 className="section-title">Your Corner</h3>
-      <div className="crew crew--solo">
-        <CrewCard kidId={state.activeKid} active />
+      <div className="dash__cards">
+        <section className="dash__card">
+          <h3 className="section-title">Your Corner</h3>
+          <div className="crew crew--solo">
+            <CrewCard kidId={state.activeKid} active />
+          </div>
+        </section>
+
+        <section className="dash__card">
+          <h3 className="section-title">⭐ Featured Mission of the Day</h3>
+          <div
+            className="featured"
+            style={{ ["--cat" as string]: featuredMeta.color }}
+          >
+            <div className="featured__icon">{featuredMeta.emoji}</div>
+            <div className="featured__body">
+              <span className="featured__cat">{featuredMeta.label}</span>
+              <strong className="featured__title">{featured.title}</strong>
+              <span className="featured__meta">
+                ⏱️ {featured.estimatedMinutes} min · ⚡ {featured.xp} XP ·{" "}
+                {featured.indoorOutdoor === "outdoor"
+                  ? "🌳 Outdoor"
+                  : featured.indoorOutdoor === "indoor"
+                    ? "🏠 Indoor"
+                    : "🔁 Anywhere"}
+              </span>
+            </div>
+            <div className="featured__cta">
+              <ProofButton
+                kidId={kid.id}
+                kind="mission"
+                refId={featured.id}
+                title={featured.title}
+                emoji={featuredMeta.emoji}
+                xp={featured.xp}
+                subtitle="Snap a photo of your finished mission."
+              />
+            </div>
+          </div>
+        </section>
       </div>
 
       <h3 className="section-title">
@@ -190,34 +227,6 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
             </span>
           </button>
         ))}
-      </div>
-
-      <h3 className="section-title">⭐ Featured Mission of the Day</h3>
-      <div className="featured" style={{ ["--cat" as string]: featuredMeta.color }}>
-        <div className="featured__icon">{featuredMeta.emoji}</div>
-        <div className="featured__body">
-          <span className="featured__cat">{featuredMeta.label}</span>
-          <strong className="featured__title">{featured.title}</strong>
-          <span className="featured__meta">
-            ⏱️ {featured.estimatedMinutes} min · ⚡ {featured.xp} XP ·{" "}
-            {featured.indoorOutdoor === "outdoor"
-              ? "🌳 Outdoor"
-              : featured.indoorOutdoor === "indoor"
-                ? "🏠 Indoor"
-                : "🔁 Anywhere"}
-          </span>
-        </div>
-        <div className="featured__cta">
-          <ProofButton
-            kidId={kid.id}
-            kind="mission"
-            refId={featured.id}
-            title={featured.title}
-            emoji={featuredMeta.emoji}
-            xp={featured.xp}
-            subtitle="Snap a photo of your finished mission."
-          />
-        </div>
       </div>
         </div>
       </div>
