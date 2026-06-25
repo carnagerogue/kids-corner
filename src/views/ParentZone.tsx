@@ -13,6 +13,8 @@ import {
 } from "../store/selectors";
 import { MessageThread } from "../components/MessageThread";
 import { MessageNotifier } from "../components/MessageNotifier";
+import { FIREBASE_READY } from "../firebase";
+import { readSyncCode, writeSyncCode } from "../sync";
 import type { Kid, KidId, Submission } from "../types";
 
 export function ParentZone({ onExit }: { onExit: () => void }) {
@@ -210,6 +212,8 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
 
       <ParentMessages />
 
+      <CloudSync />
+
       <ChoreAssigner />
 
       <ParentSettings />
@@ -394,6 +398,57 @@ function ParentApps() {
         <p className="settings__hint">
           Controls what {selKid.firstName} sees on their Applications page.
         </p>
+      </div>
+    </>
+  );
+}
+
+function CloudSync() {
+  const [code, setCode] = useState(() => readSyncCode());
+  const [saved, setSaved] = useState(false);
+  const active = readSyncCode();
+
+  const save = (e: React.FormEvent) => {
+    e.preventDefault();
+    writeSyncCode(code);
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 1800);
+  };
+
+  return (
+    <>
+      <h3 className="section-title">☁️ Cross-Device Sync</h3>
+      <div className="settings">
+        {!FIREBASE_READY ? (
+          <p className="settings__hint">
+            Cloud sync isn't set up yet, so messages stay on each device. Once a
+            Firebase project is connected, a "family sync code" box will appear
+            here to link your devices.
+          </p>
+        ) : (
+          <>
+            <form className="settings__row" onSubmit={save}>
+              <label className="settings__label">
+                Family sync code
+                <input
+                  className="settings__input"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.trim())}
+                  placeholder="A shared secret, e.g. moon-rocket-42"
+                  aria-label="Family sync code"
+                />
+              </label>
+              <button className="btn btn--primary" type="submit">
+                {saved ? "✓ Saved" : "Save"}
+              </button>
+            </form>
+            <p className="settings__hint">
+              Enter the <strong>same code on every device</strong> (this
+              computer and the kids') — messages then sync across all of them in
+              real time. {active ? "Status: ✅ syncing on this device." : "Status: off."}
+            </p>
+          </>
+        )}
       </div>
     </>
   );

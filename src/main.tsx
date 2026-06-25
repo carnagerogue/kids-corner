@@ -4,6 +4,7 @@ import { AppProvider } from "./store/AppContext";
 import { App } from "./App";
 import { AnimatedBackground } from "./components/AnimatedBackground";
 import { FunCursor } from "./components/FunCursor";
+import { MessageSync } from "./components/MessageSync";
 import "./styles.css";
 
 createRoot(document.getElementById("root")!).render(
@@ -11,6 +12,7 @@ createRoot(document.getElementById("root")!).render(
     <AppProvider>
       <AnimatedBackground />
       <FunCursor />
+      <MessageSync />
       <App />
     </AppProvider>
   </StrictMode>,

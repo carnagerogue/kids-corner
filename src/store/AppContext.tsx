@@ -64,6 +64,7 @@ export type Action =
   | { type: "SET_THEME"; kidId: KidId; theme: ThemeId }
   | { type: "SEND_MESSAGE"; kidId: KidId; from: MessageFrom; text: string }
   | { type: "MARK_MESSAGES_READ"; kidId: KidId; reader: MessageFrom }
+  | { type: "INGEST_MESSAGES"; messages: Message[] }
   | { type: "REPLACE_STATE"; state: AppState }
   | {
       type: "ADD_KID";
@@ -290,6 +291,17 @@ function reducer(state: AppState, action: Action): AppState {
         return m;
       });
       return changed ? { ...state, messages } : state;
+    }
+
+    case "INGEST_MESSAGES": {
+      // Merge in messages from another device (cross-device sync), by id.
+      const have = new Set(state.messages.map((m) => m.id));
+      const add = action.messages.filter((m) => m && m.id && !have.has(m.id));
+      if (!add.length) return state;
+      const merged = [...state.messages, ...add]
+        .sort((a, b) => a.at - b.at)
+        .slice(-300);
+      return { ...state, messages: merged };
     }
 
     case "REPLACE_STATE":
