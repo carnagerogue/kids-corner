@@ -117,6 +117,18 @@ export type Avatar3DBuyInfo = {
 /** Rarity tiers used by the 3D manifest (extends the 2D Rarity set). */
 export type Rarity3D = Rarity | "uncommon" | "seasonal";
 
+/**
+ * Grown-up-editable reward amounts: bonus coins granted (once) when a task is
+ * approved. These are ON TOP of the coins a learner already earns from XP, so a
+ * grown-up can dial how rewarding each finished task feels. 0 disables a bonus.
+ */
+export type RewardRates = {
+  /** Bonus coins for an approved mission. */
+  mission: number;
+  /** Bonus coins for an approved learning/assignment task. */
+  assignment: number;
+};
+
 // --- Activities (the summer mission library) ------------------------------
 
 export type ActivityCategory =
@@ -387,6 +399,8 @@ export type AppState = {
   reactions: Reaction[];
   /** The current shared family goal, if a grown-up set one. */
   familyGoal: FamilyGoal | null;
+  /** Grown-up-editable bonus coins per approved task (mission / assignment). */
+  rewardRates: RewardRates;
   /** App-catalog ids each kid is allowed to see (parent-controlled). */
   appVisibility: Record<KidId, string[]>;
   /** Explore resource ids each kid CANNOT see (default: none hidden). */

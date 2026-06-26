@@ -11,12 +11,27 @@ import type {
   KidId,
   KidState,
   Message,
+  RewardRates,
   SavedLoadout3D,
   ScheduleBlock,
   SchedulePlan,
   Submission,
   ThemeId,
 } from "../types";
+
+/** Default bonus coins per approved task. Grown-ups can change these. */
+export const DEFAULT_REWARD_RATES: RewardRates = { mission: 15, assignment: 10 };
+
+/** Coerce a stored reward-rates object to safe non-negative integers. */
+export function loadRewardRates(raw: unknown): RewardRates {
+  const r = raw as Partial<RewardRates> | undefined;
+  const coerce = (v: unknown, d: number) =>
+    typeof v === "number" && v >= 0 && v <= 100000 ? Math.round(v) : d;
+  return {
+    mission: coerce(r?.mission, DEFAULT_REWARD_RATES.mission),
+    assignment: coerce(r?.assignment, DEFAULT_REWARD_RATES.assignment),
+  };
+}
 import {
   DEFAULT_KIDS,
   DEFAULT_KID_PINS,
@@ -199,6 +214,7 @@ export function defaultState(): AppState {
     announcements: [],
     reactions: [],
     familyGoal: null,
+    rewardRates: { ...DEFAULT_REWARD_RATES },
     appVisibility,
     exploreHidden,
   };
@@ -435,6 +451,7 @@ export function loadState(): AppState {
       announcements,
       reactions,
       familyGoal,
+      rewardRates: loadRewardRates(parsed.rewardRates),
       appVisibility,
       exploreHidden,
     };

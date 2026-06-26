@@ -5,6 +5,7 @@
 // ---------------------------------------------------------------------------
 import { useMemo, useState } from "react";
 import { useApp } from "../../store/AppContext";
+import { DEFAULT_REWARD_RATES } from "../../store/storage";
 import {
   approvedSubmissions,
   coinBalance,
@@ -27,6 +28,11 @@ export function ParentAvatarControls() {
   const [kidId, setKidId] = useState(() => state.activeKid || kids[0]?.id || "");
   const [amount, setAmount] = useState(25);
   const [grantId, setGrantId] = useState("");
+  const savedRates = state.rewardRates ?? DEFAULT_REWARD_RATES;
+  const [rates, setRates] = useState(() => ({ ...savedRates }));
+  const ratesDirty =
+    rates.mission !== savedRates.mission ||
+    rates.assignment !== savedRates.assignment;
 
   const balance = coinBalance(state, kidId);
   const earned = coinsEarned(state, kidId);
@@ -181,9 +187,72 @@ export function ParentAvatarControls() {
         </button>
       </div>
 
+      {/* Editable reward amounts (family-wide) */}
+      <div className="settings">
+        <p className="settings__hint">
+          🎯 <strong>Reward amounts</strong> — bonus coins every child gets when
+          you approve a finished task (on top of the coins they earn from XP).
+          Set 0 for no bonus.
+        </p>
+        <div className="pav__raterow">
+          <label className="pav__rate">
+            <span className="pav__ratelbl">🎯 Per mission</span>
+            <input
+              type="number"
+              min={0}
+              max={9999}
+              value={rates.mission}
+              onChange={(e) =>
+                setRates((r) => ({
+                  ...r,
+                  mission: Math.max(0, Math.round(Number(e.target.value) || 0)),
+                }))
+              }
+              aria-label="Bonus coins per mission"
+            />
+            <span aria-hidden>🪙</span>
+          </label>
+          <label className="pav__rate">
+            <span className="pav__ratelbl">📚 Per learning task</span>
+            <input
+              type="number"
+              min={0}
+              max={9999}
+              value={rates.assignment}
+              onChange={(e) =>
+                setRates((r) => ({
+                  ...r,
+                  assignment: Math.max(0, Math.round(Number(e.target.value) || 0)),
+                }))
+              }
+              aria-label="Bonus coins per learning task"
+            />
+            <span aria-hidden>🪙</span>
+          </label>
+        </div>
+        <div className="settings__row">
+          <button
+            className="btn btn--primary"
+            disabled={!ratesDirty}
+            onClick={() => dispatch({ type: "SET_REWARD_RATES", rates })}
+          >
+            Save amounts
+          </button>
+          <button
+            className="btn btn--ghost"
+            onClick={() => {
+              setRates({ ...DEFAULT_REWARD_RATES });
+              dispatch({ type: "SET_REWARD_RATES", rates: { ...DEFAULT_REWARD_RATES } });
+            }}
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+
       {/* Reward rates (reference) */}
       <div className="settings">
-        <p className="settings__hint">How coins &amp; XP are earned (current rates):</p>
+        <p className="settings__hint">Typical earning (XP drives coins 1-for-1):</p>
         <ul className="pav__rates">
           {REWARD_RULES.map((r) => (
             <li key={r.id}>

@@ -32,6 +32,7 @@ function pickConfig(s: AppState): SyncConfig {
     loadouts3d: s.loadouts3d,
     purchasesLocked: s.purchasesLocked,
     familyGoal: s.familyGoal,
+    rewardRates: s.rewardRates,
     parentPin: s.parentPin,
   };
 }
@@ -212,6 +213,7 @@ export function FamilySync() {
     state.avatar3d,
     state.loadouts3d,
     state.purchasesLocked,
+    state.rewardRates,
     state.parentPin,
     code,
     ready,

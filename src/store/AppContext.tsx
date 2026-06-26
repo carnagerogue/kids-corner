@@ -22,6 +22,7 @@ import type {
   Message,
   ParticipantId,
   Reaction,
+  RewardRates,
   SavedLoadout3D,
   SchedulePlan,
   ScheduleScope,
@@ -50,9 +51,11 @@ export type SyncConfig = {
   loadouts3d: Record<string, SavedLoadout3D[]>;
   purchasesLocked: Record<string, boolean>;
   familyGoal: FamilyGoal | null;
+  rewardRates: RewardRates;
   parentPin: string;
 };
 import {
+  DEFAULT_REWARD_RATES,
   defaultState,
   emptyKidState,
   loadState,
@@ -124,6 +127,7 @@ export type Action =
       itemId: string | null;
     }
   | { type: "GRANT_COINS"; kidId: KidId; amount: number }
+  | { type: "SET_REWARD_RATES"; rates: RewardRates }
   | { type: "GRANT_AVATAR_ITEM"; kidId: KidId; itemId: string }
   | { type: "RESET_AVATAR3D"; kidId: KidId }
   | { type: "SET_PURCHASES_LOCKED"; kidId: KidId; locked: boolean }
@@ -313,9 +317,14 @@ function reducer(state: AppState, action: Action): AppState {
 
     case "REVIEW_SUBMISSION": {
       let reviewedKid: KidId | null = null;
+      let bonus = 0; // grown-up-set coins, granted once on first approval
       const submissions = state.submissions.map((s) => {
         if (s.id !== action.submissionId) return s;
         reviewedKid = s.kidId;
+        if (s.status !== "approved" && action.decision === "approved") {
+          const rates = state.rewardRates ?? DEFAULT_REWARD_RATES;
+          bonus = s.kind === "mission" ? rates.mission : rates.assignment;
+        }
         return {
           ...s,
           status: action.decision,
@@ -326,8 +335,29 @@ function reducer(state: AppState, action: Action): AppState {
           photo: action.decision === "approved" ? s.photo : "",
         };
       });
-      const next = { ...state, submissions };
+      let next = { ...state, submissions };
+      if (reviewedKid && bonus > 0) {
+        next = {
+          ...next,
+          coinsBonus: {
+            ...next.coinsBonus,
+            [reviewedKid]: (next.coinsBonus[reviewedKid] ?? 0) + bonus,
+          },
+        };
+      }
       return reviewedKid ? recomputeBadges(next, reviewedKid) : next;
+    }
+
+    case "SET_REWARD_RATES": {
+      const clamp = (v: number) =>
+        Number.isFinite(v) ? Math.max(0, Math.min(100000, Math.round(v))) : 0;
+      return {
+        ...state,
+        rewardRates: {
+          mission: clamp(action.rates.mission),
+          assignment: clamp(action.rates.assignment),
+        },
+      };
     }
 
     case "SET_PARENT_PIN":
@@ -955,6 +985,7 @@ function reducer(state: AppState, action: Action): AppState {
         purchasesLocked,
         familyGoal:
           cfg.familyGoal !== undefined ? cfg.familyGoal : state.familyGoal,
+        rewardRates: cfg.rewardRates ?? state.rewardRates ?? DEFAULT_REWARD_RATES,
         parentPin: cfg.parentPin || state.parentPin,
         activeKid,
       };
