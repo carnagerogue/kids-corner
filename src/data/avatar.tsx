@@ -17,6 +17,7 @@ export const SLOT_META: { slot: GearSlot; label: string; emoji: string }[] = [
   { slot: "bodyType", label: "Body", emoji: "🧍" },
   { slot: "skin", label: "Skin", emoji: "✋" },
   { slot: "hair", label: "Hair", emoji: "💇" },
+  { slot: "eyeShape", label: "Eyes", emoji: "👁️" },
   { slot: "face", label: "Face", emoji: "😄" },
   { slot: "outfit", label: "Outfit", emoji: "👕" },
   { slot: "hat", label: "Hat", emoji: "🧢" },
@@ -51,8 +52,22 @@ export const HAIR_COLORS: Record<string, Hair> = {
   silver: { base: "#cfd6e6", light: "#eef2fa", dark: "#a7b0c6" },
 };
 
+export const EYE_COLORS: Record<string, { base: string; deep: string }> = {
+  brown: { base: "#9c5e2e", deep: "#5e3414" },
+  amber: { base: "#e0a23a", deep: "#a86a18" },
+  hazel: { base: "#8a7a3a", deep: "#5a4a1e" },
+  blue: { base: "#3f8fe0", deep: "#1f56a6" },
+  teal: { base: "#26b3a6", deep: "#147a70" },
+  green: { base: "#46ad62", deep: "#1f7a40" },
+  violet: { base: "#9a6ae0", deep: "#6638ae" },
+  pink: { base: "#ff7aa8", deep: "#d4487a" },
+  red: { base: "#e0513a", deep: "#a82c1c" },
+  grey: { base: "#8b95a6", deep: "#5a626e" },
+};
+
 const skinOf = (id: string): Tone => SKIN_TONES[id] ?? SKIN_TONES.light;
 const hairOf = (id: string): Hair => HAIR_COLORS[id] ?? HAIR_COLORS.brown;
+const eyeOf = (id: string) => EYE_COLORS[id] ?? EYE_COLORS.brown;
 
 // --- Scenes ---------------------------------------------------------------
 
@@ -81,15 +96,34 @@ const t = (e: string, x: number, y: number, s: number) => (
 const LINE = "#43283c";
 const LW = 3.4;
 
-/** Big glossy "moe" eyes + tiny nose/mouth for an expression. */
-function renderFace(face: string, eyeId: string) {
-  // One large, dark, glossy eye centered at cx.
-  const eye = (cx: number, variant: string) => {
-    if (variant === "wink" && cx > 150) {
+/** The open-eye outline for an eye-shape, centered at cx. */
+function eyeOpening(cx: number, shape: string): string {
+  switch (shape) {
+    case "wide":
+      return `M${cx - 20} 138 C${cx - 20} 113 ${cx - 10} 107 ${cx} 107 C${cx + 10} 107 ${cx + 20} 113 ${cx + 20} 138 C${cx + 20} 164 ${cx + 10} 174 ${cx} 174 C${cx - 10} 174 ${cx - 20} 164 ${cx - 20} 138 Z`;
+    case "sharp":
+      return `M${cx - 20} 132 Q${cx - 15} 118 ${cx} 117 Q${cx + 15} 118 ${cx + 20} 132 Q${cx + 14} 160 ${cx} 166 Q${cx - 14} 160 ${cx - 20} 132 Z`;
+    case "gentle":
+      return `M${cx - 16} 142 C${cx - 16} 126 ${cx - 8} 122 ${cx} 122 C${cx + 8} 122 ${cx + 16} 126 ${cx + 16} 142 C${cx + 16} 160 ${cx + 8} 168 ${cx} 168 C${cx - 8} 168 ${cx - 16} 160 ${cx - 16} 142 Z`;
+    default: // round
+      return `M${cx - 17} 138 C${cx - 17} 116 ${cx - 9} 111 ${cx} 111 C${cx + 9} 111 ${cx + 17} 116 ${cx + 17} 138 C${cx + 17} 162 ${cx + 9} 172 ${cx} 172 C${cx - 9} 172 ${cx - 17} 162 ${cx - 17} 138 Z`;
+  }
+}
+
+/** Big anime eyes (colored iris, pupil, highlights, lashes) + nose/mouth. */
+function renderFace(
+  face: string,
+  eyeShape: string,
+  eyeGradId: string,
+  lashes: boolean,
+) {
+  const eye = (cx: number) => {
+    const outer = cx > 150 ? 1 : -1;
+    if (face === "wink" && cx > 150) {
       return (
         <path
           key={cx}
-          d={`M${cx - 17} 142 q17 -18 34 0`}
+          d={`M${cx - 17} 140 q17 -16 34 0`}
           fill="none"
           stroke={LINE}
           strokeWidth="6"
@@ -97,55 +131,78 @@ function renderFace(face: string, eyeId: string) {
         />
       );
     }
-    const shape = `M${cx - 17} 138 C ${cx - 17} 121 ${cx - 9} 116 ${cx} 116 C ${cx + 9} 116 ${cx + 17} 121 ${cx + 17} 138 C ${cx + 17} 158 ${cx + 9} 168 ${cx} 168 C ${cx - 9} 168 ${cx - 17} 158 ${cx - 17} 138 Z`;
+    const path = eyeOpening(cx, face === "surprised" ? "wide" : eyeShape);
     return (
       <g key={cx}>
-        <path d={shape} fill={`url(#${eyeId})`} stroke={LINE} strokeWidth="2.6" strokeLinejoin="round" />
-        {/* warm iris catch-glow, low */}
-        <ellipse cx={cx} cy={152} rx={11} ry={11} fill="#b66a72" opacity="0.5" />
-        {variant === "starry" ? (
-          t("⭐", cx, 142, 18)
+        {/* iris (the colored eye fill) */}
+        <path d={path} fill={`url(#${eyeGradId})`} stroke={LINE} strokeWidth="2.6" strokeLinejoin="round" />
+        {/* bright lower rim */}
+        <ellipse cx={cx} cy={160} rx={11} ry={6} fill="#fff" opacity="0.28" />
+        {/* pupil */}
+        <ellipse cx={cx} cy={141} rx={7.5} ry={10} fill="#23121b" />
+        {face === "starry" ? (
+          t("⭐", cx, 140, 17)
         ) : (
           <>
-            {/* big shine + small sparkle */}
-            <ellipse cx={cx - 4} cy={130} rx={7} ry={9} fill="#fff" opacity="0.92" />
-            <circle cx={cx + 6} cy={154} r={3.4} fill="#fff" opacity="0.85" />
+            <ellipse cx={cx - 5} cy={129} rx={6} ry={8} fill="#fff" />
+            <circle cx={cx + 6} cy={153} r={3} fill="#fff" opacity="0.9" />
           </>
         )}
-        {/* upper lid shadow */}
-        <path d={`M${cx - 16} 124 q16 -10 32 0 q-6 7 -16 6 q-10 1 -16 -6 z`} fill={LINE} opacity="0.9" />
+        {/* thick upper lash */}
+        <path d={`M${cx - 20} 126 Q${cx} 108 ${cx + 20} 126 Q${cx} 117 ${cx - 20} 126 Z`} fill={LINE} />
+        {/* outer corner flick */}
+        <path
+          d={`M${cx + outer * 18} 124 q${outer * 9} -3 ${outer * 13} 4`}
+          stroke={LINE}
+          strokeWidth="3.2"
+          fill="none"
+          strokeLinecap="round"
+        />
+        {/* lower lashes (girls) */}
+        {lashes && (
+          <path
+            d={`M${cx + outer * 15} 162 l${outer * 7} 6`}
+            stroke={LINE}
+            strokeWidth="2.6"
+            strokeLinecap="round"
+          />
+        )}
       </g>
     );
   };
 
-  const brows =
-    face === "determined" ? (
-      <>
-        <path d="M108 110 l24 5" stroke={LINE} strokeWidth="4.5" strokeLinecap="round" />
-        <path d="M192 110 l-24 5" stroke={LINE} strokeWidth="4.5" strokeLinecap="round" />
-      </>
-    ) : null;
+  const brows = lashes ? null : face === "determined" ? (
+    <>
+      <path d="M104 106 l28 7" stroke={LINE} strokeWidth="5" strokeLinecap="round" />
+      <path d="M196 106 l-28 7" stroke={LINE} strokeWidth="5" strokeLinecap="round" />
+    </>
+  ) : (
+    <>
+      <path d="M104 104 q14 -4 26 0" stroke={LINE} strokeWidth="4.5" strokeLinecap="round" fill="none" />
+      <path d="M196 104 q-14 -4 -26 0" stroke={LINE} strokeWidth="4.5" strokeLinecap="round" fill="none" />
+    </>
+  );
 
   const mouth =
     face === "surprised" ? (
-      <ellipse cx={150} cy={170} rx={7} ry={9} fill="#8a3f47" />
+      <ellipse cx={150} cy={172} rx={7} ry={9} fill="#8a3f47" />
     ) : face === "determined" ? (
-      <path d="M140 168 q10 6 20 0" fill="none" stroke="#8a3f47" strokeWidth="4" strokeLinecap="round" />
+      <path d="M140 170 q10 6 20 0" fill="none" stroke="#8a3f47" strokeWidth="4" strokeLinecap="round" />
     ) : (
-      <path d="M142 166 q8 9 16 0 q-8 4 -16 0 z" fill="#a8505a" />
+      <path d="M142 168 q8 9 16 0 q-8 4 -16 0 z" fill="#a8505a" />
     );
 
   return (
     <g>
       {brows}
-      {eye(118, face)}
-      {eye(182, face)}
+      {eye(118)}
+      {eye(182)}
       {/* tiny nose */}
-      <ellipse cx={150} cy={154} rx={2.4} ry={1.6} fill="rgba(120,70,60,0.45)" />
+      <ellipse cx={150} cy={156} rx={2.4} ry={1.6} fill="rgba(120,70,60,0.45)" />
       {mouth}
       {/* blush */}
-      <ellipse cx={100} cy={156} rx={13} ry={7.5} fill="rgba(255,120,150,0.4)" />
-      <ellipse cx={200} cy={156} rx={13} ry={7.5} fill="rgba(255,120,150,0.4)" />
+      <ellipse cx={98} cy={158} rx={13} ry={7.5} fill="rgba(255,120,150,0.42)" />
+      <ellipse cx={202} cy={158} rx={13} ry={7.5} fill="rgba(255,120,150,0.42)" />
     </g>
   );
 }
@@ -299,32 +356,52 @@ function renderOutfit(key: string, skin: Tone, body: string) {
   );
   const boyLower = (
     <>
-      {/* bare lower legs */}
-      <path d="M130 304 l-2 18 q8 4 14 0 l-1 -18 z" fill={skin.base} />
-      <path d="M157 304 l2 18 q-8 4 -14 0 l-1 -18 z" fill={skin.base} />
       {/* sneakers */}
-      <path d="M122 318 q-6 16 14 16 l18 0 0 -17 q-18 -2 -32 1 z" fill={p.shoe} />
-      <path d="M178 318 q6 16 -14 16 l-18 0 0 -17 q18 -2 32 1 z" fill={p.shoe} />
-      {/* shorts */}
-      <path d="M110 280 q40 16 80 0 l4 28 q-12 7 -28 6 l-2 -16 q-14 4 -28 0 l-2 16 q-16 1 -28 -6 z" fill={p.pants} />
+      <path d="M116 322 q-9 15 17 15 l20 0 0 -19 q-22 -2 -37 4 z" fill={p.shoe} />
+      <path d="M184 322 q9 15 -17 15 l-20 0 0 -19 q22 -2 37 4 z" fill={p.shoe} />
+      {/* full-length pants (two legs + inseam) */}
+      <path d="M106 282 q44 17 88 0 l6 46 q-16 6 -32 2 l-6 -34 q-6 2 -12 0 l-6 34 q-16 4 -32 -2 z" fill={p.pants} />
+      <path d="M150 296 v32" stroke={LINE} strokeWidth="2" opacity="0.4" />
     </>
   );
+  const isBoy = body === "boy";
   return (
     <g stroke={LINE} strokeWidth={LW} strokeLinejoin="round" strokeLinecap="round">
-      {/* arms (behind torso) */}
-      <path d="M108 230 q-26 10 -24 40 q1 16 16 20 q12 -3 12 -16 q-2 -28 -4 -44 z" fill={p.main} />
-      <path d="M192 230 q26 10 24 40 q-1 16 -16 20 q-12 -3 -12 -16 q2 -28 4 -44 z" fill={p.main} />
+      {/* arms (behind torso) — broader, lower-hanging for boys */}
+      <path
+        d={
+          isBoy
+            ? "M104 228 q-30 12 -28 44 q1 16 17 20 q13 -3 13 -17 q-3 -30 -2 -47 z"
+            : "M108 230 q-26 10 -24 40 q1 16 16 20 q12 -3 12 -16 q-2 -28 -4 -44 z"
+        }
+        fill={p.main}
+      />
+      <path
+        d={
+          isBoy
+            ? "M196 228 q30 12 28 44 q-1 16 -17 20 q-13 -3 -13 -17 q3 -30 2 -47 z"
+            : "M192 230 q26 10 24 40 q-1 16 -16 20 q-12 -3 -12 -16 q2 -28 4 -44 z"
+        }
+        fill={p.main}
+      />
       {/* hands */}
-      <circle cx={90} cy={288} r={12} fill={skin.base} />
-      <circle cx={210} cy={288} r={12} fill={skin.base} />
-      {body === "boy" ? boyLower : girlLower}
-      {/* torso */}
-      <path d="M104 252 q1 -38 46 -38 q45 0 46 38 l3 30 q-49 18 -98 0 z" fill={p.main} />
+      <circle cx={isBoy ? 88 : 90} cy={290} r={12} fill={skin.base} />
+      <circle cx={isBoy ? 212 : 210} cy={290} r={12} fill={skin.base} />
+      {isBoy ? boyLower : girlLower}
+      {/* torso — squarer/broader for boys, softer waist for girls */}
+      <path
+        d={
+          isBoy
+            ? "M98 254 q2 -42 52 -42 q50 0 52 42 l1 30 q-53 16 -106 0 z"
+            : "M104 252 q1 -38 46 -38 q45 0 46 38 l3 32 q-49 18 -98 0 z"
+        }
+        fill={p.main}
+      />
       {/* torso shade */}
       <path d="M152 220 q38 6 42 58 q-20 10 -42 10 z" fill="rgba(0,0,0,0.1)" stroke="none" />
       {/* collar */}
-      {body === "boy" ? (
-        <path d="M126 214 l24 24 24 -24 -8 -6 -16 14 -16 -14 z" fill={p.trim} />
+      {isBoy ? (
+        <path d="M124 212 l26 26 26 -26 -9 -6 -17 15 -17 -15 z" fill={p.trim} />
       ) : (
         <path d="M118 216 q32 -9 64 0 l-10 22 q-22 -7 -44 0 z" fill={p.trim} />
       )}
@@ -508,6 +585,15 @@ export const GEAR: GearItem[] = [
   ...Object.keys(HAIR_COLORS).map((k, i) =>
     item(`hc-${k}`, "hairColor", titleCase(k), i < 4 ? 0 : 40, k, i >= 4 ? "rare" : "common"),
   ),
+  // eye shapes
+  item("es-round", "eyeShape", "Round", 0, "round"),
+  item("es-wide", "eyeShape", "Wide", 40, "wide"),
+  item("es-gentle", "eyeShape", "Gentle", 40, "gentle"),
+  item("es-sharp", "eyeShape", "Sharp", 50, "sharp"),
+  // eye colors
+  ...Object.keys(EYE_COLORS).map((k, i) =>
+    item(`ec-${k}`, "eyeColor", titleCase(k), i < 3 ? 0 : 40, k, i >= 6 ? "rare" : "common"),
+  ),
   // faces
   item("face-cheerful", "face", "Cheerful", 0, "cheerful"),
   item("face-determined", "face", "Determined", 40, "determined"),
@@ -584,6 +670,8 @@ const CLAIRE_DEFAULT: AvatarConfig = {
   skin: "skin-light",
   hair: "hair-ponytail",
   hairColor: "hc-auburn",
+  eyeShape: "es-round",
+  eyeColor: "ec-violet",
   face: "face-cheerful",
   outfit: "outfit-explorer",
   hat: "hat-cap",
@@ -598,7 +686,8 @@ export function defaultAvatarConfig(): AvatarConfig {
 
 function valueOf(config: AvatarConfig, slot: GearSlot): string {
   const id = config[slot];
-  return ((id && GEAR_BY_ID[id]) || DEFAULT_GEAR[slot]).value;
+  const item = (id && GEAR_BY_ID[id]) || DEFAULT_GEAR[slot];
+  return item ? item.value : "";
 }
 
 export const RARITY_META: Record<Rarity, { label: string; color: string }> = {
@@ -633,6 +722,8 @@ export function Avatar({
   const skin = skinOf(valueOf(config, "skin"));
   const hair = hairOf(valueOf(config, "hairColor"));
   const hairStyle = valueOf(config, "hair");
+  const eyeCol = eyeOf(valueOf(config, "eyeColor"));
+  const eyeShape = valueOf(config, "eyeShape");
   const face = valueOf(config, "face");
   const outfit = valueOf(config, "outfit");
   const hat = valueOf(config, "hat");
@@ -652,8 +743,8 @@ export function Avatar({
     >
       <defs>
         <linearGradient id={eyeId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#2a1622" />
-          <stop offset="100%" stopColor="#5c3342" />
+          <stop offset="0%" stopColor={eyeCol.deep} />
+          <stop offset="100%" stopColor={eyeCol.base} />
         </linearGradient>
         <linearGradient id={bgId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={scene.stops[0]} />
@@ -693,7 +784,7 @@ export function Avatar({
           <path d="M150 196 q40 0 60 -28 q-12 34 -60 38 q-48 -4 -60 -38 q20 28 60 28 z" fill={skin.shade} opacity="0.32" />
           <path d="M210 92 q12 30 -2 64 q22 -34 2 -64 z" fill={skin.shade} opacity="0.22" />
 
-          <g className="av-eyes">{renderFace(face, eyeId)}</g>
+          <g className="av-eyes">{renderFace(face, eyeShape, eyeId, body === "girl")}</g>
 
           {renderHairFront(hairStyle, hair)}
           <g className="av-hat">{renderHat(hat)}</g>

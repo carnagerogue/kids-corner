@@ -36,6 +36,8 @@ export type GearSlot =
   | "skin"
   | "hair"
   | "hairColor"
+  | "eyeShape"
+  | "eyeColor"
   | "face"
   | "outfit"
   | "hat"

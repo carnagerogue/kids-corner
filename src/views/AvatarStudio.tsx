@@ -11,6 +11,7 @@ import {
 } from "../store/selectors";
 import {
   Avatar,
+  EYE_COLORS,
   GEAR,
   GEAR_BY_ID,
   HAIR_COLORS,
@@ -136,7 +137,17 @@ export function AvatarStudio() {
           </nav>
 
           {slot === "hair" && (
-            <HairColorRow
+            <ColorRow
+              slot="hairColor"
+              equipped={equipped}
+              kidId={kidId}
+              balance={balance}
+              level={level.level}
+            />
+          )}
+          {slot === "eyeShape" && (
+            <ColorRow
+              slot="eyeColor"
               equipped={equipped}
               kidId={kidId}
               balance={balance}
@@ -428,31 +439,35 @@ function CosmeticCard({
   );
 }
 
-function HairColorRow({
+function ColorRow({
+  slot,
   equipped,
   kidId,
   balance,
   level,
 }: {
+  slot: "hairColor" | "eyeColor";
   equipped: AvatarConfig;
   kidId: string;
   balance: number;
   level: number;
 }) {
   const { state, dispatch } = useApp();
-  const colors = GEAR.filter((g) => g.slot === "hairColor");
+  const colors = GEAR.filter((g) => g.slot === slot);
+  const hexOf = (v: string) =>
+    (slot === "eyeColor" ? EYE_COLORS[v]?.base : HAIR_COLORS[v]?.base) ?? "#888";
   return (
     <div className="haircolors">
       <span className="haircolors__label">Color</span>
       <div className="haircolors__row">
         {colors.map((g) => {
           const owned = ownsGear(state, kidId, g.id);
-          const isOn = equipped.hairColor === g.id;
+          const isOn = equipped[slot] === g.id;
           const locked = !!g.levelReq && level < g.levelReq;
-          const hex = HAIR_COLORS[g.value]?.base ?? "#888";
+          const hex = hexOf(g.value);
           const act = () => {
             if (isOn) return;
-            if (owned) dispatch({ type: "EQUIP_GEAR", kidId, slot: "hairColor", gearId: g.id });
+            if (owned) dispatch({ type: "EQUIP_GEAR", kidId, slot, gearId: g.id });
             else if (!locked && balance >= g.price)
               dispatch({ type: "BUY_GEAR", kidId, gearId: g.id });
           };
