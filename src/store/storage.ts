@@ -1,6 +1,7 @@
 import type {
   ActivityIdea,
   AppState,
+  AvatarConfig,
   ChoreAssignment,
   Kid,
   KidId,
@@ -180,6 +181,9 @@ export function defaultState(): AppState {
     schedules: defaultSchedules(),
     customActivities: [],
     activityImages: {},
+    coinsSpent: {},
+    ownedGear: {},
+    avatar: {},
     themes,
     messages: [],
     appVisibility,
@@ -242,6 +246,9 @@ export function loadState(): AppState {
     const themes: Record<KidId, ThemeId> = {};
     const appVisibility: Record<KidId, string[]> = {};
     const exploreHidden: Record<KidId, string[]> = {};
+    const coinsSpent: Record<KidId, number> = {};
+    const ownedGear: Record<KidId, string[]> = {};
+    const avatar: Record<KidId, AvatarConfig> = {};
     for (const id of ids) {
       const k = parsed.kids?.[id];
       kids[id] = k
@@ -276,6 +283,20 @@ export function loadState(): AppState {
       exploreHidden[id] = Array.isArray(hid)
         ? (hid as unknown[]).filter((x): x is string => typeof x === "string")
         : [];
+
+      const spent = (parsed.coinsSpent as Record<string, unknown> | undefined)?.[
+        id
+      ];
+      coinsSpent[id] = typeof spent === "number" && spent >= 0 ? spent : 0;
+
+      const owned = (parsed.ownedGear as Record<string, unknown> | undefined)?.[id];
+      ownedGear[id] = Array.isArray(owned)
+        ? (owned as unknown[]).filter((x): x is string => typeof x === "string")
+        : [];
+
+      const av = (parsed.avatar as Record<string, unknown> | undefined)?.[id];
+      avatar[id] =
+        av && typeof av === "object" ? (av as AvatarConfig) : {};
     }
 
     const submissions = Array.isArray(parsed.submissions)
@@ -330,6 +351,9 @@ export function loadState(): AppState {
         parsed.activityImages && typeof parsed.activityImages === "object"
           ? (parsed.activityImages as Record<string, string>)
           : {},
+      coinsSpent,
+      ownedGear,
+      avatar,
       themes,
       messages,
       appVisibility,

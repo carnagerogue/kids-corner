@@ -28,6 +28,32 @@ export type Kid = {
   motto: string;
 };
 
+// --- Avatar dress-up ------------------------------------------------------
+
+/** The customizable slots of a kid's avatar. */
+export type GearSlot = "color" | "outfit" | "hat" | "face" | "pet" | "background";
+
+/** Which gear item id is equipped in each slot (missing = the free default). */
+export type AvatarConfig = Partial<Record<GearSlot, string>>;
+
+/** A buyable/equippable avatar piece (see data/avatar.tsx). */
+export type GearItem = {
+  id: string;
+  slot: GearSlot;
+  name: string;
+  /** Coins to unlock. 0 = free default (always owned). */
+  price: number;
+  /** Hidden in the shop until the kid reaches this level. */
+  levelReq?: number;
+  /** Shop tile icon (emoji or a color swatch). */
+  icon: string;
+  /**
+   * For color/outfit/background slots: a CSS color. For hat/face/pet slots:
+   * the emoji rendered on the avatar. Empty string = nothing in that slot.
+   */
+  value: string;
+};
+
 // --- Activities (the summer mission library) ------------------------------
 
 export type ActivityCategory =
@@ -241,6 +267,12 @@ export type AppState = {
   customActivities: ActivityIdea[];
   /** Example photos a grown-up attached, keyed by activity id (data URLs). */
   activityImages: Record<string, string>;
+  /** Coins each kid has spent in the avatar shop (earned coins track XP). */
+  coinsSpent: Record<KidId, number>;
+  /** Gear item ids each kid has unlocked (free defaults are always owned). */
+  ownedGear: Record<KidId, string[]>;
+  /** Each kid's currently equipped avatar gear, per slot. */
+  avatar: Record<KidId, AvatarConfig>;
   /** Each kid's chosen look for the cursor + background. */
   themes: Record<KidId, ThemeId>;
   /** Messages between each kid and the grown-ups. */

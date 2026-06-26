@@ -3,13 +3,16 @@ import { getLevelInfo } from "../data/levels";
 import {
   activityById,
   choreAssignmentsFor,
+  coinBalance,
   computeStats,
   effectiveSchedule,
+  equippedAvatar,
   getDay,
   getKid,
   getKidXp,
   primaryAppFor,
 } from "../store/selectors";
+import { Avatar } from "../data/avatar";
 import { todayKey } from "../store/storage";
 import { CATEGORY_META, NON_CHORE_ACTIVITIES } from "../data/activities";
 import { THEMES } from "../data/themes";
@@ -338,7 +341,11 @@ function CrewCard({ kidId, active }: { kidId: KidId; active: boolean }) {
       {active && <span className="crewcard__you">You</span>}
       <div className="crewcard__head">
         <ProgressRing progress={level.progress} color={kid.color} size={66}>
-          <span className="crewcard__avatar">{kid.emoji}</span>
+          <Avatar
+            config={equippedAvatar(state, kidId)}
+            size={52}
+            className="crewcard__avatar"
+          />
         </ProgressRing>
         <div className="crewcard__id">
           <strong className="crewcard__name">{kid.firstName}</strong>
@@ -357,8 +364,8 @@ function CrewCard({ kidId, active }: { kidId: KidId; active: boolean }) {
           <span className="stat__lbl">streak</span>
         </div>
         <div className="stat">
-          <span className="stat__num">🏅 {state.kids[kidId].badges.length}</span>
-          <span className="stat__lbl">badges</span>
+          <span className="stat__num">🪙 {coinBalance(state, kidId)}</span>
+          <span className="stat__lbl">coins</span>
         </div>
       </div>
       <div className="crewcard__today">

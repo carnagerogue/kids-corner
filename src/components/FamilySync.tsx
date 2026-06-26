@@ -21,6 +21,9 @@ function pickConfig(s: AppState): SyncConfig {
     schedules: s.schedules,
     customActivities: s.customActivities,
     activityImages: s.activityImages,
+    coinsSpent: s.coinsSpent,
+    ownedGear: s.ownedGear,
+    avatar: s.avatar,
     parentPin: s.parentPin,
   };
 }
@@ -151,6 +154,9 @@ export function FamilySync() {
     state.schedules,
     state.customActivities,
     state.activityImages,
+    state.coinsSpent,
+    state.ownedGear,
+    state.avatar,
     state.parentPin,
     code,
     ready,

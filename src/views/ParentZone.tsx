@@ -11,6 +11,7 @@ import {
   choreAssignmentsFor,
   choreCatalog,
   customPlans,
+  equippedAvatar,
   familyPlan,
   getKid,
   getKidXp,
@@ -21,6 +22,7 @@ import {
   planForKid,
   taskStatus,
 } from "../store/selectors";
+import { Avatar } from "../data/avatar";
 import { computeStats } from "../store/selectors";
 import { getLevelInfo } from "../data/levels";
 import { BADGES } from "../data/badges";
@@ -389,7 +391,11 @@ function ParentProgress({ onZoom }: { onZoom: (src: string) => void }) {
 
       <div className="progcard" style={{ ["--this-kid" as string]: kid.color }}>
         <div className="progcard__head">
-          <span className="progcard__avatar">{kid.emoji}</span>
+          <Avatar
+            config={equippedAvatar(state, sel)}
+            size={52}
+            className="progcard__avatar"
+          />
           <div className="progcard__id">
             <strong className="progcard__name">{kid.firstName}</strong>
             <span className="progcard__rank">

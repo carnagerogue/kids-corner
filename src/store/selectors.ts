@@ -2,6 +2,7 @@ import type {
   ActivityCategory,
   ActivityIdea,
   AppState,
+  AvatarConfig,
   ChoreAssignment,
   DayProgress,
   Kid,
@@ -18,6 +19,11 @@ import { ACTIVITY_BY_ID, CATEGORY_ORDER, CHORES } from "../data/activities";
 import { APP_CATALOG, type CatalogApp } from "../data/applications";
 import { RESOURCES, type Resource } from "../data/resources";
 import { defaultSchedules } from "../data/schedule";
+import {
+  GEAR_BY_ID,
+  STARTER_COINS,
+  defaultAvatarConfig,
+} from "../data/avatar";
 import { todayKey } from "./storage";
 
 // --- Kid roster -----------------------------------------------------------
@@ -161,6 +167,31 @@ export function getKidXp(state: AppState, kidId: KidId): number {
   let xp = 0;
   for (const s of approvedSubmissions(state, kidId)) xp += s.xp;
   return xp;
+}
+
+// --- Avatar coins & gear --------------------------------------------------
+
+/** Coins earned over all time: a starter grant + 1 per XP from approved work. */
+export function coinsEarned(state: AppState, kidId: KidId): number {
+  return STARTER_COINS + getKidXp(state, kidId);
+}
+
+/** Spendable coin balance (earned minus what's been spent in the shop). */
+export function coinBalance(state: AppState, kidId: KidId): number {
+  return Math.max(0, coinsEarned(state, kidId) - (state.coinsSpent?.[kidId] ?? 0));
+}
+
+/** Has this kid unlocked a gear item? (Free defaults are always owned.) */
+export function ownsGear(state: AppState, kidId: KidId, gearId: string): boolean {
+  const item = GEAR_BY_ID[gearId];
+  if (!item) return false;
+  if (item.price === 0) return true;
+  return (state.ownedGear?.[kidId] ?? []).includes(gearId);
+}
+
+/** The kid's equipped gear, with free defaults filled in for empty slots. */
+export function equippedAvatar(state: AppState, kidId: KidId): AvatarConfig {
+  return { ...defaultAvatarConfig(), ...(state.avatar?.[kidId] ?? {}) };
 }
 
 /** Status of a given task for a kid on a given day (latest submission wins). */

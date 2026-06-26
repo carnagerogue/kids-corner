@@ -1,6 +1,13 @@
 import { useApp } from "../store/AppContext";
 import { getLevelInfo } from "../data/levels";
-import { getKid, getKidXp, kidUnreadCount } from "../store/selectors";
+import {
+  coinBalance,
+  equippedAvatar,
+  getKid,
+  getKidXp,
+  kidUnreadCount,
+} from "../store/selectors";
+import { Avatar } from "../data/avatar";
 import { TABS, type TabId } from "../App";
 import type { KidId } from "../types";
 
@@ -19,6 +26,8 @@ export function TopBar({
   const kidUnread = kidUnreadCount(state, user);
   const kid = getKid(state, user);
   const level = getLevelInfo(getKidXp(state, user));
+  const coins = coinBalance(state, user);
+  const avatar = equippedAvatar(state, user);
 
   return (
     <header className="topbar">
@@ -31,16 +40,28 @@ export function TopBar({
       </div>
 
       <div className="whoami">
-        <span
-          className="whoami__avatar"
+        <button
+          className="whoami__avatar whoami__avatar--btn"
           style={{ ["--this-kid" as string]: kid.color }}
+          onClick={() => onTab("avatar")}
+          aria-label="Open Avatar Studio"
+          title="Avatar Studio"
         >
-          {kid.emoji}
-        </span>
+          <Avatar config={avatar} size={42} />
+        </button>
         <span className="whoami__meta">
           <span className="whoami__name">{kid.firstName}</span>
-          <span className="whoami__lvl">
-            {level.rank.emoji} Lv {level.rank.level}
+          <span className="whoami__badges">
+            <span className="whoami__lvl">
+              {level.rank.emoji} Lv {level.rank.level}
+            </span>
+            <button
+              className="coinchip"
+              onClick={() => onTab("avatar")}
+              title="Spend coins in the Avatar Studio"
+            >
+              🪙 {coins}
+            </button>
           </span>
         </span>
         <button className="whoami__logout" onClick={onLogout}>

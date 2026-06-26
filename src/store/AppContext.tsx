@@ -9,7 +9,9 @@ import {
 import type {
   ActivityIdea,
   AppState,
+  AvatarConfig,
   ChoreAssignment,
+  GearSlot,
   Kid,
   KidId,
   Message,
@@ -32,6 +34,9 @@ export type SyncConfig = {
   schedules: SchedulePlan[];
   customActivities: ActivityIdea[];
   activityImages: Record<string, string>;
+  coinsSpent: Record<string, number>;
+  ownedGear: Record<string, string[]>;
+  avatar: Record<string, AvatarConfig>;
   parentPin: string;
 };
 import {
@@ -44,8 +49,10 @@ import {
   todayKey,
 } from "./storage";
 import { FAMILY_PLAN_ID, defaultSchedules } from "../data/schedule";
-import { computeStats } from "./selectors";
+import { coinBalance, computeStats, getKidXp, ownsGear } from "./selectors";
 import { BADGES } from "../data/badges";
+import { GEAR_BY_ID } from "../data/avatar";
+import { getLevelInfo } from "../data/levels";
 import { makeKid } from "../data/kids";
 import { DEFAULT_NEW_KID_APPS } from "../data/applications";
 
@@ -87,6 +94,8 @@ export type Action =
   | { type: "ADD_CUSTOM_ACTIVITY"; activity: ActivityIdea }
   | { type: "REMOVE_CUSTOM_ACTIVITY"; activityId: string }
   | { type: "SET_ACTIVITY_IMAGE"; activityId: string; image: string | null }
+  | { type: "BUY_GEAR"; kidId: KidId; gearId: string }
+  | { type: "EQUIP_GEAR"; kidId: KidId; slot: GearSlot; gearId: string }
   | { type: "SET_THEME"; kidId: KidId; theme: ThemeId }
   | {
       type: "SEND_MESSAGE";
@@ -390,6 +399,56 @@ function reducer(state: AppState, action: Action): AppState {
       };
     }
 
+    case "BUY_GEAR": {
+      const item = GEAR_BY_ID[action.gearId];
+      if (!item || item.price <= 0) return state;
+      if (ownsGear(state, action.kidId, action.gearId)) return state;
+      // Enforce affordability and any level requirement.
+      if (coinBalance(state, action.kidId) < item.price) return state;
+      if (
+        item.levelReq &&
+        getLevelInfo(getKidXp(state, action.kidId)).rank.level < item.levelReq
+      ) {
+        return state;
+      }
+      const owned = state.ownedGear[action.kidId] ?? [];
+      return {
+        ...state,
+        coinsSpent: {
+          ...state.coinsSpent,
+          [action.kidId]: (state.coinsSpent[action.kidId] ?? 0) + item.price,
+        },
+        ownedGear: {
+          ...state.ownedGear,
+          [action.kidId]: [...owned, action.gearId],
+        },
+        // Auto-equip the freshly bought piece.
+        avatar: {
+          ...state.avatar,
+          [action.kidId]: {
+            ...(state.avatar[action.kidId] ?? {}),
+            [item.slot]: action.gearId,
+          },
+        },
+      };
+    }
+
+    case "EQUIP_GEAR": {
+      const item = GEAR_BY_ID[action.gearId];
+      if (!item || item.slot !== action.slot) return state;
+      if (!ownsGear(state, action.kidId, action.gearId)) return state;
+      return {
+        ...state,
+        avatar: {
+          ...state.avatar,
+          [action.kidId]: {
+            ...(state.avatar[action.kidId] ?? {}),
+            [action.slot]: action.gearId,
+          },
+        },
+      };
+    }
+
     case "SET_THEME":
       return {
         ...state,
@@ -470,12 +529,18 @@ function reducer(state: AppState, action: Action): AppState {
       const themes: Record<string, ThemeId> = {};
       const appVisibility: Record<string, string[]> = {};
       const exploreHidden: Record<string, string[]> = {};
+      const coinsSpent: Record<string, number> = {};
+      const ownedGear: Record<string, string[]> = {};
+      const avatar: Record<string, AvatarConfig> = {};
       for (const k of kidProfiles) {
         kids[k.id] = state.kids[k.id] ?? emptyKidState();
         kidPins[k.id] = pick(cfg.kidPins, state.kidPins, k.id, "0000");
         themes[k.id] = pick(cfg.themes, state.themes, k.id, "sparkle");
         appVisibility[k.id] = pick(cfg.appVisibility, state.appVisibility, k.id, []);
         exploreHidden[k.id] = pick(cfg.exploreHidden, state.exploreHidden, k.id, []);
+        coinsSpent[k.id] = pick(cfg.coinsSpent, state.coinsSpent, k.id, 0);
+        ownedGear[k.id] = pick(cfg.ownedGear, state.ownedGear, k.id, []);
+        avatar[k.id] = pick(cfg.avatar, state.avatar, k.id, {});
       }
       const activeKid = kidProfiles.some((k) => k.id === state.activeKid)
         ? state.activeKid
@@ -523,6 +588,9 @@ function reducer(state: AppState, action: Action): AppState {
           cfg.activityImages && typeof cfg.activityImages === "object"
             ? cfg.activityImages
             : state.activityImages,
+        coinsSpent,
+        ownedGear,
+        avatar,
         parentPin: cfg.parentPin || state.parentPin,
         activeKid,
       };
@@ -602,6 +670,9 @@ function reducer(state: AppState, action: Action): AppState {
         themes: { ...state.themes, [id]: "sparkle" },
         appVisibility: { ...state.appVisibility, [id]: [...DEFAULT_NEW_KID_APPS] },
         exploreHidden: { ...state.exploreHidden, [id]: [] },
+        coinsSpent: { ...state.coinsSpent, [id]: 0 },
+        ownedGear: { ...state.ownedGear, [id]: [] },
+        avatar: { ...state.avatar, [id]: {} },
       };
     }
 
@@ -621,6 +692,9 @@ function reducer(state: AppState, action: Action): AppState {
         themes: omitKey(state.themes, action.kidId),
         appVisibility: omitKey(state.appVisibility, action.kidId),
         exploreHidden: omitKey(state.exploreHidden, action.kidId),
+        coinsSpent: omitKey(state.coinsSpent, action.kidId),
+        ownedGear: omitKey(state.ownedGear, action.kidId),
+        avatar: omitKey(state.avatar, action.kidId),
         submissions: state.submissions.filter((s) => s.kidId !== action.kidId),
         choreAssignments: state.choreAssignments.filter(
           (c) => c.kidId !== action.kidId,
