@@ -70,6 +70,23 @@ export type ScheduleBlock = {
   opensApplications?: boolean;
 };
 
+/** Who a schedule applies to: everyone, or a specific set of kids. */
+export type ScheduleScope =
+  | { kind: "family" }
+  | { kind: "kids"; kidIds: KidId[] };
+
+/**
+ * A named daily schedule a grown-up can edit. The "family" plan is the default
+ * everyone follows; a kids-scoped plan overrides it for one child (unique) or
+ * several (a group).
+ */
+export type SchedulePlan = {
+  id: string;
+  name: string;
+  scope: ScheduleScope;
+  blocks: ScheduleBlock[];
+};
+
 // --- Applications & curriculum -------------------------------------------
 
 export type Credential = { username: string; password: string };
@@ -202,6 +219,11 @@ export type AppState = {
   submissions: Submission[];
   /** Chores a grown-up has assigned. Kids can't pick chores themselves. */
   choreAssignments: ChoreAssignment[];
+  /**
+   * Grown-up-editable daily schedules. Always contains a "family" plan
+   * (everyone's default); extra plans override it per-kid or per-group.
+   */
+  schedules: SchedulePlan[];
   /** Each kid's chosen look for the cursor + background. */
   themes: Record<KidId, ThemeId>;
   /** Messages between each kid and the grown-ups. */

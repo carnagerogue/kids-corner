@@ -284,6 +284,158 @@ button {
   margin-top: 0;
 }
 
+/* --- Schedule editor (grown-ups) ------------------------------------------*/
+.msgtab--add {
+  border: 2px dashed var(--line);
+  background: transparent;
+  color: var(--kid-dark);
+}
+.planmeta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.plankids {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.kidchip {
+  border: 2px solid var(--line);
+  background: var(--paper);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 800;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.kidchip:hover {
+  transform: translateY(-1px);
+}
+.kidchip.is-on {
+  border-color: var(--this-kid, var(--kid));
+  background: color-mix(in srgb, var(--this-kid, var(--kid)) 14%, white);
+  color: var(--ink);
+}
+.schededit {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+.schedrow {
+  border: 2px solid var(--line);
+  border-left: 6px solid var(--accent, var(--kid));
+  border-radius: var(--radius-sm);
+  background: var(--paper-2);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.schedrow__line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.schedrow__emoji {
+  width: 52px;
+  text-align: center;
+  font-size: 1.2rem;
+  padding: 10px 6px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+}
+.schedrow__title {
+  flex: 1;
+  min-width: 140px;
+  padding: 10px 12px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font-weight: 800;
+  color: var(--ink);
+}
+.schedrow__moves {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.iconbtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 2px solid var(--line);
+  background: var(--paper);
+  font-weight: 900;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.iconbtn:hover:not(:disabled) {
+  color: var(--ink);
+  transform: translateY(-1px);
+}
+.iconbtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.iconbtn--del:hover:not(:disabled) {
+  border-color: #ff6b6b;
+  background: #ffecec;
+}
+.schedrow__time {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+.schedrow__time input {
+  padding: 8px 10px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font-weight: 700;
+  font-family: var(--sans);
+  color: var(--ink);
+}
+.schedrow__when {
+  margin-left: auto;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+.schedrow__note {
+  width: 100%;
+  padding: 9px 12px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  font-weight: 600;
+  color: var(--ink);
+}
+.schedrow__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+.schedrow__toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--kid);
+}
+.addblock {
+  align-self: flex-start;
+}
+
 /* --- Shared view bits -----------------------------------------------------*/
 .view {
   animation: rise 0.3s ease both;
@@ -2888,8 +3040,8 @@ body.fun-cursor-on * {
   transition: all 0.12s ease;
 }
 .msgtab.is-active {
-  border-color: var(--this-kid);
-  background: var(--this-kid);
+  border-color: var(--this-kid, var(--kid));
+  background: var(--this-kid, var(--kid));
   color: #fff;
 }
 .msgtab__pip {

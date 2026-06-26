@@ -8,13 +8,15 @@ import type {
   KidStats,
   Message,
   ParticipantId,
+  ScheduleBlock,
+  SchedulePlan,
   Submission,
   SubmissionStatus,
 } from "../types";
 import { ACTIVITY_BY_ID, CATEGORY_ORDER } from "../data/activities";
 import { APP_CATALOG, type CatalogApp } from "../data/applications";
 import { RESOURCES, type Resource } from "../data/resources";
-import { SCHEDULE } from "../data/schedule";
+import { defaultSchedules } from "../data/schedule";
 import { todayKey } from "./storage";
 
 // --- Kid roster -----------------------------------------------------------
@@ -63,6 +65,42 @@ export function visibleResourcesFor(state: AppState, kidId: KidId): Resource[] {
   return hidden.length
     ? RESOURCES.filter((r) => !hidden.includes(r.id))
     : RESOURCES;
+}
+
+// --- Schedules ------------------------------------------------------------
+
+/** Every schedule plan, with a safe default if state predates the feature. */
+export function allPlans(state: AppState): SchedulePlan[] {
+  return state.schedules?.length ? state.schedules : defaultSchedules();
+}
+
+/** The family plan everyone follows by default. */
+export function familyPlan(state: AppState): SchedulePlan {
+  const plans = allPlans(state);
+  return plans.find((p) => p.scope.kind === "family") ?? plans[0];
+}
+
+/** Custom (kids-scoped) plans, in definition order. */
+export function customPlans(state: AppState): SchedulePlan[] {
+  return allPlans(state).filter((p) => p.scope.kind === "kids");
+}
+
+/** The plan a kid actually follows: their custom plan if any, else family. */
+export function planForKid(state: AppState, kidId: KidId): SchedulePlan {
+  const custom = customPlans(state).find(
+    (p) =>
+      p.scope.kind === "kids" &&
+      Array.isArray(p.scope.kidIds) &&
+      p.scope.kidIds.includes(kidId) &&
+      Array.isArray(p.blocks) &&
+      p.blocks.length > 0,
+  );
+  return custom ?? familyPlan(state);
+}
+
+/** The schedule blocks a kid sees today. */
+export function effectiveSchedule(state: AppState, kidId: KidId): ScheduleBlock[] {
+  return planForKid(state, kidId).blocks;
 }
 
 const EMPTY_DAY = (date: string): DayProgress => ({
@@ -248,10 +286,12 @@ export function computeStats(
     }
   }
 
+  const scheduleLen = effectiveSchedule(state, kidId).length;
   let bestDayCount = 0;
   for (const day of Object.values(kid.history)) {
     totalScheduleBlocks += day.scheduleDone.length;
-    if (day.scheduleDone.length >= SCHEDULE.length) hadFullScheduleDay = true;
+    if (scheduleLen > 0 && day.scheduleDone.length >= scheduleLen)
+      hadFullScheduleDay = true;
     const count = day.scheduleDone.length + (approvedByDate.get(day.date) ?? 0);
     if (count > bestDayCount) bestDayCount = count;
   }

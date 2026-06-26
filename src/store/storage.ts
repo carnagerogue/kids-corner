@@ -5,6 +5,8 @@ import type {
   KidId,
   KidState,
   Message,
+  ScheduleBlock,
+  SchedulePlan,
   Submission,
   ThemeId,
 } from "../types";
@@ -15,6 +17,7 @@ import {
 } from "../data/kids";
 import { DEFAULT_NEW_KID_APPS, DEFAULT_VISIBLE_APPS } from "../data/applications";
 import { THEME_BY_ID } from "../data/themes";
+import { FAMILY_PLAN_ID, defaultSchedules } from "../data/schedule";
 
 export const STORAGE_KEY = "kids-corner:v2";
 const STATE_VERSION = 2;
@@ -45,6 +48,77 @@ export function emptyKidState(): KidState {
 /** Default visible apps for a kid id (seeded kids get their set; others basic). */
 export function defaultVisibility(id: KidId): string[] {
   return [...(DEFAULT_VISIBLE_APPS[id] ?? DEFAULT_NEW_KID_APPS)];
+}
+
+/** Coerce one stored block, dropping it if the essential fields are missing. */
+function loadBlock(raw: unknown): ScheduleBlock | null {
+  const b = raw as Record<string, unknown>;
+  if (
+    !b ||
+    typeof b.id !== "string" ||
+    typeof b.title !== "string" ||
+    typeof b.startMinutes !== "number" ||
+    typeof b.endMinutes !== "number"
+  ) {
+    return null;
+  }
+  return {
+    id: b.id,
+    title: b.title,
+    time: typeof b.time === "string" ? b.time : "",
+    startMinutes: b.startMinutes,
+    endMinutes: b.endMinutes,
+    emoji: typeof b.emoji === "string" ? b.emoji : "🗓️",
+    accent: typeof b.accent === "string" ? b.accent : "#3b82f6",
+    xp: typeof b.xp === "number" ? b.xp : 10,
+    // Only include the optional keys when present (avoid `undefined`, which
+    // Firebase rejects when this block is later synced).
+    ...(typeof b.note === "string" ? { note: b.note } : {}),
+    ...(b.opensApplications === true ? { opensApplications: true } : {}),
+  };
+}
+
+/**
+ * Load saved schedule plans defensively: validate shapes, restrict kid
+ * assignments to the current roster, and guarantee exactly one family plan.
+ */
+export function loadSchedules(raw: unknown, ids: KidId[]): SchedulePlan[] {
+  if (!Array.isArray(raw)) return defaultSchedules();
+  const idSet = new Set(ids);
+  const plans: SchedulePlan[] = [];
+  for (const item of raw as unknown[]) {
+    const p = item as Record<string, unknown>;
+    if (!p || typeof p.id !== "string" || !Array.isArray(p.blocks)) continue;
+    const blocks = (p.blocks as unknown[])
+      .map(loadBlock)
+      .filter((b): b is ScheduleBlock => b !== null);
+    const scope = p.scope as Record<string, unknown> | undefined;
+    if (p.id === FAMILY_PLAN_ID || scope?.kind === "family") {
+      plans.push({
+        id: FAMILY_PLAN_ID,
+        name: typeof p.name === "string" ? p.name : "Everyone",
+        scope: { kind: "family" },
+        blocks,
+      });
+    } else if (scope?.kind === "kids") {
+      const kidIds = Array.isArray(scope.kidIds)
+        ? (scope.kidIds as unknown[]).filter(
+            (x): x is string => typeof x === "string" && idSet.has(x),
+          )
+        : [];
+      plans.push({
+        id: p.id,
+        name: typeof p.name === "string" ? p.name : "Schedule",
+        scope: { kind: "kids", kidIds },
+        blocks,
+      });
+    }
+  }
+  // Guarantee a single family plan (seed one if the saved data lacked it).
+  if (!plans.some((p) => p.scope.kind === "family")) {
+    plans.unshift(defaultSchedules()[0]);
+  }
+  return plans;
 }
 
 /** Accept new-format messages; convert old kid↔parent ones; drop junk. */
@@ -102,6 +176,7 @@ export function defaultState(): AppState {
     kids,
     submissions: [],
     choreAssignments: [],
+    schedules: defaultSchedules(),
     themes,
     messages: [],
     appVisibility,
@@ -224,6 +299,7 @@ export function loadState(): AppState {
       kids,
       submissions,
       choreAssignments,
+      schedules: loadSchedules(parsed.schedules, ids),
       themes,
       messages,
       appVisibility,

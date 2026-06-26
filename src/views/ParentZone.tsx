@@ -7,17 +7,34 @@ import { APP_CATALOG } from "../data/applications";
 import { RESOURCES, RESOURCE_CATEGORIES } from "../data/resources";
 import {
   choreAssignmentsFor,
+  customPlans,
+  familyPlan,
   getKid,
   kidList,
   parentUnreadCount,
   pendingSubmissions,
+  planForKid,
   taskStatus,
 } from "../store/selectors";
+import {
+  BLOCK_ACCENTS,
+  FAMILY_PLAN_ID,
+  formatRange,
+  hhmmToMinutes,
+  minutesToHHMM,
+} from "../data/schedule";
+import { newId } from "../store/storage";
 import { MessageThread } from "../components/MessageThread";
 import { MessageNotifier } from "../components/MessageNotifier";
 import { FIREBASE_READY } from "../firebase";
 import { readSyncOverride, writeSyncCode } from "../sync";
-import type { Kid, KidId, Submission } from "../types";
+import type {
+  Kid,
+  KidId,
+  ScheduleBlock,
+  SchedulePlan,
+  Submission,
+} from "../types";
 
 export function ParentZone({ onExit }: { onExit: () => void }) {
   const [unlocked, setUnlocked] = useState(false);
@@ -82,12 +99,20 @@ function PinGate({
   );
 }
 
-type GTab = "review" | "messages" | "kids" | "apps" | "chores" | "settings";
+type GTab =
+  | "review"
+  | "messages"
+  | "kids"
+  | "schedule"
+  | "apps"
+  | "chores"
+  | "settings";
 
 const GTABS: { id: GTab; emoji: string; label: string }[] = [
   { id: "review", emoji: "📥", label: "Review" },
   { id: "messages", emoji: "💬", label: "Messages" },
   { id: "kids", emoji: "👧", label: "Kids" },
+  { id: "schedule", emoji: "🗓️", label: "Schedule" },
   { id: "apps", emoji: "🧭", label: "Apps" },
   { id: "chores", emoji: "🧹", label: "Chores" },
   { id: "settings", emoji: "⚙️", label: "Settings" },
@@ -110,6 +135,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
       : "All caught up — nothing waiting right now",
     messages: "Chat with each child",
     kids: "Add or remove children and set their login PINs",
+    schedule: "Build the daily schedule — for everyone, a group, or one child",
     apps: "Choose what each child sees in Apps and Explore",
     chores: "Assign chores for the kids to finish with photo proof",
     settings: "Cross-device sync, PINs, and resetting the summer",
@@ -155,6 +181,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
             <ParentPins />
           </>
         )}
+        {tab === "schedule" && <ScheduleEditor />}
         {tab === "apps" && (
           <>
             <ParentApps />
@@ -297,6 +324,279 @@ function ParentReview({ onZoom }: { onZoom: (src: string) => void }) {
           </div>
         </>
       )}
+    </>
+  );
+}
+
+function ScheduleEditor() {
+  const { state, dispatch } = useApp();
+  const kids = kidList(state);
+  const plans = state.schedules;
+  const family = familyPlan(state);
+  const custom = customPlans(state);
+  const [selId, setSelId] = useState<string>(FAMILY_PLAN_ID);
+  const plan = plans.find((p) => p.id === selId) ?? family;
+  const isFamily = plan.scope.kind === "family";
+
+  const save = (next: SchedulePlan) =>
+    dispatch({ type: "UPSERT_SCHEDULE_PLAN", plan: next });
+  const setBlocks = (blocks: ScheduleBlock[]) => save({ ...plan, blocks });
+
+  // Keep the human "time" label in sync with the start/end a grown-up picks.
+  const recalc = (b: ScheduleBlock): ScheduleBlock => ({
+    ...b,
+    time: formatRange(b.startMinutes, b.endMinutes),
+  });
+  const updateBlock = (i: number, patch: Partial<ScheduleBlock>) =>
+    setBlocks(
+      plan.blocks.map((b, idx) => (idx === i ? recalc({ ...b, ...patch }) : b)),
+    );
+  const removeBlock = (i: number) =>
+    setBlocks(plan.blocks.filter((_, idx) => idx !== i));
+  const moveBlock = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= plan.blocks.length) return;
+    const next = [...plan.blocks];
+    [next[i], next[j]] = [next[j], next[i]];
+    setBlocks(next);
+  };
+  const addBlock = () => {
+    const last = plan.blocks[plan.blocks.length - 1];
+    const start = last ? last.endMinutes : 9 * 60;
+    const end = Math.min(start + 60, 24 * 60 - 1);
+    setBlocks([
+      ...plan.blocks,
+      recalc({
+        id: newId(),
+        title: "New activity",
+        time: "",
+        startMinutes: start,
+        endMinutes: end,
+        emoji: "🗓️",
+        accent: BLOCK_ACCENTS[plan.blocks.length % BLOCK_ACCENTS.length],
+        xp: 10,
+      }),
+    ]);
+  };
+
+  const newPlan = () => {
+    const id = `plan-${newId().slice(0, 8)}`;
+    save({
+      id,
+      name: "New schedule",
+      scope: { kind: "kids", kidIds: [] },
+      // Start from a copy of the family schedule so there's something to tweak.
+      blocks: family.blocks.map((b) => ({ ...b, id: newId() })),
+    });
+    setSelId(id);
+  };
+  const toggleKid = (kidId: KidId) => {
+    if (plan.scope.kind !== "kids") return;
+    const has = plan.scope.kidIds.includes(kidId);
+    const kidIds = has
+      ? plan.scope.kidIds.filter((id) => id !== kidId)
+      : [...plan.scope.kidIds, kidId];
+    save({ ...plan, scope: { kind: "kids", kidIds } });
+  };
+  const deletePlan = () => {
+    if (isFamily) return;
+    if (
+      window.confirm(
+        `Delete the "${plan.name}" schedule? Kids on it go back to the family schedule.`,
+      )
+    ) {
+      dispatch({ type: "DELETE_SCHEDULE_PLAN", planId: plan.id });
+      setSelId(FAMILY_PLAN_ID);
+    }
+  };
+
+  const onFamily = kids.filter(
+    (k) => planForKid(state, k.id).id === FAMILY_PLAN_ID,
+  );
+
+  return (
+    <>
+      <h3 className="section-title">🗓️ Daily Schedule</h3>
+      <div className="settings">
+        <div className="msgtabs">
+          <button
+            className={`msgtab ${selId === family.id ? "is-active" : ""}`}
+            onClick={() => setSelId(family.id)}
+          >
+            👪 Everyone
+          </button>
+          {custom.map((p) => (
+            <button
+              key={p.id}
+              className={`msgtab ${selId === p.id ? "is-active" : ""}`}
+              onClick={() => setSelId(p.id)}
+            >
+              {p.name || "Untitled"}
+              {p.scope.kind === "kids" && p.scope.kidIds.length > 0 && (
+                <span className="msgtab__pip">{p.scope.kidIds.length}</span>
+              )}
+            </button>
+          ))}
+          <button className="msgtab msgtab--add" onClick={newPlan}>
+            ＋ New plan
+          </button>
+        </div>
+
+        {isFamily ? (
+          <p className="settings__hint">
+            This is the default schedule everyone follows.
+            {onFamily.length
+              ? ` Right now: ${onFamily.map((k) => k.firstName).join(", ")}.`
+              : " Every child currently has their own schedule."}
+          </p>
+        ) : (
+          <div className="planmeta">
+            <label className="settings__label">
+              Schedule name
+              <input
+                className="settings__input"
+                value={plan.name}
+                maxLength={40}
+                onChange={(e) => save({ ...plan, name: e.target.value })}
+                placeholder="e.g. School days, Weekends, Coby's plan"
+              />
+            </label>
+            <span className="settings__label">Who follows this schedule?</span>
+            <div className="plankids">
+              {kids.map((k) => {
+                const on =
+                  plan.scope.kind === "kids" &&
+                  plan.scope.kidIds.includes(k.id);
+                return (
+                  <button
+                    key={k.id}
+                    className={`kidchip ${on ? "is-on" : ""}`}
+                    style={{ ["--this-kid" as string]: k.color }}
+                    onClick={() => toggleKid(k.id)}
+                  >
+                    {k.emoji} {k.firstName} {on ? "✓" : ""}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="settings__hint">
+              Pick one child for a unique schedule, or several for a group. A
+              child can only be on one custom schedule at a time.
+            </p>
+          </div>
+        )}
+
+        <div className="schededit">
+          {plan.blocks.length === 0 && (
+            <p className="empty">No blocks yet — add the first one below. 🗓️</p>
+          )}
+          {plan.blocks.map((b, i) => (
+            <div
+              key={b.id}
+              className="schedrow"
+              style={{ ["--accent" as string]: b.accent }}
+            >
+              <div className="schedrow__line">
+                <input
+                  className="schedrow__emoji"
+                  value={b.emoji}
+                  maxLength={3}
+                  aria-label="Emoji"
+                  onChange={(e) => updateBlock(i, { emoji: e.target.value })}
+                />
+                <input
+                  className="schedrow__title"
+                  value={b.title}
+                  placeholder="Activity name"
+                  aria-label="Activity name"
+                  onChange={(e) => updateBlock(i, { title: e.target.value })}
+                />
+                <div className="schedrow__moves">
+                  <button
+                    className="iconbtn"
+                    disabled={i === 0}
+                    onClick={() => moveBlock(i, -1)}
+                    aria-label="Move up"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    className="iconbtn"
+                    disabled={i === plan.blocks.length - 1}
+                    onClick={() => moveBlock(i, 1)}
+                    aria-label="Move down"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    className="iconbtn iconbtn--del"
+                    onClick={() => removeBlock(i)}
+                    aria-label="Delete block"
+                  >
+                    🗑
+                  </button>
+                </div>
+              </div>
+              <div className="schedrow__line">
+                <label className="schedrow__time">
+                  From
+                  <input
+                    type="time"
+                    value={minutesToHHMM(b.startMinutes)}
+                    onChange={(e) =>
+                      updateBlock(i, {
+                        startMinutes: hhmmToMinutes(e.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <label className="schedrow__time">
+                  To
+                  <input
+                    type="time"
+                    value={minutesToHHMM(b.endMinutes)}
+                    onChange={(e) =>
+                      updateBlock(i, {
+                        endMinutes: hhmmToMinutes(e.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <span className="schedrow__when">{b.time}</span>
+              </div>
+              <input
+                className="schedrow__note"
+                value={b.note ?? ""}
+                placeholder="Note (optional)"
+                onChange={(e) =>
+                  updateBlock(i, { note: e.target.value || undefined })
+                }
+              />
+              <label className="schedrow__toggle">
+                <input
+                  type="checkbox"
+                  checked={!!b.opensApplications}
+                  onChange={(e) =>
+                    updateBlock(i, {
+                      opensApplications: e.target.checked || undefined,
+                    })
+                  }
+                />
+                Show an "Open Applications" button on this block
+              </label>
+            </div>
+          ))}
+          <button className="btn btn--ghost addblock" onClick={addBlock}>
+            ＋ Add block
+          </button>
+        </div>
+
+        {!isFamily && (
+          <button className="btn btn--danger btn--sm" onClick={deletePlan}>
+            Delete this schedule
+          </button>
+        )}
+      </div>
     </>
   );
 }

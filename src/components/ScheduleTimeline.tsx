@@ -1,6 +1,5 @@
 import { useApp } from "../store/AppContext";
-import { SCHEDULE } from "../data/schedule";
-import { getDay, getKid } from "../store/selectors";
+import { effectiveSchedule, getDay, getKid } from "../store/selectors";
 import { useClock, minutesSinceMidnight } from "../hooks/useClock";
 import type { TabId } from "../App";
 
@@ -15,17 +14,24 @@ export function ScheduleTimeline({ onTab }: { onTab: (t: TabId) => void }) {
   const now = useClock();
   const nowMin = minutesSinceMidnight(now);
   const kid = getKid(state, state.activeKid);
+  const blocks = effectiveSchedule(state, kid.id);
   const today = getDay(state, kid.id);
   const doneSet = new Set(today.scheduleDone);
 
-  const current = SCHEDULE.find(
+  const current = blocks.find(
     (b) => nowMin >= b.startMinutes && nowMin < b.endMinutes,
   );
-  const next = SCHEDULE.find((b) => b.startMinutes > nowMin);
+  const next = blocks.find((b) => b.startMinutes > nowMin);
+
+  if (blocks.length === 0) {
+    return (
+      <p className="empty">No schedule set for today. A grown-up can add one. 🗓️</p>
+    );
+  }
 
   return (
     <ul className="timeline">
-      {SCHEDULE.map((block) => {
+      {blocks.map((block) => {
         const done = doneSet.has(block.id);
         const isNow = current?.id === block.id;
         const isNext = next?.id === block.id;

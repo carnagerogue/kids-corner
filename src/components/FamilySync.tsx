@@ -18,8 +18,35 @@ function pickConfig(s: AppState): SyncConfig {
     themes: s.themes,
     appVisibility: s.appVisibility,
     exploreHidden: s.exploreHidden,
+    schedules: s.schedules,
     parentPin: s.parentPin,
   };
+}
+
+/**
+ * Drop empty arrays/objects, null and undefined — exactly what Firebase does on
+ * write. We push and compare this canonical form so a value the cloud strips
+ * (an empty `kidIds`, `exploreHidden`, etc.) can't trigger an endless re-push.
+ */
+function prune(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    const arr = value.map(prune).filter((v) => v !== undefined);
+    return arr.length ? arr : undefined;
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const k of Object.keys(value as Record<string, unknown>)) {
+      const v = prune((value as Record<string, unknown>)[k]);
+      if (v !== undefined) out[k] = v;
+    }
+    return Object.keys(out).length ? out : undefined;
+  }
+  return value === null ? undefined : value;
+}
+
+/** Canonical (Firebase-shaped) JSON for change detection. */
+function canon(cfg: unknown): string {
+  return JSON.stringify(prune(cfg) ?? {});
 }
 
 const subHash = (s: Submission) =>
@@ -70,7 +97,7 @@ export function FamilySync() {
       onValue(ref(db, `${base}/config`), (snap) => {
         const cfg = snap.val() as SyncConfig | null;
         if (cfg && Array.isArray(cfg.kidProfiles) && cfg.kidProfiles.length) {
-          lastConfig.current = JSON.stringify(cfg);
+          lastConfig.current = canon(cfg);
           dispatch({ type: "SET_CONFIG", config: cfg });
         }
         setReady(true);
@@ -105,11 +132,12 @@ export function FamilySync() {
     if (!FIREBASE_READY || !code || !ready) return;
     const db = getDb();
     if (!db) return;
-    const cfg = pickConfig(state);
-    const json = JSON.stringify(cfg);
+    const pruned = prune(pickConfig(state)) ?? {};
+    const json = JSON.stringify(pruned);
     if (json === lastConfig.current) return;
     lastConfig.current = json;
-    void set(ref(db, `rooms/${safe(code)}/config`), cfg).catch(() => {});
+    // `pruned` already drops undefined/empty values Firebase would reject.
+    void set(ref(db, `rooms/${safe(code)}/config`), pruned).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     state.kidProfiles,
@@ -118,6 +146,7 @@ export function FamilySync() {
     state.themes,
     state.appVisibility,
     state.exploreHidden,
+    state.schedules,
     state.parentPin,
     code,
     ready,

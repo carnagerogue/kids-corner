@@ -13,6 +13,8 @@ import type {
   KidId,
   Message,
   ParticipantId,
+  SchedulePlan,
+  ScheduleScope,
   Submission,
   SubmissionKind,
   ThemeId,
@@ -26,6 +28,7 @@ export type SyncConfig = {
   themes: Record<string, ThemeId>;
   appVisibility: Record<string, string[]>;
   exploreHidden: Record<string, string[]>;
+  schedules: SchedulePlan[];
   parentPin: string;
 };
 import {
@@ -37,6 +40,7 @@ import {
   STORAGE_KEY,
   todayKey,
 } from "./storage";
+import { FAMILY_PLAN_ID, defaultSchedules } from "../data/schedule";
 import { computeStats } from "./selectors";
 import { BADGES } from "../data/badges";
 import { makeKid } from "../data/kids";
@@ -75,6 +79,8 @@ export type Action =
   | { type: "SET_KID_PIN"; kidId: KidId; pin: string }
   | { type: "ASSIGN_CHORE"; kidId: KidId; refId: string }
   | { type: "UNASSIGN_CHORE"; assignmentId: string }
+  | { type: "UPSERT_SCHEDULE_PLAN"; plan: SchedulePlan }
+  | { type: "DELETE_SCHEDULE_PLAN"; planId: string }
   | { type: "SET_THEME"; kidId: KidId; theme: ThemeId }
   | {
       type: "SEND_MESSAGE";
@@ -301,6 +307,44 @@ function reducer(state: AppState, action: Action): AppState {
         ),
       };
 
+    case "UPSERT_SCHEDULE_PLAN": {
+      // Family plan is always family-scoped; custom plans are kids-scoped.
+      const incoming: SchedulePlan =
+        action.plan.id === FAMILY_PLAN_ID
+          ? { ...action.plan, scope: { kind: "family" } }
+          : action.plan;
+      // A kid follows at most one custom plan, so adding kids here removes them
+      // from any other custom plan (keeps resolution unambiguous).
+      const claimed =
+        incoming.scope.kind === "kids"
+          ? new Set(incoming.scope.kidIds)
+          : new Set<KidId>();
+      let found = false;
+      const schedules = state.schedules.map((p) => {
+        if (p.id === incoming.id) {
+          found = true;
+          return incoming;
+        }
+        if (p.scope.kind === "kids" && claimed.size) {
+          const kept = p.scope.kidIds.filter((id) => !claimed.has(id));
+          if (kept.length !== p.scope.kidIds.length) {
+            return { ...p, scope: { kind: "kids", kidIds: kept } as ScheduleScope };
+          }
+        }
+        return p;
+      });
+      if (!found) schedules.push(incoming);
+      return { ...state, schedules };
+    }
+
+    case "DELETE_SCHEDULE_PLAN": {
+      if (action.planId === FAMILY_PLAN_ID) return state; // never delete family
+      return {
+        ...state,
+        schedules: state.schedules.filter((p) => p.id !== action.planId),
+      };
+    }
+
     case "SET_THEME":
       return {
         ...state,
@@ -391,6 +435,32 @@ function reducer(state: AppState, action: Action): AppState {
       const activeKid = kidProfiles.some((k) => k.id === state.activeKid)
         ? state.activeKid
         : kidProfiles[0].id;
+
+      // Schedules are shared config: prefer the remote copy (propagates edits),
+      // but keep kid assignments limited to kids that still exist. Firebase
+      // strips empty arrays, so a synced plan may arrive without kidIds/blocks
+      // — normalize defensively to arrays.
+      const liveIds = new Set(kidProfiles.map((k) => k.id));
+      const rawSchedules =
+        Array.isArray(cfg.schedules) && cfg.schedules.length
+          ? cfg.schedules
+          : state.schedules;
+      let schedules: SchedulePlan[] = (rawSchedules ?? []).map((p) => {
+        const blocks = Array.isArray(p.blocks) ? p.blocks : [];
+        if (p.scope?.kind === "kids") {
+          const kidIds = Array.isArray(p.scope.kidIds) ? p.scope.kidIds : [];
+          return {
+            ...p,
+            blocks,
+            scope: { kind: "kids", kidIds: kidIds.filter((id) => liveIds.has(id)) },
+          };
+        }
+        return { ...p, blocks, scope: { kind: "family" } };
+      });
+      if (!schedules.some((p) => p.scope.kind === "family")) {
+        schedules = [defaultSchedules()[0], ...schedules];
+      }
+
       return {
         ...state,
         kidProfiles,
@@ -400,6 +470,7 @@ function reducer(state: AppState, action: Action): AppState {
         themes,
         appVisibility,
         exploreHidden,
+        schedules,
         parentPin: cfg.parentPin || state.parentPin,
         activeKid,
       };
@@ -501,6 +572,17 @@ function reducer(state: AppState, action: Action): AppState {
         submissions: state.submissions.filter((s) => s.kidId !== action.kidId),
         choreAssignments: state.choreAssignments.filter(
           (c) => c.kidId !== action.kidId,
+        ),
+        schedules: state.schedules.map((p) =>
+          p.scope.kind === "kids"
+            ? {
+                ...p,
+                scope: {
+                  kind: "kids",
+                  kidIds: p.scope.kidIds.filter((id) => id !== action.kidId),
+                },
+              }
+            : p,
         ),
         messages: state.messages.filter(
           (m) => m.from !== action.kidId && m.to !== action.kidId,

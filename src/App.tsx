@@ -59,6 +59,16 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, state.kidProfiles]);
 
+  // Keep the shared activeKid pinned to whoever is logged in on this device, so
+  // a page reload or a cross-tab/cross-device state merge can never leave the
+  // views (schedule, missions, XP) showing another kid's data.
+  useEffect(() => {
+    if (user !== null && state.activeKid !== user) {
+      dispatch({ type: "SET_ACTIVE_KID", kidId: user });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, state.activeKid]);
+
   // Not logged in: show the login screen — unless a grown-up is heading to the
   // parent area, which has its own PIN gate.
   if (user === null) {

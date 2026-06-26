@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "../store/AppContext";
-import { SCHEDULE } from "../data/schedule";
+import { effectiveSchedule } from "../store/selectors";
 import { todayKey } from "../store/storage";
 import { useClock, minutesSinceMidnight } from "../hooks/useClock";
 import { playChime } from "../chime";
@@ -29,10 +29,11 @@ function fireSystemNotification(block: ScheduleBlock) {
 export function ScheduleNotifier() {
   const { state, dispatch } = useApp();
   const activeKid = state.activeKid;
+  const blocks = effectiveSchedule(state, activeKid);
   const now = useClock(20_000);
   const nowMin = minutesSinceMidnight(now);
   const current =
-    SCHEDULE.find((b) => nowMin >= b.startMinutes && nowMin < b.endMinutes) ??
+    blocks.find((b) => nowMin >= b.startMinutes && nowMin < b.endMinutes) ??
     null;
 
   const lastId = useRef<string | null>(current?.id ?? null);
@@ -55,9 +56,9 @@ export function ScheduleNotifier() {
     const doneSet = new Set(
       state.kids[activeKid].history[today]?.scheduleDone ?? [],
     );
-    const toAdd = SCHEDULE.filter(
-      (b) => b.endMinutes <= nowMin && !doneSet.has(b.id),
-    ).map((b) => b.id);
+    const toAdd = blocks
+      .filter((b) => b.endMinutes <= nowMin && !doneSet.has(b.id))
+      .map((b) => b.id);
     if (toAdd.length) {
       dispatch({ type: "COMPLETE_SCHEDULE", kidId: activeKid, blockIds: toAdd });
     }

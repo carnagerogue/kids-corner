@@ -3,13 +3,13 @@ import { getLevelInfo } from "../data/levels";
 import {
   choreAssignmentsFor,
   computeStats,
+  effectiveSchedule,
   getDay,
   getKid,
   getKidXp,
   primaryAppFor,
 } from "../store/selectors";
 import { todayKey } from "../store/storage";
-import { SCHEDULE } from "../data/schedule";
 import {
   ACTIVITY_BY_ID,
   CATEGORY_META,
@@ -69,10 +69,11 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
   const activeTheme = state.themes[kid.id];
   const nowMin = minutesSinceMidnight(now);
 
-  const currentBlock = SCHEDULE.find(
+  const scheduleBlocks = effectiveSchedule(state, kid.id);
+  const currentBlock = scheduleBlocks.find(
     (b) => nowMin >= b.startMinutes && nowMin < b.endMinutes,
   );
-  const upcomingBlock = SCHEDULE.find((b) => b.startMinutes > nowMin);
+  const upcomingBlock = scheduleBlocks.find((b) => b.startMinutes > nowMin);
 
   // A few mission options for today — stable per day, with indoor/outdoor
   // variety so weather or supervision never leaves a kid without a fit.
@@ -320,6 +321,7 @@ function CrewCard({ kidId, active }: { kidId: KidId; active: boolean }) {
   const stats = computeStats(state, kidId);
   const today = getDay(state, kidId);
   const scheduleDone = today.scheduleDone.length;
+  const scheduleLen = effectiveSchedule(state, kidId).length;
 
   const todaysSubs = state.submissions.filter(
     (s) => s.kidId === kidId && s.date === todayKey(),
@@ -364,7 +366,7 @@ function CrewCard({ kidId, active }: { kidId: KidId; active: boolean }) {
       </div>
       <div className="crewcard__today">
         <span>
-          {scheduleDone}/{SCHEDULE.length} schedule · {approvedToday} done
+          {scheduleDone}/{scheduleLen} schedule · {approvedToday} done
         </span>
         {pendingToday > 0 && (
           <span className="crewcard__pending">⏳ {pendingToday} pending</span>
