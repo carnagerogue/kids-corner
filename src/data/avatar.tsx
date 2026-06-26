@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import type { AvatarConfig, GearItem, GearSlot, Rarity } from "../types";
 
 /**
@@ -76,41 +76,43 @@ const t = (e: string, x: number, y: number, s: number) => (
   </text>
 );
 
-/** Eyes + brows + mouth for an expression. Iris color is a warm default. */
-function renderFace(face: string, irisId: string) {
+// Manga line-art: a dark plum-brown outline used across the silhouette.
+const LINE = "#43283c";
+const LW = 3.4;
+
+/** Big glossy "moe" eyes + tiny nose/mouth for an expression. */
+function renderFace(face: string, eyeId: string) {
+  // One large, dark, glossy eye centered at cx.
   const eye = (cx: number, variant: string) => {
     if (variant === "wink" && cx > 150) {
-      // closed/wink eye → a happy upward arc
       return (
         <path
           key={cx}
-          d={`M${cx - 16} 136 q16 -16 32 0`}
+          d={`M${cx - 17} 142 q17 -18 34 0`}
           fill="none"
-          stroke="#2a2233"
-          strokeWidth="5"
+          stroke={LINE}
+          strokeWidth="6"
           strokeLinecap="round"
         />
       );
     }
-    const starry = variant === "starry";
+    const shape = `M${cx - 17} 138 C ${cx - 17} 121 ${cx - 9} 116 ${cx} 116 C ${cx + 9} 116 ${cx + 17} 121 ${cx + 17} 138 C ${cx + 17} 158 ${cx + 9} 168 ${cx} 168 C ${cx - 9} 168 ${cx - 17} 158 ${cx - 17} 138 Z`;
     return (
       <g key={cx}>
-        <ellipse cx={cx} cy={134} rx={17} ry={20} fill="#fff" />
-        <ellipse cx={cx} cy={136} rx={14.5} ry={17.5} fill={`url(#${irisId})`} />
-        <ellipse cx={cx} cy={139} rx={8} ry={10} fill="#241c2e" />
-        {starry ? (
-          t("⭐", cx, 135, 16)
+        <path d={shape} fill={`url(#${eyeId})`} stroke={LINE} strokeWidth="2.6" strokeLinejoin="round" />
+        {/* warm iris catch-glow, low */}
+        <ellipse cx={cx} cy={152} rx={11} ry={11} fill="#b66a72" opacity="0.5" />
+        {variant === "starry" ? (
+          t("⭐", cx, 142, 18)
         ) : (
           <>
-            <circle cx={cx - 5} cy={128} r={5.5} fill="#fff" />
-            <circle cx={cx + 5} cy={143} r={3} fill="rgba(255,255,255,0.85)" />
+            {/* big shine + small sparkle */}
+            <ellipse cx={cx - 4} cy={130} rx={7} ry={9} fill="#fff" opacity="0.92" />
+            <circle cx={cx + 6} cy={154} r={3.4} fill="#fff" opacity="0.85" />
           </>
         )}
-        {/* upper lash line */}
-        <path
-          d={`M${cx - 18} 122 q18 -10 36 0 q-4 6 -8 5 q-10 -7 -28 -2 z`}
-          fill="#2a2233"
-        />
+        {/* upper lid shadow */}
+        <path d={`M${cx - 16} 124 q16 -10 32 0 q-6 7 -16 6 q-10 1 -16 -6 z`} fill={LINE} opacity="0.9" />
       </g>
     );
   };
@@ -118,36 +120,31 @@ function renderFace(face: string, irisId: string) {
   const brows =
     face === "determined" ? (
       <>
-        <path d="M104 108 l28 6" stroke="#3a2f46" strokeWidth="5" strokeLinecap="round" />
-        <path d="M196 108 l-28 6" stroke="#3a2f46" strokeWidth="5" strokeLinecap="round" />
+        <path d="M108 110 l24 5" stroke={LINE} strokeWidth="4.5" strokeLinecap="round" />
+        <path d="M192 110 l-24 5" stroke={LINE} strokeWidth="4.5" strokeLinecap="round" />
       </>
-    ) : (
-      <>
-        <path d="M106 106 q14 -6 26 -1" fill="none" stroke="#3a2f46" strokeWidth="4.5" strokeLinecap="round" />
-        <path d="M194 106 q-14 -6 -26 -1" fill="none" stroke="#3a2f46" strokeWidth="4.5" strokeLinecap="round" />
-      </>
-    );
+    ) : null;
 
   const mouth =
     face === "surprised" ? (
-      <ellipse cx={150} cy={172} rx={9} ry={11} fill="#9c4a4a" />
+      <ellipse cx={150} cy={170} rx={7} ry={9} fill="#8a3f47" />
     ) : face === "determined" ? (
-      <path d="M136 170 q14 8 28 0" fill="none" stroke="#7a3b3b" strokeWidth="4.5" strokeLinecap="round" />
+      <path d="M140 168 q10 6 20 0" fill="none" stroke="#8a3f47" strokeWidth="4" strokeLinecap="round" />
     ) : (
-      <path d="M134 168 q16 18 32 0 q-16 6 -32 0 z" fill="#9c4a4a" />
+      <path d="M142 166 q8 9 16 0 q-8 4 -16 0 z" fill="#a8505a" />
     );
 
   return (
     <g>
       {brows}
-      {eye(122, face)}
-      {eye(178, face)}
-      {/* nose */}
-      <path d="M148 154 q2 5 4 0" fill="none" stroke="rgba(120,80,60,0.5)" strokeWidth="2.5" strokeLinecap="round" />
+      {eye(118, face)}
+      {eye(182, face)}
+      {/* tiny nose */}
+      <ellipse cx={150} cy={154} rx={2.4} ry={1.6} fill="rgba(120,70,60,0.45)" />
       {mouth}
       {/* blush */}
-      <ellipse cx={104} cy={158} rx={13} ry={7} fill="rgba(255,120,150,0.38)" />
-      <ellipse cx={196} cy={158} rx={13} ry={7} fill="rgba(255,120,150,0.38)" />
+      <ellipse cx={100} cy={156} rx={13} ry={7.5} fill="rgba(255,120,150,0.4)" />
+      <ellipse cx={200} cy={156} rx={13} ry={7.5} fill="rgba(255,120,150,0.4)" />
     </g>
   );
 }
@@ -157,66 +154,81 @@ function renderHairBack(style: string, c: Hair) {
   switch (style) {
     case "ponytail":
       return (
-        <g>
-          <path d="M205 96 q58 18 40 86 q-8 34 -30 44 q16 -40 4 -74 q-8 -24 -28 -36 z" fill={c.base} />
-          <path d="M210 110 q34 18 26 60" fill="none" stroke={c.light} strokeWidth="6" strokeLinecap="round" opacity="0.7" />
+        <g stroke={LINE} strokeWidth={LW} strokeLinejoin="round">
+          <path d="M206 98 q60 16 44 90 q-8 36 -34 48 q12 -10 12 -30 q14 -42 0 -74 q-8 -24 -34 -34 z" fill={c.base} />
+          <path d="M214 116 q30 20 22 62" fill="none" stroke={c.light} strokeWidth="6" strokeLinecap="round" opacity="0.6" />
         </g>
       );
     case "twintails":
       return (
-        <g>
-          <path d="M74 104 q-44 8 -40 70 q4 30 24 40 q-12 -36 0 -64 q8 -22 26 -30 z" fill={c.base} />
-          <path d="M226 104 q44 8 40 70 q-4 30 -24 40 q12 -36 0 -64 q-8 -22 -26 -30 z" fill={c.base} />
+        <g stroke={LINE} strokeWidth={LW} strokeLinejoin="round">
+          <path d="M72 104 q-48 10 -42 76 q4 32 26 44 q-10 -10 -8 -28 q-12 -38 2 -64 q8 -22 30 -28 z" fill={c.base} />
+          <path d="M228 104 q48 10 42 76 q-4 32 -26 44 q10 -10 8 -28 q12 -38 -2 -64 q-8 -22 -30 -28 z" fill={c.base} />
         </g>
       );
     case "bob":
-      return <path d="M70 110 q-6 70 18 96 l124 0 q24 -26 18 -96 z" fill={c.dark} />;
+      return (
+        <path d="M68 112 q-6 74 20 100 l124 0 q26 -28 20 -100 z" fill={c.dark} stroke={LINE} strokeWidth={LW} strokeLinejoin="round" />
+      );
     case "puff":
       return (
-        <g fill={c.base}>
-          <circle cx={150} cy={70} r={64} />
-          <circle cx={92} cy={108} r={34} />
-          <circle cx={208} cy={108} r={34} />
+        <g fill={c.base} stroke={LINE} strokeWidth={LW} strokeLinejoin="round">
+          <circle cx={150} cy={68} r={66} />
+          <circle cx={88} cy={108} r={36} />
+          <circle cx={212} cy={108} r={36} />
         </g>
       );
     case "long":
-      return <path d="M66 108 q-12 96 16 130 l136 0 q28 -34 16 -130 z" fill={c.base} />;
+      return (
+        <path d="M64 108 q-14 100 18 134 l136 0 q30 -36 18 -134 z" fill={c.base} stroke={LINE} strokeWidth={LW} strokeLinejoin="round" />
+      );
     default: // short
-      return <path d="M84 78 q66 -36 132 0 q10 40 -2 60 l-128 0 q-12 -20 -2 -60 z" fill={c.dark} />;
+      return (
+        <path d="M82 76 q68 -38 136 0 q12 42 -2 64 l-132 0 q-14 -22 -2 -64 z" fill={c.dark} stroke={LINE} strokeWidth={LW} strokeLinejoin="round" />
+      );
   }
 }
 
-/** Front hair / bangs, per style. */
+/** Front hair / bangs (pointed clumps + a glossy shine band), per style. */
 function renderHairFront(style: string, c: Hair) {
-  const sheen = (
-    <path d="M104 64 q40 -22 92 0" fill="none" stroke={c.light} strokeWidth="7" strokeLinecap="round" opacity="0.65" />
+  const shine = (
+    <path
+      d="M94 72 Q150 46 206 72 L201 86 Q150 60 99 86 Z"
+      fill={c.light}
+      opacity="0.7"
+      stroke="none"
+    />
+  );
+  const wrap = (kids: ReactNode) => (
+    <g stroke={LINE} strokeWidth={LW} strokeLinejoin="round">
+      {kids}
+    </g>
   );
   switch (style) {
     case "puff":
-      return (
-        <g>
-          <path d="M88 92 q62 -54 124 0 q-10 16 -22 14 q-40 -30 -80 0 q-12 2 -22 -14 z" fill={c.base} />
-          {sheen}
-        </g>
+      return wrap(
+        <>
+          <path d="M84 96 q66 -58 132 0 q-10 18 -24 16 q-42 -32 -84 0 q-14 2 -24 -16 z" fill={c.base} />
+          {shine}
+        </>,
       );
     case "bob":
-      return (
-        <g>
-          <path d="M74 104 q4 -78 76 -78 q72 0 76 78 q-22 -40 -50 -30 q-6 22 -16 24 q-8 -4 -10 -22 q-30 -8 -50 26 q-12 2 -26 2 z" fill={c.base} />
-          {sheen}
-        </g>
+      return wrap(
+        <>
+          <path d="M70 116 q2 -82 80 -82 q78 0 80 82 l-18 -8 l-12 22 l-16 -20 l-16 24 l-12 -24 l-14 24 l-16 -22 l-12 20 z" fill={c.base} />
+          {shine}
+        </>,
       );
     default:
-      // tidy swept fringe (ponytail / short / twintails / long share it)
-      return (
-        <g>
+      // pointed swept fringe shared by ponytail / short / twintails / long
+      return wrap(
+        <>
           <path
-            d="M72 112 q-2 -76 78 -78 q80 2 78 78 q-20 -46 -52 -34 q-4 20 -16 24 q-10 -2 -14 -22 q-34 -10 -56 28 q-10 4 -18 4 z"
+            d="M70 120 C70 56 112 30 150 30 C188 30 230 56 230 120 L214 112 L206 126 L190 108 L174 124 L160 106 L150 120 L140 106 L126 124 L110 108 L94 126 L86 112 Z"
             fill={c.base}
           />
-          <path d="M150 36 q26 2 40 28 q-22 -14 -40 -10 q-18 -4 -40 10 q14 -26 40 -28 z" fill={c.light} opacity="0.55" />
-          {sheen}
-        </g>
+          {shine}
+        </>,
       );
   }
 }
@@ -234,34 +246,32 @@ function renderOutfit(key: string, skin: Tone) {
     princess: { main: "#ff8fc6", trim: "#ffe08a", pants: "#ffc2e0", shoe: "#fff", emblem: "#ffe08a" },
   };
   const p = palettes[key] ?? palettes.explorer;
+  const sock = "#fbf7ff";
   return (
-    <g>
-      {/* legs */}
-      <rect x={128} y={296} width={18} height={26} rx={8} fill={skin.base} />
-      <rect x={154} y={296} width={18} height={26} rx={8} fill={skin.base} />
-      {/* shorts */}
-      <path d="M118 286 q32 16 64 0 l4 18 q-36 14 -72 0 z" fill={p.pants} />
-      {/* shoes */}
-      <path d="M122 320 q-2 14 16 14 l12 0 0 -16 z" fill={p.shoe} />
-      <path d="M178 320 q2 14 -16 14 l-12 0 0 -16 z" fill={p.shoe} />
-      <rect x={120} y={330} width={32} height={5} rx={2.5} fill="rgba(0,0,0,0.18)" />
-      <rect x={148} y={330} width={32} height={5} rx={2.5} fill="rgba(0,0,0,0.18)" />
-      {/* torso */}
-      <path d="M150 220 q-44 8 -50 40 l-6 34 q56 22 112 0 l-6 -34 q-6 -32 -50 -40 z" fill={p.main} />
-      {/* torso shading */}
-      <path d="M150 224 q34 6 44 36 l4 26 q-24 10 -48 10 z" fill="rgba(0,0,0,0.1)" />
-      {/* collar */}
-      <path d="M128 224 q22 18 44 0 l-8 -8 q-14 8 -28 0 z" fill={p.trim} />
-      {/* sleeves */}
-      <ellipse cx={96} cy={246} rx={16} ry={20} fill={p.main} />
-      <ellipse cx={204} cy={246} rx={16} ry={20} fill={p.main} />
+    <g stroke={LINE} strokeWidth={LW} strokeLinejoin="round" strokeLinecap="round">
+      {/* arms (behind torso) */}
+      <path d="M108 230 q-26 10 -24 40 q1 16 16 20 q12 -3 12 -16 q-2 -28 -4 -44 z" fill={p.main} />
+      <path d="M192 230 q26 10 24 40 q-1 16 -16 20 q-12 -3 -12 -16 q2 -28 4 -44 z" fill={p.main} />
       {/* hands */}
-      <circle cx={92} cy={276} r={13} fill={skin.base} />
-      <circle cx={208} cy={276} r={13} fill={skin.base} />
-      {/* forearm */}
-      <rect x={86} y={258} width={12} height={20} rx={6} fill={skin.base} />
-      <rect x={202} y={258} width={12} height={20} rx={6} fill={skin.base} />
-      {p.emblem && <path d="M150 250 l4 9 10 1 -7 7 2 10 -9 -5 -9 5 2 -10 -7 -7 10 -1 z" fill={p.emblem} />}
+      <circle cx={90} cy={288} r={12} fill={skin.base} />
+      <circle cx={210} cy={288} r={12} fill={skin.base} />
+      {/* socks + legs */}
+      <path d="M132 298 l-3 26 q9 5 17 0 l-1 -26 z" fill={sock} />
+      <path d="M155 298 l3 26 q-9 5 -17 0 l-1 -26 z" fill={sock} />
+      {/* shoes */}
+      <path d="M124 320 q-6 15 14 15 l16 0 0 -16 q-17 -2 -30 1 z" fill={p.shoe} />
+      <path d="M176 320 q6 15 -14 15 l-16 0 0 -16 q17 -2 30 1 z" fill={p.shoe} />
+      {/* pleated skirt */}
+      <path d="M108 280 q42 17 84 0 l17 38 q-58 18 -118 0 z" fill={p.pants} />
+      <path d="M134 288 l-7 30 M150 291 v30 M166 288 l7 30" stroke={LINE} strokeWidth="2" fill="none" opacity="0.45" />
+      {/* torso */}
+      <path d="M104 252 q1 -38 46 -38 q45 0 46 38 l3 30 q-49 18 -98 0 z" fill={p.main} />
+      {/* torso shade */}
+      <path d="M152 220 q38 6 42 58 q-20 10 -42 10 z" fill="rgba(0,0,0,0.1)" stroke="none" />
+      {/* sailor collar */}
+      <path d="M118 216 q32 -9 64 0 l-10 22 q-22 -7 -44 0 z" fill={p.trim} />
+      {/* neck tie / emblem */}
+      <path d="M150 238 l-7 7 7 20 7 -20 z" fill={p.emblem ?? "#ff5a6e"} stroke="none" />
     </g>
   );
 }
@@ -270,18 +280,18 @@ function renderHat(key: string) {
   switch (key) {
     case "cap":
       return (
-        <g>
-          <path d="M92 78 q58 -44 116 0 q4 -44 -58 -44 q-62 0 -58 44 z" fill="#ff5a8a" />
-          <path d="M88 78 q-22 4 -30 16 q26 6 44 -4 z" fill="#e23e72" />
-          <circle cx={150} cy={40} r={6} fill="#ffd23f" />
+        <g stroke={LINE} strokeWidth={LW} strokeLinejoin="round">
+          <path d="M90 80 q60 -46 120 0 q4 -46 -60 -46 q-64 0 -60 46 z" fill="#ff5a8a" />
+          <path d="M88 80 q-24 4 -32 18 q28 6 48 -6 z" fill="#e23e72" />
+          <circle cx={150} cy={38} r={7} fill="#ffd23f" />
         </g>
       );
     case "beanie":
       return (
-        <g>
-          <path d="M84 86 q4 -56 66 -56 q62 0 66 56 q-66 18 -132 0 z" fill="#54a7ff" />
-          <rect x={84} y={80} width={132} height={14} rx={7} fill="#2f7fd6" />
-          <circle cx={150} cy={26} r={9} fill="#cfe6ff" />
+        <g stroke={LINE} strokeWidth={LW} strokeLinejoin="round">
+          <path d="M82 88 q4 -58 68 -58 q64 0 68 58 q-68 18 -136 0 z" fill="#54a7ff" />
+          <path d="M82 82 h136 v14 q-68 12 -136 0 z" fill="#2f7fd6" />
+          <circle cx={150} cy={24} r={9} fill="#cfe6ff" />
         </g>
       );
     case "flower":
@@ -528,7 +538,7 @@ export function Avatar({
   className?: string;
 }) {
   const uid = useId().replace(/:/g, "");
-  const irisId = `iris-${uid}`;
+  const eyeId = `eye-${uid}`;
   const bgId = `scn-${uid}`;
 
   const skin = skinOf(valueOf(config, "skin"));
@@ -552,10 +562,9 @@ export function Avatar({
       aria-label="Avatar"
     >
       <defs>
-        <linearGradient id={irisId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#6b4a2e" />
-          <stop offset="60%" stopColor="#a9743f" />
-          <stop offset="100%" stopColor="#e7b066" />
+        <linearGradient id={eyeId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#2a1622" />
+          <stop offset="100%" stopColor="#5c3342" />
         </linearGradient>
         <linearGradient id={bgId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={scene.stops[0]} />
@@ -576,23 +585,26 @@ export function Avatar({
 
         <g className="av-head">
           {/* neck */}
-          <path d="M136 198 l28 0 -2 22 q-12 6 -24 0 z" fill={skin.base} />
+          <path d="M136 198 l28 0 -2 22 q-12 6 -24 0 z" fill={skin.base} stroke={LINE} strokeWidth={LW} strokeLinejoin="round" />
           <path d="M136 200 l28 0 -1 8 q-13 5 -26 0 z" fill={skin.shade} opacity="0.45" />
+          {/* ears */}
+          <ellipse cx={76} cy={130} rx={11} ry={15} fill={skin.base} stroke={LINE} strokeWidth={LW} />
+          <ellipse cx={224} cy={130} rx={11} ry={15} fill={skin.base} stroke={LINE} strokeWidth={LW} />
+          <ellipse cx={78} cy={130} rx={5} ry={8} fill={skin.shade} opacity="0.6" />
+          <ellipse cx={222} cy={130} rx={5} ry={8} fill={skin.shade} opacity="0.6" />
           {/* head */}
           <path
             d="M75 120 C75 68 110 40 150 40 C190 40 225 68 225 120 C225 166 200 206 150 206 C100 206 75 166 75 120 Z"
             fill={skin.base}
+            stroke={LINE}
+            strokeWidth={LW}
+            strokeLinejoin="round"
           />
-          {/* ears */}
-          <ellipse cx={76} cy={130} rx={11} ry={15} fill={skin.base} />
-          <ellipse cx={224} cy={130} rx={11} ry={15} fill={skin.base} />
-          <ellipse cx={78} cy={130} rx={5} ry={8} fill={skin.shade} opacity="0.6" />
-          <ellipse cx={222} cy={130} rx={5} ry={8} fill={skin.shade} opacity="0.6" />
           {/* form shadows */}
-          <path d="M150 196 q40 0 60 -28 q-12 34 -60 38 q-48 -4 -60 -38 q20 28 60 28 z" fill={skin.shade} opacity="0.35" />
-          <path d="M210 92 q12 30 -2 64 q22 -34 2 -64 z" fill={skin.shade} opacity="0.25" />
+          <path d="M150 196 q40 0 60 -28 q-12 34 -60 38 q-48 -4 -60 -38 q20 28 60 28 z" fill={skin.shade} opacity="0.32" />
+          <path d="M210 92 q12 30 -2 64 q22 -34 2 -64 z" fill={skin.shade} opacity="0.22" />
 
-          <g className="av-eyes">{renderFace(face, irisId)}</g>
+          <g className="av-eyes">{renderFace(face, eyeId)}</g>
 
           {renderHairFront(hairStyle, hair)}
           <g className="av-hat">{renderHat(hat)}</g>
