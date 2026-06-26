@@ -6142,3 +6142,12 @@ body.fun-cursor-on * {
   text-align: right;
 }
 .pav__ratelbl { white-space: nowrap; }
+
+/* Avatar model/animation attribution (license credit) */
+.studio__credits {
+  margin: 4px 2px 0;
+  font-size: 0.66rem;
+  line-height: 1.35;
+  color: #9a8baf;
+  text-align: center;
+}

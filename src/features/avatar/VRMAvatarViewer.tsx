@@ -26,6 +26,11 @@ import {
   type VRM,
   type VRMHumanBoneName,
 } from "@pixiv/three-vrm";
+import {
+  VRMAnimationLoaderPlugin,
+  createVRMAnimationClip,
+  type VRMAnimation,
+} from "@pixiv/three-vrm-animation";
 import type { Loadout3D } from "../../types";
 import { itemById, resolveAssetUrl } from "./AvatarManifest";
 import type { EmoteName } from "./webgl";
@@ -87,9 +92,11 @@ function VrmCharacter({
   // the rest pose does not clobber the load-time vertical placement). Jump /
   // victory arcs are added ON TOP of this baseline, never instead of it.
   const baseY = useRef(0);
-  // The wrapper group — animated for idle life + emotes (whole-body motion only,
-  // so no per-rig bone posing can look broken on an arbitrary VRM).
+  // The wrapper group — gently swayed + used for emote motion (whole-body only).
   const groupRef = useRef<THREE.Group>(null);
+  // Idle animation mixer — retargets a .vrma idle to THIS model's normalized
+  // rig, so any VRM (T-posed or not) stands naturally. No hand-authored posing.
+  const mixerRef = useRef<THREE.AnimationMixer | null>(null);
 
   // ---- Imperative load (loadAsync is not Suspense-friendly) --------------
   useEffect(() => {
@@ -183,6 +190,28 @@ function VrmCharacter({
           }
         }
 
+        // Load + play a shared idle animation (.vrma). createVRMAnimationClip
+        // retargets it to THIS model's normalized humanoid, so the character
+        // stands naturally regardless of its bind pose / rig. If it fails, the
+        // model just keeps its own rest pose.
+        try {
+          const aLoader = new GLTFLoader();
+          aLoader.register((parser) => new VRMAnimationLoaderPlugin(parser));
+          const aGltf = await aLoader.loadAsync(
+            resolveAssetUrl("/assets/avatar/animations/idle_loop.vrma"),
+          );
+          const vrmAnim = (
+            aGltf.userData.vrmAnimations as VRMAnimation[] | undefined
+          )?.[0];
+          if (vrmAnim && alive) {
+            const mixer = new THREE.AnimationMixer(got.scene);
+            mixer.clipAction(createVRMAnimationClip(vrmAnim, got)).play();
+            mixerRef.current = mixer;
+          }
+        } catch {
+          // No idle animation — the model keeps its natural rest pose.
+        }
+
         if (!alive) return;
         setVrm(got);
       })
@@ -192,6 +221,8 @@ function VrmCharacter({
 
     return () => {
       alive = false;
+      mixerRef.current?.stopAllAction();
+      mixerRef.current = null;
       // Detach + dispose accessories, then the VRM itself.
       for (const root of accessoryRoots) {
         root.parent?.remove(root);
@@ -208,7 +239,12 @@ function VrmCharacter({
   // ---- Per-frame: rest pose → active emote, then vrm.update(delta) -------
   useFrame(({ clock }, delta) => {
     if (!vrm) return;
-    const h = vrm.humanoid;
+
+    // The idle .vrma poses the whole body naturally for THIS rig. We layer ONLY
+    // whole-body motion (scene position / group rotation) + facial expressions on
+    // top for emotes — never touching individual bones — so nothing can look
+    // broken on an arbitrary model.
+    mixerRef.current?.update(delta);
 
     if (emote.key !== lastKey.current) {
       lastKey.current = emote.key;
@@ -220,36 +256,39 @@ function VrmCharacter({
     const name: EmoteName = playing ? emote.name : "idle";
     const g = groupRef.current;
 
-    const rUpper = h?.getNormalizedBoneNode("rightUpperArm") ?? null;
-    const rLower = h?.getNormalizedBoneNode("rightLowerArm") ?? null;
-    const lUpper = h?.getNormalizedBoneNode("leftUpperArm") ?? null;
-    const lLower = h?.getNormalizedBoneNode("leftLowerArm") ?? null;
-    const head = h?.getNormalizedBoneNode("head") ?? null;
-    const spine = h?.getNormalizedBoneNode("spine") ?? null;
+    let y = baseY.current;
+    let z = 0;
+    let sway = Math.sin(t * 0.4) * 0.03; // gentle group sway
+    let lean = 0;
+    let happy = 0.1;
+    let relaxed = 0.25;
 
-    // Relaxed arms-down rest pose, tuned for the bundled VRM1 model. Re-applied
-    // every frame as a clean base so emote transitions stay clean. (A model with
-    // a very different rig may want these signs/values adjusted — see the import
-    // guide; whole-body motion + expressions below are rig-independent.)
-    if (lUpper) lUpper.rotation.set(0, 0, -1.2);
-    if (rUpper) rUpper.rotation.set(0, 0, 1.2);
-    if (lLower) lLower.rotation.set(0, 0, -0.1);
-    if (rLower) rLower.rotation.set(0, 0, 0.1);
-    if (head) head.rotation.set(0, 0, 0);
-    if (spine) spine.rotation.set(0, 0, 0);
-
-    // Whole-body life (rig-independent): gentle bob + sway + breathing.
-    vrm.scene.position.y = baseY.current + Math.sin(t * 1.6) * 0.012;
-    vrm.scene.position.z = 0;
-    if (g) g.rotation.y = Math.sin(t * 0.45) * 0.05;
-    const breathe = Math.sin(t * 1.6) * 0.02;
-    if (spine) spine.rotation.x += breathe;
-    if (head) {
-      head.rotation.y += Math.sin(t * 0.8) * 0.06;
-      head.rotation.x += breathe * 0.5;
+    if (name === "wave") {
+      happy = 0.9;
+      lean = Math.sin(e * 9) * 0.08; // friendly side-to-side rock
+    } else if (name === "jump") {
+      happy = 0.95;
+      const k = Math.min(e / 0.45, 1);
+      y = baseY.current + Math.sin(k * Math.PI) * 0.4;
+      z = -Math.sin(k * Math.PI) * 0.08;
+    } else if (name === "victory") {
+      happy = 1;
+      y = baseY.current + Math.abs(Math.sin(e * 7)) * 0.12; // excited bounce
+      sway = Math.sin(e * 9) * 0.12;
+    } else if (name === "think") {
+      relaxed = 0.7;
+      happy = 0.04;
+      lean = 0.1; // thoughtful tilt
     }
 
-    // Occasional blink + soft baseline expression.
+    vrm.scene.position.y = y;
+    vrm.scene.position.z = z;
+    if (g) {
+      g.rotation.y = sway;
+      g.rotation.z = lean;
+    }
+
+    // Blink + emote expression, layered over the animation.
     if (t > blinkNext.current) {
       blinkValue.current = 1;
       blinkNext.current = t + 2.4 + Math.random() * 3.5;
@@ -257,37 +296,6 @@ function VrmCharacter({
     blinkValue.current = Math.max(0, blinkValue.current - delta * 8);
     const em = vrm.expressionManager;
     em?.setValue("blink", blinkValue.current);
-    let happy = 0.12;
-    let relaxed = 0.3;
-
-    // Emotes: arm gestures (tuned for the bundled model) + rig-independent
-    // scene motion + facial expressions.
-    if (name === "wave") {
-      happy = 0.85;
-      if (rUpper) rUpper.rotation.set(0, 0, -2.5);
-      if (rLower) rLower.rotation.set(0, 0, -0.6 + Math.sin(e * 14) * 0.5);
-      if (head) head.rotation.z += 0.1;
-    } else if (name === "jump") {
-      happy = 0.95;
-      const k = Math.min(e / 0.5, 1);
-      vrm.scene.position.y = baseY.current + Math.sin(k * Math.PI) * 0.4;
-      vrm.scene.position.z = -Math.sin(k * Math.PI) * 0.08;
-      if (lUpper) lUpper.rotation.set(0, 0, 2.4);
-      if (rUpper) rUpper.rotation.set(0, 0, -2.4);
-    } else if (name === "victory") {
-      happy = 1;
-      vrm.scene.position.y = baseY.current + Math.abs(Math.sin(e * 6)) * 0.07;
-      if (lUpper) lUpper.rotation.set(0, 0, 2.6);
-      if (rUpper) rUpper.rotation.set(0, 0, -2.6);
-      if (lLower) lLower.rotation.set(0, 0, 0.4);
-      if (rLower) rLower.rotation.set(0, 0, -0.4);
-    } else if (name === "think") {
-      relaxed = 0.7;
-      happy = 0.05;
-      if (rUpper) rUpper.rotation.set(0.1, 0, -0.8);
-      if (rLower) rLower.rotation.set(0, -1.2, -1.2);
-      if (head) head.rotation.z += 0.18;
-    }
     em?.setValue("happy", happy);
     em?.setValue("relaxed", relaxed);
 

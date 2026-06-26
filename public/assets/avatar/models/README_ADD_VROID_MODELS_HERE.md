@@ -4,12 +4,14 @@ This folder is where the **real 3D characters** live. Any learner without a
 `.vrm` here shows a **polished "Add VRoid model" placeholder** — it will
 **never** render a fake primitive character.
 
-> **Samples ship already:** all three default learners (`claire-base.vrm`,
-> `coby-base.vrm`, `hailee-base.vrm`) use the same license-clear pixiv three-vrm
-> anime model (see `../../../ASSET_SOURCES.md`), so every learner shows a real 3D
-> anime character out of the box. **They look identical on purpose** — drop in
-> your own VRoid export for each kid (same filenames) to give them distinct
-> characters. Each is ~10 MB — optimize or swap for lighter models when you can.
+> **Samples ship already:** two clearly-licensed anime models are bundled —
+> `claire-base.vrm` (pixiv's three-vrm sample) and `coby-base.vrm` /
+> `hailee-base.vrm` ("Seed-san" by VirtualCast) — so every learner shows a real
+> 3D anime character out of the box (see `../../../ASSET_SOURCES.md`). A shared
+> idle animation (`../animations/idle_loop.vrma`) is retargeted onto whatever
+> model loads, so **any** rig stands naturally — no per-model pose tuning needed.
+> Drop in your own VRoid export per kid (same filenames) for distinct characters.
+> Each model is ~10 MB — optimize or swap for lighter ones when you can.
 
 ## Per-learner models (recommended)
 

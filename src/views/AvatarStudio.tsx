@@ -65,6 +65,11 @@ export function AvatarStudio() {
           <div className="studio__earnhint">
             💡 Finish tasks, missions &amp; streaks to earn more coins.
           </div>
+          <p className="studio__credits">
+            Sample 3D models: © pixiv Inc. &amp; “Seed-san” © VirtualCast, Inc. ·
+            idle animation from moeru-ai/airi (MIT). Replace with your own VRoid
+            models anytime.
+          </p>
         </div>
 
         <div className="studio__panel">

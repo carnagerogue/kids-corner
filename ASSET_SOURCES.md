@@ -9,20 +9,21 @@ in the table below before it ships.**
 
 ## Current status: NO third-party binary assets are bundled
 
-Kids Corner bundles **one** third-party binary: a single, clearly-licensed
-sample character (see the log below). Everything else is original or emoji.
+Kids Corner bundles a few **clearly-licensed** third-party assets (two sample
+anime characters + one idle animation — see the log below). Everything else is
+original or emoji.
 
-1. **3D character** — the app loads a **real VRoid `.vrm`** from
+1. **3D characters** — the app loads a **real VRoid `.vrm`** per learner from
    `public/assets/avatar/models/` (`src/features/avatar/VRMAvatarViewer.tsx`).
-   One license-clear sample (**pixiv's official three-vrm demo model**) ships as
-   the default model for **all three** default learners (`claire-base.vrm`,
-   `coby-base.vrm`, `hailee-base.vrm` are the same file) so every stage shows a
-   real anime character out of the box. They look identical on purpose — replace
-   each with your own per-kid VRoid export for distinct characters. (Other clearly
-   -licensed samples were either not anime, e.g. CC0 "Orion", or didn't pose
-   cleanly across rigs, so we standardized on the one polished anime model.) **When no model is present the stage shows a polished "Add
-   VRoid model" placeholder — it never renders a fake/procedural character.**
-   (There is intentionally NO geometry-built avatar.)
+   Two license-clear anime samples ship by default: **pixiv's three-vrm demo
+   model** (Claire) and **"Seed-san" by VirtualCast** (Coby & Hailee), so every
+   stage shows a real anime character out of the box. Replace each with your own
+   per-kid VRoid export anytime. A shared idle animation (`idle_loop.vrma`) is
+   retargeted onto whatever model loads, so any rig stands naturally.
+   (Other candidates were rejected: VRoid AvatarSample models aren't clearly
+   redistributable; CC0 "Orion" wasn't anime.) **When no model is present the
+   stage shows a polished "Add VRoid model" placeholder — it never renders a
+   fake/procedural character.** (There is intentionally NO geometry-built avatar.)
 2. **Shop icons** — each catalog item ships a built-in **emoji + color** so cards
    render with no image files; `iconPath` PNGs are optional upgrades.
 
@@ -41,7 +42,9 @@ placeholder for a model, the emoji for an icon) — never to fake geometry.
 
 | Asset file | Slot/Item id | Creator | Source URL | License | Commercial use? | Modify? | Redistribute? | Date checked | Added by |
 |------------|--------------|---------|------------|---------|-----------------|---------|---------------|------------|----------|
-| `models/claire-base.vrm`, `coby-base.vrm`, `hailee-base.vrm` (same file) | base / default character (all 3 default learners) | pixiv Inc. © 2022 | https://github.com/pixiv/three-vrm — `packages/three-vrm/examples/models/VRM1_Constraint_Twist_Sample.vrm` | [VRM 1.0 License](https://vrm.dev/licenses/1.0/) — verified from the model's embedded `VRMC_vrm.meta` | **Yes** (`commercialUsage: corporation`) | **Yes** (`modification: allowModificationRedistribution`) | **Yes** (`allowRedistribution: true`; `creditNotation: unnecessary`, `avatarPermission: everyone`) | 2026-06-26 | Claude (automated) |
+| `models/claire-base.vrm` | base / default character (Claire) | pixiv Inc. © 2022 | https://github.com/pixiv/three-vrm — `packages/three-vrm/examples/models/VRM1_Constraint_Twist_Sample.vrm` | [VRM 1.0 License](https://vrm.dev/licenses/1.0/) — verified from the model's embedded `VRMC_vrm.meta` | **Yes** (`commercialUsage: corporation`) | **Yes** (`modification: allowModificationRedistribution`) | **Yes** (`allowRedistribution: true`; `creditNotation: unnecessary`, `avatarPermission: everyone`) | 2026-06-26 | Claude (automated) |
+| `models/coby-base.vrm`, `hailee-base.vrm` (same file) | base / default character (Coby, Hailee) | VirtualCast, Inc. ("Seed-san") | https://github.com/vrm-c/vrm-specification — `samples/Seed-san/vrm/Seed-san.vrm` | [VRM 1.0 License](https://vrm.dev/licenses/1.0/) — verified from embedded `VRMC_vrm.meta` | **Yes** (`commercialUsage: corporation`) | **Yes** (`modification: allowModificationRedistribution`) | **Yes** (`allowRedistribution: true`; `avatarPermission: everyone`) — ⚠️ **credit required** (`creditNotation: required`; credited in-app + here) | 2026-06-26 | Claude (automated) |
+| `animations/idle_loop.vrma` | idle animation (all learners) | moeru-ai / airi contributors | https://github.com/moeru-ai/airi — `packages/stage-ui-three/src/assets/vrm/animations/idle_loop.vrma` | **MIT** (repo license; redistribution + modification permitted with notice) | Yes | Yes | Yes (notice preserved; credited in-app + here) | 2026-06-26 | Claude (automated) |
 
 > **Note on `claire-base.vrm`:** it is pixiv's official, widely-used three-vrm
 > sample — a normal, fully-clothed anime character, appropriate as a kid avatar.

@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@pixiv/three-vrm": "^3.5.4",
+    "@pixiv/three-vrm-animation": "^3.5.4",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
     "firebase": "^12.15.0",
