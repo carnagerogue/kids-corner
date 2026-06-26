@@ -1,5 +1,6 @@
 import type {
   ActivityCategory,
+  ActivityIdea,
   AppState,
   ChoreAssignment,
   DayProgress,
@@ -13,7 +14,7 @@ import type {
   Submission,
   SubmissionStatus,
 } from "../types";
-import { ACTIVITY_BY_ID, CATEGORY_ORDER } from "../data/activities";
+import { ACTIVITY_BY_ID, CATEGORY_ORDER, CHORES } from "../data/activities";
 import { APP_CATALOG, type CatalogApp } from "../data/applications";
 import { RESOURCES, type Resource } from "../data/resources";
 import { defaultSchedules } from "../data/schedule";
@@ -40,6 +41,29 @@ export function kidList(state: AppState): Kid[] {
 /** Look up a kid by id; returns a safe placeholder if it was removed. */
 export function getKid(state: AppState, id: KidId): Kid {
   return state.kidProfiles.find((k) => k.id === id) ?? FALLBACK_KID(id);
+}
+
+// --- Activities (catalog + grown-up custom) -------------------------------
+
+/** Look up an activity by id across the built-in catalog and custom ones. */
+export function activityById(
+  state: AppState,
+  id: string,
+): ActivityIdea | undefined {
+  return ACTIVITY_BY_ID[id] ?? state.customActivities?.find((a) => a.id === id);
+}
+
+/** Built-in + grown-up-created chores, for the assign-chore picker. */
+export function choreCatalog(state: AppState): ActivityIdea[] {
+  const custom = (state.customActivities ?? []).filter(
+    (a) => a.category === "chores",
+  );
+  return [...CHORES, ...custom];
+}
+
+/** The example image a grown-up attached to an activity, if any. */
+export function activityImage(state: AppState, id: string): string | undefined {
+  return state.activityImages?.[id];
 }
 
 // --- App visibility -------------------------------------------------------

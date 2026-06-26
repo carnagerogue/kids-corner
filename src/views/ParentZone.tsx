@@ -2,20 +2,31 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useApp } from "../store/AppContext";
 import { KID_EMOJIS, KID_PALETTE } from "../data/kids";
-import { CHORES, ACTIVITY_BY_ID } from "../data/activities";
 import { APP_CATALOG } from "../data/applications";
 import { RESOURCES, RESOURCE_CATEGORIES } from "../data/resources";
 import {
+  activityById,
+  activityImage,
+  approvedSubmissions,
   choreAssignmentsFor,
+  choreCatalog,
   customPlans,
   familyPlan,
   getKid,
+  getKidXp,
   kidList,
+  kidSubmissions,
   parentUnreadCount,
   pendingSubmissions,
   planForKid,
   taskStatus,
 } from "../store/selectors";
+import { computeStats } from "../store/selectors";
+import { getLevelInfo } from "../data/levels";
+import { BADGES } from "../data/badges";
+import { CATEGORY_META, NON_CHORE_ACTIVITIES } from "../data/activities";
+import { MissionArt, hasMissionArt } from "../data/missionArt";
+import { fileToDownscaledDataUrl } from "../lib/image";
 import {
   BLOCK_ACCENTS,
   FAMILY_PLAN_ID,
@@ -29,6 +40,8 @@ import { MessageNotifier } from "../components/MessageNotifier";
 import { FIREBASE_READY } from "../firebase";
 import { readSyncOverride, writeSyncCode } from "../sync";
 import type {
+  ActivityIdea,
+  Audience,
   Kid,
   KidId,
   ScheduleBlock,
@@ -101,20 +114,24 @@ function PinGate({
 
 type GTab =
   | "review"
+  | "progress"
   | "messages"
   | "kids"
   | "schedule"
   | "apps"
   | "chores"
+  | "missions"
   | "settings";
 
 const GTABS: { id: GTab; emoji: string; label: string }[] = [
   { id: "review", emoji: "📥", label: "Review" },
+  { id: "progress", emoji: "📊", label: "Progress" },
   { id: "messages", emoji: "💬", label: "Messages" },
   { id: "kids", emoji: "👧", label: "Kids" },
   { id: "schedule", emoji: "🗓️", label: "Schedule" },
   { id: "apps", emoji: "🧭", label: "Apps" },
   { id: "chores", emoji: "🧹", label: "Chores" },
+  { id: "missions", emoji: "🖼️", label: "Examples" },
   { id: "settings", emoji: "⚙️", label: "Settings" },
 ];
 
@@ -133,11 +150,13 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
     review: pendingN
       ? `${pendingN} item${pendingN === 1 ? "" : "s"} waiting for your review`
       : "All caught up — nothing waiting right now",
+    progress: "Each child's level, badges, and finished-task photos",
     messages: "Chat with each child",
     kids: "Add or remove children and set their login PINs",
     schedule: "Build the daily schedule — for everyone, a group, or one child",
     apps: "Choose what each child sees in Apps and Explore",
     chores: "Assign chores for the kids to finish with photo proof",
+    missions: "Add an example photo so kids can see the finished result",
     settings: "Cross-device sync, PINs, and resetting the summer",
   };
 
@@ -174,6 +193,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
 
       <div className="gpanel" key={tab}>
         {tab === "review" && <ParentReview onZoom={setZoom} />}
+        {tab === "progress" && <ParentProgress onZoom={setZoom} />}
         {tab === "messages" && <ParentMessages />}
         {tab === "kids" && (
           <>
@@ -189,6 +209,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
           </>
         )}
         {tab === "chores" && <ChoreAssigner />}
+        {tab === "missions" && <MissionExamples />}
         {tab === "settings" && (
           <>
             <CloudSync />
@@ -324,6 +345,217 @@ function ParentReview({ onZoom }: { onZoom: (src: string) => void }) {
           </div>
         </>
       )}
+    </>
+  );
+}
+
+function ParentProgress({ onZoom }: { onZoom: (src: string) => void }) {
+  const { state } = useApp();
+  const kids = kidList(state);
+  const [selRaw, setSel] = useState<KidId>(() => kids[0]?.id ?? "");
+  const sel = kids.some((k) => k.id === selRaw) ? selRaw : kids[0]?.id ?? "";
+  const kid = getKid(state, sel);
+  const xp = getKidXp(state, sel);
+  const level = getLevelInfo(xp);
+  const stats = computeStats(state, sel);
+  const earned = new Set(state.kids[sel]?.badges ?? []);
+
+  // Approved, photo-bearing submissions newest first — the kid's photo history.
+  const photos = approvedSubmissions(state, sel)
+    .filter((s) => s.photo)
+    .sort(
+      (a, b) =>
+        (b.reviewedAt ?? b.submittedAt) - (a.reviewedAt ?? a.submittedAt),
+    );
+  const totalDone = kidSubmissions(state, sel).filter(
+    (s) => s.status === "approved",
+  ).length;
+
+  return (
+    <>
+      <h3 className="section-title">📊 Each Kid's Progress</h3>
+      <div className="msgtabs">
+        {kids.map((k) => (
+          <button
+            key={k.id}
+            className={`msgtab ${sel === k.id ? "is-active" : ""}`}
+            style={{ ["--this-kid" as string]: k.color }}
+            onClick={() => setSel(k.id)}
+          >
+            {k.emoji} {k.firstName}
+          </button>
+        ))}
+      </div>
+
+      <div className="progcard" style={{ ["--this-kid" as string]: kid.color }}>
+        <div className="progcard__head">
+          <span className="progcard__avatar">{kid.emoji}</span>
+          <div className="progcard__id">
+            <strong className="progcard__name">{kid.firstName}</strong>
+            <span className="progcard__rank">
+              {level.rank.emoji} {level.rank.title} · Level {level.rank.level}
+            </span>
+          </div>
+          <span className="progcard__xp">{xp} XP</span>
+        </div>
+        <div className="progcard__bar">
+          <span style={{ width: `${Math.round(level.progress * 100)}%` }} />
+        </div>
+        <span className="progcard__next">
+          {level.next
+            ? `${level.next.minXp - xp} XP to ${level.next.emoji} ${level.next.title}`
+            : "Max level reached! 🎉"}
+        </span>
+        <div className="progstats">
+          <div className="progstat">
+            <span className="progstat__n">{stats.totalMissions}</span>
+            <span className="progstat__l">missions</span>
+          </div>
+          <div className="progstat">
+            <span className="progstat__n">{stats.totalAssignments}</span>
+            <span className="progstat__l">assignments</span>
+          </div>
+          <div className="progstat">
+            <span className="progstat__n">🔥 {stats.streak}</span>
+            <span className="progstat__l">day streak</span>
+          </div>
+          <div className="progstat">
+            <span className="progstat__n">🏅 {earned.size}</span>
+            <span className="progstat__l">badges</span>
+          </div>
+        </div>
+      </div>
+
+      <h4 className="prog-subtitle">
+        🏅 Badges ({earned.size}/{BADGES.length})
+      </h4>
+      <div className="badgegrid">
+        {BADGES.map((b) => {
+          const has = earned.has(b.id);
+          return (
+            <div
+              key={b.id}
+              className={`badgechip ${has ? "is-earned" : ""}`}
+              title={b.description}
+            >
+              <span className="badgechip__emoji">{b.emoji}</span>
+              <span className="badgechip__title">{b.title}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      <h4 className="prog-subtitle">📸 Finished-task photos ({photos.length})</h4>
+      {photos.length === 0 ? (
+        <p className="empty">
+          {totalDone > 0
+            ? "Older photos are cleared to save space — recent ones show here."
+            : `No approved photos yet. They'll appear as ${kid.firstName} finishes tasks.`}
+        </p>
+      ) : (
+        <div className="photogrid">
+          {photos.map((s) => (
+            <button
+              key={s.id}
+              className="photogrid__item"
+              onClick={() => onZoom(s.photo)}
+            >
+              <img src={s.photo} alt={s.title} loading="lazy" />
+              <span className="photogrid__cap">
+                {s.emoji} {s.title}
+                {s.partnerId && (
+                  <span className="photogrid__with">
+                    🤝 with {getKid(state, s.partnerId).firstName}
+                  </span>
+                )}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function MissionExamples() {
+  const { state, dispatch } = useApp();
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [err, setErr] = useState("");
+
+  const pick = async (id: string, file: File | undefined) => {
+    if (!file) return;
+    setErr("");
+    setBusyId(id);
+    try {
+      const dataUrl = await fileToDownscaledDataUrl(file);
+      dispatch({ type: "SET_ACTIVITY_IMAGE", activityId: id, image: dataUrl });
+    } catch {
+      setErr("Couldn't read that image — try another file.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <>
+      <h3 className="section-title">🖼️ Mission Example Photos</h3>
+      <div className="settings">
+        <p className="settings__hint">
+          Attach a photo of a finished example so kids can picture the result.
+          A built-in sketch shows until you add one.
+        </p>
+        {err && <p className="pin__error">{err}</p>}
+        <ul className="exlist">
+          {NON_CHORE_ACTIVITIES.map((a) => {
+            const meta = CATEGORY_META[a.category];
+            const img = activityImage(state, a.id);
+            return (
+              <li key={a.id} className="exrow">
+                <div className="exrow__preview">
+                  {img ? (
+                    <img src={img} alt="" />
+                  ) : hasMissionArt(a.id) ? (
+                    <MissionArt id={a.id} className="exrow__art" />
+                  ) : (
+                    <span className="exrow__none">{meta.emoji}</span>
+                  )}
+                </div>
+                <div className="exrow__body">
+                  <strong className="exrow__title">{a.title}</strong>
+                  <span className="exrow__cat">
+                    {meta.emoji} {meta.label}
+                  </span>
+                </div>
+                <div className="exrow__actions">
+                  <label className="btn btn--ghost btn--sm">
+                    {busyId === a.id ? "…" : img ? "Replace" : "Add photo"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      onChange={(e) => pick(a.id, e.target.files?.[0])}
+                    />
+                  </label>
+                  {img && (
+                    <button
+                      className="btn btn--reject btn--sm"
+                      onClick={() =>
+                        dispatch({
+                          type: "SET_ACTIVITY_IMAGE",
+                          activityId: a.id,
+                          image: null,
+                        })
+                      }
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </>
   );
 }
@@ -962,17 +1194,33 @@ function ParentMessages() {
   );
 }
 
+const AUDIENCE_META: Record<Audience, { label: string; tag: string }> = {
+  all: { label: "All ages", tag: "All ages" },
+  kids: { label: "Younger kids", tag: "Kids" },
+  teens: { label: "Teens", tag: "Teen" },
+};
+
 function ChoreAssigner() {
   const { state, dispatch } = useApp();
   const kids = kidList(state);
+  const catalog = choreCatalog(state);
   const [kidIdRaw, setKidId] = useState<KidId>(() => kids[0]?.id ?? "");
   const kidId = kids.some((k) => k.id === kidIdRaw) ? kidIdRaw : kids[0]?.id ?? "";
-  const [refId, setRefId] = useState<string>(CHORES[0]?.id ?? "");
+  const [refId, setRefId] = useState<string>(catalog[0]?.id ?? "");
 
   const assign = (e: React.FormEvent) => {
     e.preventDefault();
     if (refId) dispatch({ type: "ASSIGN_CHORE", kidId, refId });
   };
+
+  // Group the picker by audience so teen chores are easy to find.
+  const groups: { audience: Audience; items: ActivityIdea[] }[] = (
+    ["all", "kids", "teens"] as Audience[]
+  ).map((audience) => ({
+    audience,
+    items: catalog.filter((a) => !a.custom && (a.audience ?? "all") === audience),
+  }));
+  const custom = catalog.filter((a) => a.custom);
 
   // Everyone's chores for today, in kid order.
   const todays = kids.flatMap((k) =>
@@ -1009,11 +1257,27 @@ function ChoreAssigner() {
             onChange={(e) => setRefId(e.target.value)}
             aria-label="Choose a chore"
           >
-            {CHORES.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.title} (+{a.xp} XP)
-              </option>
-            ))}
+            {groups.map(
+              (g) =>
+                g.items.length > 0 && (
+                  <optgroup key={g.audience} label={AUDIENCE_META[g.audience].label}>
+                    {g.items.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.title} (+{a.xp} XP)
+                      </option>
+                    ))}
+                  </optgroup>
+                ),
+            )}
+            {custom.length > 0 && (
+              <optgroup label="Your custom chores">
+                {custom.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.title} (+{a.xp} XP)
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
           <button className="btn btn--primary" type="submit">
             + Assign
@@ -1028,7 +1292,7 @@ function ChoreAssigner() {
         ) : (
           <ul className="chore-list">
             {todays.map(({ c, kid }) => {
-              const activity = ACTIVITY_BY_ID[c.refId];
+              const activity = activityById(state, c.refId);
               const status = taskStatus(state, kid.id, c.refId).status;
               return (
                 <li key={c.id} className="chore-list__row">
@@ -1054,6 +1318,140 @@ function ChoreAssigner() {
             })}
           </ul>
         )}
+      </div>
+
+      <CustomChores onCreated={(id) => setRefId(id)} />
+    </>
+  );
+}
+
+function CustomChores({ onCreated }: { onCreated: (id: string) => void }) {
+  const { state, dispatch } = useApp();
+  const custom = state.customActivities.filter((a) => a.category === "chores");
+  const [title, setTitle] = useState("");
+  const [xp, setXp] = useState(15);
+  const [audience, setAudience] = useState<Audience>("all");
+  const [steps, setSteps] = useState("");
+
+  const create = (e: React.FormEvent) => {
+    e.preventDefault();
+    const t = title.trim();
+    if (!t) return;
+    const id = `custom-${newId().slice(0, 8)}`;
+    const stepLines = steps
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const activity: ActivityIdea = {
+      id,
+      title: t.slice(0, 60),
+      category: "chores",
+      estimatedMinutes: 15,
+      supplies: [],
+      difficulty: xp >= 35 ? "challenge" : xp >= 25 ? "medium" : "easy",
+      bestFor: ["everyone"],
+      indoorOutdoor: "either",
+      parentHelp: false,
+      steps: stepLines.length
+        ? stepLines
+        : ["Do the chore.", "Snap a photo when it's done."],
+      xp,
+      audience,
+      custom: true,
+    };
+    dispatch({ type: "ADD_CUSTOM_ACTIVITY", activity });
+    setTitle("");
+    setXp(15);
+    setAudience("all");
+    setSteps("");
+    onCreated(id);
+  };
+
+  const remove = (id: string, name: string) => {
+    if (window.confirm(`Delete the custom chore "${name}"?`)) {
+      dispatch({ type: "REMOVE_CUSTOM_ACTIVITY", activityId: id });
+    }
+  };
+
+  return (
+    <>
+      <h3 className="section-title">✏️ Custom Chores</h3>
+      <div className="settings">
+        {custom.length > 0 && (
+          <ul className="kidmanage">
+            {custom.map((a) => (
+              <li key={a.id} className="kidmanage__row">
+                <span className="kidmanage__face">🧹</span>
+                <span className="kidmanage__name">
+                  {a.title}{" "}
+                  <span className="addchore__xp">
+                    +{a.xp} XP · {AUDIENCE_META[a.audience ?? "all"].tag}
+                  </span>
+                </span>
+                <button
+                  className="btn btn--reject btn--sm"
+                  onClick={() => remove(a.id, a.title)}
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <form className="addkid" onSubmit={create}>
+          <strong className="addkid__title">➕ Create a chore</strong>
+          <input
+            className="settings__input"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Chore name (e.g. Empty the dishwasher)"
+            maxLength={60}
+            aria-label="Chore name"
+          />
+          <textarea
+            className="settings__input addchore__steps"
+            value={steps}
+            onChange={(e) => setSteps(e.target.value)}
+            placeholder="Steps (optional, one per line)"
+            rows={3}
+            aria-label="Chore steps"
+          />
+          <div className="addchore__row">
+            <label className="settings__label addchore__field">
+              XP
+              <input
+                className="settings__input"
+                type="number"
+                min={5}
+                max={60}
+                step={5}
+                value={xp}
+                onChange={(e) =>
+                  setXp(Math.max(5, Math.min(60, parseInt(e.target.value) || 5)))
+                }
+              />
+            </label>
+            <label className="settings__label addchore__field">
+              Best for
+              <select
+                className="settings__input"
+                value={audience}
+                onChange={(e) => setAudience(e.target.value as Audience)}
+              >
+                <option value="all">All ages</option>
+                <option value="kids">Younger kids</option>
+                <option value="teens">Teens</option>
+              </select>
+            </label>
+            <button
+              className="btn btn--primary"
+              type="submit"
+              disabled={!title.trim()}
+            >
+              Add chore
+            </button>
+          </div>
+        </form>
       </div>
     </>
   );

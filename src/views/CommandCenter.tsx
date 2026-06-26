@@ -1,6 +1,7 @@
 import { useApp } from "../store/AppContext";
 import { getLevelInfo } from "../data/levels";
 import {
+  activityById,
   choreAssignmentsFor,
   computeStats,
   effectiveSchedule,
@@ -10,11 +11,7 @@ import {
   primaryAppFor,
 } from "../store/selectors";
 import { todayKey } from "../store/storage";
-import {
-  ACTIVITY_BY_ID,
-  CATEGORY_META,
-  NON_CHORE_ACTIVITIES,
-} from "../data/activities";
+import { CATEGORY_META, NON_CHORE_ACTIVITIES } from "../data/activities";
 import { THEMES } from "../data/themes";
 import { ProgressRing } from "../components/ProgressRing";
 import { ProofButton } from "../components/ProofButton";
@@ -187,7 +184,7 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
           </h3>
           <div className="chores" style={{ ["--cat" as string]: choreMeta.color }}>
             {chores.map((c) => {
-              const activity = ACTIVITY_BY_ID[c.refId];
+              const activity = activityById(state, c.refId);
               if (!activity) return null;
               return (
                 <div key={c.id} className="chore">

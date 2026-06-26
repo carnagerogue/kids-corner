@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import type {
+  ActivityIdea,
   AppState,
   ChoreAssignment,
   Kid,
@@ -29,6 +30,8 @@ export type SyncConfig = {
   appVisibility: Record<string, string[]>;
   exploreHidden: Record<string, string[]>;
   schedules: SchedulePlan[];
+  customActivities: ActivityIdea[];
+  activityImages: Record<string, string>;
   parentPin: string;
 };
 import {
@@ -81,6 +84,9 @@ export type Action =
   | { type: "UNASSIGN_CHORE"; assignmentId: string }
   | { type: "UPSERT_SCHEDULE_PLAN"; plan: SchedulePlan }
   | { type: "DELETE_SCHEDULE_PLAN"; planId: string }
+  | { type: "ADD_CUSTOM_ACTIVITY"; activity: ActivityIdea }
+  | { type: "REMOVE_CUSTOM_ACTIVITY"; activityId: string }
+  | { type: "SET_ACTIVITY_IMAGE"; activityId: string; image: string | null }
   | { type: "SET_THEME"; kidId: KidId; theme: ThemeId }
   | {
       type: "SEND_MESSAGE";
@@ -345,6 +351,45 @@ function reducer(state: AppState, action: Action): AppState {
       };
     }
 
+    case "ADD_CUSTOM_ACTIVITY": {
+      const a = action.activity;
+      if (!a || !a.id || !a.title.trim()) return state;
+      return {
+        ...state,
+        customActivities: [
+          ...state.customActivities.filter((c) => c.id !== a.id),
+          { ...a, custom: true },
+        ],
+      };
+    }
+
+    case "REMOVE_CUSTOM_ACTIVITY": {
+      const images = omitKey(state.activityImages, action.activityId);
+      return {
+        ...state,
+        customActivities: state.customActivities.filter(
+          (a) => a.id !== action.activityId,
+        ),
+        activityImages: images,
+      };
+    }
+
+    case "SET_ACTIVITY_IMAGE": {
+      if (!action.image) {
+        return {
+          ...state,
+          activityImages: omitKey(state.activityImages, action.activityId),
+        };
+      }
+      return {
+        ...state,
+        activityImages: {
+          ...state.activityImages,
+          [action.activityId]: action.image,
+        },
+      };
+    }
+
     case "SET_THEME":
       return {
         ...state,
@@ -471,6 +516,13 @@ function reducer(state: AppState, action: Action): AppState {
         appVisibility,
         exploreHidden,
         schedules,
+        customActivities: Array.isArray(cfg.customActivities)
+          ? cfg.customActivities
+          : state.customActivities,
+        activityImages:
+          cfg.activityImages && typeof cfg.activityImages === "object"
+            ? cfg.activityImages
+            : state.activityImages,
         parentPin: cfg.parentPin || state.parentPin,
         activeKid,
       };

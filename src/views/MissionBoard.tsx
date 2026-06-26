@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useApp } from "../store/AppContext";
 import {
   CATEGORY_META,
   CATEGORY_ORDER,
   NON_CHORE_ACTIVITIES,
 } from "../data/activities";
-import { getKid, taskStatus } from "../store/selectors";
+import { activityImage, getKid, taskStatus } from "../store/selectors";
+import { MissionArt, hasMissionArt } from "../data/missionArt";
 import { ProofButton } from "../components/ProofButton";
 import type { ActivityCategory, ActivityIdea } from "../types";
 
@@ -164,15 +166,47 @@ function MissionCard({ activity }: { activity: ActivityIdea }) {
   const { state } = useApp();
   const kid = getKid(state, state.activeKid);
   const [open, setOpen] = useState(false);
+  const [zoom, setZoom] = useState(false);
   const meta = CATEGORY_META[activity.category];
   const diff = DIFF_META[activity.difficulty];
   const done = taskStatus(state, kid.id, activity.id).status === "approved";
+  const photo = activityImage(state, activity.id);
+  const hasArt = hasMissionArt(activity.id);
 
   return (
     <article
       className={`mission ${done ? "is-done" : ""}`}
       style={{ ["--cat" as string]: meta.color }}
     >
+      {(photo || hasArt) && (
+        <div className="mission__example">
+          {photo ? (
+            <button
+              className="mission__example-img"
+              onClick={() => setZoom(true)}
+              aria-label="See the example bigger"
+            >
+              <img src={photo} alt={`Example: ${activity.title}`} />
+              <span className="mission__example-tag">📷 Example · tap to zoom</span>
+            </button>
+          ) : (
+            <div className="mission__example-img mission__example-img--art">
+              <MissionArt id={activity.id} className="mission__art" />
+              <span className="mission__example-tag">✏️ What it could look like</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {zoom &&
+        photo &&
+        createPortal(
+          <div className="modal" onClick={() => setZoom(false)}>
+            <img className="zoom" src={photo} alt={`Example: ${activity.title}`} />
+          </div>,
+          document.body,
+        )}
+
       <div className="mission__head">
         <span className="mission__cat-icon">{meta.emoji}</span>
         <div className="mission__headtext">

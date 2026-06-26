@@ -69,6 +69,15 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, state.activeKid]);
 
+  // Drive the whole-app palette from the logged-in kid's chosen theme (dark
+  // themes restyle the page). Cleared on the login screen so it's always light.
+  useEffect(() => {
+    const root = document.documentElement;
+    const theme = user ? state.themes[user] : undefined;
+    if (theme) root.setAttribute("data-theme", theme);
+    else root.removeAttribute("data-theme");
+  }, [user, state.themes]);
+
   // Not logged in: show the login screen — unless a grown-up is heading to the
   // parent area, which has its own PIN gate.
   if (user === null) {

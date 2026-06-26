@@ -1,4 +1,5 @@
 import type {
+  ActivityIdea,
   AppState,
   ChoreAssignment,
   Kid,
@@ -177,6 +178,8 @@ export function defaultState(): AppState {
     submissions: [],
     choreAssignments: [],
     schedules: defaultSchedules(),
+    customActivities: [],
+    activityImages: {},
     themes,
     messages: [],
     appVisibility,
@@ -184,17 +187,35 @@ export function defaultState(): AppState {
   };
 }
 
+/** How many approved photos to keep for the grown-up's per-kid gallery. */
+const MAX_GALLERY_PHOTOS = 48;
+
 /**
- * Photos are heavy. Once a submission is reviewed AND it's from a previous day,
- * drop the image data (keep the record) so localStorage doesn't fill up.
+ * Photos are heavy. Keep every pending photo (awaiting review) and the most
+ * recent approved photos (the grown-up's finished-task gallery); drop the image
+ * data from everything else so localStorage doesn't fill up. `cap` shrinks the
+ * gallery under storage pressure.
  */
-function prunePhotos(submissions: Submission[], today: string): Submission[] {
+function prunePhotos(
+  submissions: Submission[],
+  cap: number = MAX_GALLERY_PHOTOS,
+): Submission[] {
   const trimmed = submissions.slice(-MAX_SUBMISSIONS);
-  return trimmed.map((s) =>
-    s.status !== "pending" && s.date < today && s.photo
-      ? { ...s, photo: "" }
-      : s,
+  const keep = new Set(
+    trimmed
+      .filter((s) => s.status === "approved" && s.photo)
+      .sort(
+        (a, b) =>
+          (b.reviewedAt ?? b.submittedAt) - (a.reviewedAt ?? a.submittedAt),
+      )
+      .slice(0, cap)
+      .map((s) => s.id),
   );
+  return trimmed.map((s) => {
+    if (s.status === "pending") return s;
+    if (s.status === "approved" && keep.has(s.id)) return s;
+    return s.photo ? { ...s, photo: "" } : s;
+  });
 }
 
 /** Defensive load: tolerate missing keys without crashing; reset on version change. */
@@ -258,7 +279,7 @@ export function loadState(): AppState {
     }
 
     const submissions = Array.isArray(parsed.submissions)
-      ? prunePhotos(parsed.submissions as Submission[], todayKey())
+      ? prunePhotos(parsed.submissions as Submission[])
       : [];
 
     const today = todayKey();
@@ -300,6 +321,15 @@ export function loadState(): AppState {
       submissions,
       choreAssignments,
       schedules: loadSchedules(parsed.schedules, ids),
+      customActivities: Array.isArray(parsed.customActivities)
+        ? (parsed.customActivities as ActivityIdea[]).filter(
+            (a) => a && typeof a.id === "string" && typeof a.title === "string",
+          )
+        : [],
+      activityImages:
+        parsed.activityImages && typeof parsed.activityImages === "object"
+          ? (parsed.activityImages as Record<string, string>)
+          : {},
       themes,
       messages,
       appVisibility,
@@ -317,13 +347,12 @@ export function saveState(state: AppState): void {
     if (localStorage.getItem(STORAGE_KEY) === serialized) return;
     localStorage.setItem(STORAGE_KEY, serialized);
   } catch {
-    // Storage might be full (lots of photos) — drop reviewed photos and retry.
+    // Storage might be full (lots of photos) — shrink the photo gallery to the
+    // most recent few and retry.
     try {
       const slimmed: AppState = {
         ...state,
-        submissions: state.submissions.map((s) =>
-          s.status !== "pending" ? { ...s, photo: "" } : s,
-        ),
+        submissions: prunePhotos(state.submissions, 12),
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(slimmed));
     } catch {

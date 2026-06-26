@@ -19,6 +19,8 @@ function pickConfig(s: AppState): SyncConfig {
     appVisibility: s.appVisibility,
     exploreHidden: s.exploreHidden,
     schedules: s.schedules,
+    customActivities: s.customActivities,
+    activityImages: s.activityImages,
     parentPin: s.parentPin,
   };
 }
@@ -147,6 +149,8 @@ export function FamilySync() {
     state.appVisibility,
     state.exploreHidden,
     state.schedules,
+    state.customActivities,
+    state.activityImages,
     state.parentPin,
     code,
     ready,

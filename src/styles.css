@@ -44,6 +44,50 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* --- Theme palettes (whole-app look, driven by data-theme on <html>) -------*/
+:root[data-theme="midnight"] {
+  --ink: #ede9fb;
+  --ink-soft: #aaa3cd;
+  --paper: #221d3a;
+  --paper-2: #1a1531;
+  --line: #352d56;
+  --shadow: 0 16px 34px -16px rgba(0, 0, 0, 0.65);
+  --shadow-sm: 0 8px 18px -10px rgba(0, 0, 0, 0.6);
+}
+:root[data-theme="midnight"] body {
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #2c2256 0%, transparent 55%),
+    radial-gradient(1000px 600px at 100% 0%, #3a1f4f 0%, transparent 50%),
+    linear-gradient(180deg, #15102c 0%, #0d0a20 100%);
+}
+:root[data-theme="neon"] {
+  --ink: #eef3ff;
+  --ink-soft: #9fb0d8;
+  --paper: #161b2e;
+  --paper-2: #10131f;
+  --line: #283150;
+  --shadow: 0 16px 34px -16px rgba(0, 0, 0, 0.7);
+  --shadow-sm: 0 8px 18px -10px rgba(0, 0, 0, 0.65);
+}
+:root[data-theme="neon"] body {
+  background:
+    radial-gradient(1000px 520px at 0% 0%, #2a0e3a 0%, transparent 55%),
+    radial-gradient(900px 520px at 100% 8%, #06324a 0%, transparent 55%),
+    linear-gradient(180deg, #0b0e1a 0%, #06080f 100%);
+}
+:root[data-theme="mono"] {
+  --ink: #1f2733;
+  --ink-soft: #6b7686;
+  --paper: #ffffff;
+  --paper-2: #f5f7fa;
+  --line: #e6e9ef;
+  --shadow: 0 14px 30px -18px rgba(40, 50, 70, 0.28);
+  --shadow-sm: 0 6px 16px -10px rgba(40, 50, 70, 0.22);
+}
+:root[data-theme="mono"] body {
+  background: linear-gradient(180deg, #fbfcfe 0%, #eef2f7 100%);
+}
+
 h1,
 h2,
 h3 {
@@ -434,6 +478,297 @@ button {
 }
 .addblock {
   align-self: flex-start;
+}
+
+/* --- Custom chore creator -------------------------------------------------*/
+.addchore__steps {
+  resize: vertical;
+  min-height: 64px;
+  font-family: var(--sans);
+}
+.addchore__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+.addchore__field {
+  flex: 1;
+  min-width: 110px;
+}
+.addchore__xp {
+  font-weight: 700;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+
+/* --- Per-kid progress (grown-ups) -----------------------------------------*/
+.progcard {
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  padding: 16px;
+  margin-bottom: 6px;
+}
+.progcard__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.progcard__avatar {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  font-size: 1.6rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--this-kid, var(--kid)) 22%, var(--paper));
+}
+.progcard__id {
+  display: flex;
+  flex-direction: column;
+}
+.progcard__name {
+  font-size: 1.15rem;
+}
+.progcard__rank {
+  font-weight: 700;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+.progcard__xp {
+  margin-left: auto;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--this-kid, var(--kid));
+}
+.progcard__bar {
+  height: 12px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+  margin: 12px 0 6px;
+}
+.progcard__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--this-kid, var(--kid)),
+    var(--kid-dark)
+  );
+}
+.progcard__next {
+  font-weight: 700;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+.progstats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+.progstat {
+  background: var(--paper-2);
+  border-radius: var(--radius-sm);
+  padding: 10px 6px;
+  text-align: center;
+}
+.progstat__n {
+  display: block;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 1.2rem;
+  color: var(--ink);
+}
+.progstat__l {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.prog-subtitle {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin: 22px 0 10px;
+}
+.badgegrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 10px;
+}
+.badgechip {
+  border: 2px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-2);
+  padding: 12px 8px;
+  text-align: center;
+  opacity: 0.5;
+  filter: grayscale(0.7);
+  transition: all 0.15s ease;
+}
+.badgechip.is-earned {
+  opacity: 1;
+  filter: none;
+  border-color: var(--kid);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+}
+.badgechip__emoji {
+  display: block;
+  font-size: 1.7rem;
+}
+.badgechip__title {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+.photogrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+.photogrid__item {
+  border: none;
+  padding: 0;
+  background: var(--paper);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.12s ease;
+}
+.photogrid__item:hover {
+  transform: translateY(-2px);
+}
+.photogrid__item img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+}
+.photogrid__cap {
+  display: block;
+  padding: 7px 9px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+.photogrid__with {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+}
+
+/* --- Mission example photos (grown-up manager) ----------------------------*/
+.exlist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.exrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-2);
+}
+.exrow__preview {
+  width: 72px;
+  height: 52px;
+  flex: none;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--paper);
+  display: grid;
+  place-items: center;
+}
+.exrow__preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.exrow__art {
+  width: 100%;
+  height: 100%;
+}
+.exrow__art svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.exrow__none {
+  font-size: 1.6rem;
+}
+.exrow__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.exrow__title {
+  color: var(--ink);
+}
+.exrow__cat {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.exrow__actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+/* --- Mission example art / photo (kid mission card) -----------------------*/
+.mission__example {
+  margin-bottom: 12px;
+}
+.mission__example-img {
+  position: relative;
+  display: block;
+  width: 100%;
+  border: none;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--paper-2);
+}
+.mission__example-img--art {
+  cursor: default;
+}
+.mission__example-img img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+}
+.mission__art svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.mission__example-tag {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  background: rgba(20, 8, 30, 0.62);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 999px;
+  backdrop-filter: blur(2px);
 }
 
 /* --- Shared view bits -----------------------------------------------------*/

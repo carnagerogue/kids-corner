@@ -6,7 +6,13 @@
 export type KidId = string;
 
 /** A look-and-feel for the animated cursor + background (see data/themes.ts). */
-export type ThemeId = "sparkle" | "adventure" | "ocean";
+export type ThemeId =
+  | "sparkle"
+  | "adventure"
+  | "ocean"
+  | "midnight"
+  | "neon"
+  | "mono";
 
 export type Kid = {
   id: KidId;
@@ -38,6 +44,9 @@ export type ActivityCategory =
   | "chores"
   | "quiet";
 
+/** Who an activity suits — lets grown-ups give teens grown-up-level tasks. */
+export type Audience = "all" | "kids" | "teens";
+
 export type ActivityIdea = {
   id: string;
   title: string;
@@ -50,6 +59,10 @@ export type ActivityIdea = {
   parentHelp: boolean;
   steps: string[];
   xp: number;
+  /** Age fit. Defaults to "all" when omitted. */
+  audience?: Audience;
+  /** True for grown-up-created activities (stored in state, not the catalog). */
+  custom?: boolean;
 };
 
 // --- Daily schedule -------------------------------------------------------
@@ -224,6 +237,10 @@ export type AppState = {
    * (everyone's default); extra plans override it per-kid or per-group.
    */
   schedules: SchedulePlan[];
+  /** Grown-up-created chores/activities (merged with the built-in catalog). */
+  customActivities: ActivityIdea[];
+  /** Example photos a grown-up attached, keyed by activity id (data URLs). */
+  activityImages: Record<string, string>;
   /** Each kid's chosen look for the cursor + background. */
   themes: Record<KidId, ThemeId>;
   /** Messages between each kid and the grown-ups. */
