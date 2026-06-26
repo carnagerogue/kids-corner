@@ -253,6 +253,27 @@ export type Announcement = {
   deleted?: boolean;
 };
 
+/** A kid's sticker reaction to someone's finished-task photo. */
+export type Reaction = {
+  id: string;
+  /** The submission (photo) being reacted to. */
+  submissionId: string;
+  by: KidId;
+  emoji: string;
+  at: number;
+  deleted?: boolean;
+};
+
+/** A collective goal the whole family works toward. */
+export type FamilyGoal = {
+  /** Approved tasks (across all kids) needed to win. */
+  target: number;
+  /** What the family earns, e.g. "movie night". */
+  reward: string;
+  /** Tasks approved on/after this date (YYYY-MM-DD) count. */
+  since: string;
+};
+
 // --- Persisted state ------------------------------------------------------
 
 export type DayProgress = {
@@ -308,6 +329,10 @@ export type AppState = {
   messages: Message[];
   /** Grown-up broadcasts shown to all kids. */
   announcements: Announcement[];
+  /** Sticker reactions to finished-task photos (the family wall). */
+  reactions: Reaction[];
+  /** The current shared family goal, if a grown-up set one. */
+  familyGoal: FamilyGoal | null;
   /** App-catalog ids each kid is allowed to see (parent-controlled). */
   appVisibility: Record<KidId, string[]>;
   /** Explore resource ids each kid CANNOT see (default: none hidden). */

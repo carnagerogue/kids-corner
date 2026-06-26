@@ -12,11 +12,13 @@ import type {
   AppState,
   AvatarConfig,
   ChoreAssignment,
+  FamilyGoal,
   GearSlot,
   Kid,
   KidId,
   Message,
   ParticipantId,
+  Reaction,
   SchedulePlan,
   ScheduleScope,
   Submission,
@@ -40,6 +42,7 @@ export type SyncConfig = {
   lastSpin: Record<string, string>;
   ownedGear: Record<string, string[]>;
   avatar: Record<string, AvatarConfig>;
+  familyGoal: FamilyGoal | null;
   parentPin: string;
 };
 import {
@@ -126,6 +129,10 @@ export type Action =
   | { type: "SEND_ANNOUNCEMENT"; text: string }
   | { type: "DELETE_ANNOUNCEMENT"; id: string }
   | { type: "INGEST_ANNOUNCEMENTS"; announcements: Announcement[] }
+  | { type: "TOGGLE_REACTION"; submissionId: string; by: KidId; emoji: string }
+  | { type: "INGEST_REACTIONS"; reactions: Reaction[] }
+  | { type: "SET_FAMILY_GOAL"; target: number; reward: string }
+  | { type: "CLEAR_FAMILY_GOAL" }
   | { type: "SET_CONFIG"; config: SyncConfig }
   | { type: "INGEST_SUBMISSIONS"; submissions: Submission[] }
   | { type: "INGEST_CHORES"; choreAssignments: ChoreAssignment[] }
@@ -628,6 +635,64 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, announcements: merged };
     }
 
+    case "TOGGLE_REACTION": {
+      const existing = state.reactions.find(
+        (r) =>
+          !r.deleted &&
+          r.submissionId === action.submissionId &&
+          r.by === action.by &&
+          r.emoji === action.emoji,
+      );
+      if (existing) {
+        return {
+          ...state,
+          reactions: state.reactions.map((r) =>
+            r.id === existing.id ? { ...r, deleted: true } : r,
+          ),
+        };
+      }
+      const reaction: Reaction = {
+        id: newId(),
+        submissionId: action.submissionId,
+        by: action.by,
+        emoji: action.emoji,
+        at: Date.now(),
+      };
+      return { ...state, reactions: [...state.reactions, reaction].slice(-500) };
+    }
+
+    case "INGEST_REACTIONS": {
+      const byId = new Map(state.reactions.map((r) => [r.id, r]));
+      let changed = false;
+      for (const r of action.reactions) {
+        if (!r || !r.id) continue;
+        const l = byId.get(r.id);
+        if (!l) {
+          byId.set(r.id, r);
+          changed = true;
+        } else if (r.deleted && !l.deleted) {
+          byId.set(r.id, { ...l, deleted: true });
+          changed = true;
+        }
+      }
+      if (!changed) return state;
+      return {
+        ...state,
+        reactions: [...byId.values()].sort((a, b) => a.at - b.at).slice(-500),
+      };
+    }
+
+    case "SET_FAMILY_GOAL": {
+      const target = Math.max(1, Math.round(action.target));
+      return {
+        ...state,
+        familyGoal: { target, reward: action.reward.trim().slice(0, 80), since: todayKey() },
+      };
+    }
+
+    case "CLEAR_FAMILY_GOAL":
+      return { ...state, familyGoal: null };
+
     case "SET_CONFIG": {
       // Merge the shared family setup from another device. The roster is a
       // UNION of both sides (so an add on one device is never clobbered by the
@@ -731,6 +796,8 @@ function reducer(state: AppState, action: Action): AppState {
         lastSpin,
         ownedGear,
         avatar,
+        familyGoal:
+          cfg.familyGoal !== undefined ? cfg.familyGoal : state.familyGoal,
         parentPin: cfg.parentPin || state.parentPin,
         activeKid,
       };
@@ -857,6 +924,7 @@ function reducer(state: AppState, action: Action): AppState {
         messages: state.messages.filter(
           (m) => m.from !== action.kidId && m.to !== action.kidId,
         ),
+        reactions: state.reactions.filter((r) => r.by !== action.kidId),
         activeKid:
           state.activeKid === action.kidId
             ? kidProfiles[0].id

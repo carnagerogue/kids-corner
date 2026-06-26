@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useApp } from "../store/AppContext";
 import { getLevelInfo } from "../data/levels";
 import {
@@ -12,10 +13,13 @@ import {
   dailyGoalDone,
   effectiveSchedule,
   equippedAvatar,
+  familyGoalProgress,
   getDay,
   getKid,
   getKidXp,
   primaryAppFor,
+  reactionSummary,
+  sharedPhotos,
 } from "../store/selectors";
 import { Avatar } from "../data/avatar";
 import { todayKey } from "../store/storage";
@@ -208,6 +212,8 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
             );
           })()}
 
+          <FamilyGoalBar />
+
           {mandatory && (
             <>
               <div className="section-row">
@@ -268,6 +274,8 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
       <div className="crew crew--solo">
         <CrewCard kidId={state.activeKid} active />
       </div>
+
+      <FamilyWall />
 
       <div className="section-row">
         <h3 className="section-title">🎯 Missions of the Day</h3>
@@ -472,5 +480,109 @@ function AnnouncementBanner() {
         </div>
       ))}
     </div>
+  );
+}
+
+/** A shared progress bar toward the grown-up-set family goal. */
+function FamilyGoalBar() {
+  const { state } = useApp();
+  const g = state.familyGoal;
+  if (!g) return null;
+  const done = familyGoalProgress(state);
+  const pct = Math.min(1, done / g.target);
+  const reached = done >= g.target;
+  return (
+    <section className={`famgoal ${reached ? "is-won" : ""}`}>
+      <span className="famgoal__icon">🏡</span>
+      <div className="famgoal__body">
+        <strong className="famgoal__title">
+          {reached ? "🎉 Family goal reached!" : "Family Goal — everyone helps!"}
+        </strong>
+        <span className="famgoal__sub">
+          {reached
+            ? `You all earned: ${g.reward}! 🎁`
+            : `${done}/${g.target} tasks done together → ${g.reward}`}
+        </span>
+        <div className="famgoal__bar">
+          <span style={{ width: `${pct * 100}%` }} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** Recent finished-task photos from every kid, with sticker reactions. */
+function FamilyWall() {
+  const { state, dispatch } = useApp();
+  const me = state.activeKid;
+  const photos = sharedPhotos(state, 12);
+  const [zoom, setZoom] = useState("");
+  if (!photos.length) return null;
+  return (
+    <>
+      <h3 className="section-title">
+        📸 Family Wall <span className="section-tag">cheer each other on</span>
+      </h3>
+      <div className="wall">
+        {photos.map((s) => {
+          const kid = getKid(state, s.kidId);
+          const summary = reactionSummary(state, s.id, me);
+          return (
+            <div
+              key={s.id}
+              className="wallcard"
+              style={{ ["--this-kid" as string]: kid.color }}
+            >
+              <button
+                className="wallcard__photo"
+                onClick={() => setZoom(s.photo)}
+                aria-label={`See ${kid.firstName}'s ${s.title} bigger`}
+              >
+                <img src={s.photo} alt={s.title} loading="lazy" />
+              </button>
+              <div className="wallcard__who">
+                <Avatar
+                  config={equippedAvatar(state, kid.id)}
+                  size={24}
+                  className="wallcard__av"
+                />
+                <span className="wallcard__name">{kid.firstName}</span>
+                <span className="wallcard__task">
+                  {s.emoji} {s.title}
+                </span>
+              </div>
+              <div className="wallcard__reacts">
+                {summary.map((r) => (
+                  <button
+                    key={r.emoji}
+                    className={`react ${r.mine ? "is-mine" : ""} ${
+                      r.count ? "has-count" : ""
+                    }`}
+                    onClick={() =>
+                      dispatch({
+                        type: "TOGGLE_REACTION",
+                        submissionId: s.id,
+                        by: me,
+                        emoji: r.emoji,
+                      })
+                    }
+                  >
+                    <span className="react__emoji">{r.emoji}</span>
+                    {r.count > 0 && <span className="react__n">{r.count}</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {zoom &&
+        createPortal(
+          <div className="modal" onClick={() => setZoom("")}>
+            <img className="zoom" src={zoom} alt="Photo enlarged" />
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }

@@ -13,6 +13,7 @@ import {
   choreCatalog,
   customPlans,
   equippedAvatar,
+  familyGoalProgress,
   familyPlan,
   getKid,
   getKidXp,
@@ -352,6 +353,80 @@ function ParentReview({ onZoom }: { onZoom: (src: string) => void }) {
   );
 }
 
+function FamilyGoalEditor() {
+  const { state, dispatch } = useApp();
+  const g = state.familyGoal;
+  const [target, setTarget] = useState(g?.target ?? 20);
+  const [reward, setReward] = useState(g?.reward ?? "");
+  const done = familyGoalProgress(state);
+
+  const save = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reward.trim()) return;
+    dispatch({ type: "SET_FAMILY_GOAL", target, reward });
+  };
+
+  return (
+    <>
+      <h3 className="section-title">🏡 Family Goal</h3>
+      <div className="settings">
+        <p className="settings__hint">
+          A shared goal every kid helps with. When the family finishes the
+          target number of tasks <strong>together</strong>, they all win the
+          reward — it shows on each kid's home screen.
+        </p>
+        {g && (
+          <div className="famgoal famgoal--mini">
+            <span className="famgoal__icon">🏡</span>
+            <div className="famgoal__body">
+              <strong className="famgoal__title">
+                {done}/{g.target} → {g.reward}
+              </strong>
+              <div className="famgoal__bar">
+                <span style={{ width: `${Math.min(100, (done / g.target) * 100)}%` }} />
+              </div>
+            </div>
+            <button
+              className="btn btn--reject btn--sm"
+              onClick={() => dispatch({ type: "CLEAR_FAMILY_GOAL" })}
+            >
+              Clear
+            </button>
+          </div>
+        )}
+        <form className="addchore__row" onSubmit={save}>
+          <label className="settings__label addchore__field">
+            Reward
+            <input
+              className="settings__input"
+              value={reward}
+              onChange={(e) => setReward(e.target.value)}
+              placeholder="e.g. movie night, pizza, a trip to the park"
+              maxLength={80}
+            />
+          </label>
+          <label className="settings__label addchore__field" style={{ flex: "0 0 96px" }}>
+            Tasks
+            <input
+              className="settings__input"
+              type="number"
+              min={1}
+              max={200}
+              value={target}
+              onChange={(e) =>
+                setTarget(Math.max(1, Math.min(200, parseInt(e.target.value) || 1)))
+              }
+            />
+          </label>
+          <button className="btn btn--primary" type="submit" disabled={!reward.trim()}>
+            {g ? "Update goal" : "Set goal"}
+          </button>
+        </form>
+      </div>
+    </>
+  );
+}
+
 function ParentProgress({ onZoom }: { onZoom: (src: string) => void }) {
   const { state } = useApp();
   const kids = kidList(state);
@@ -376,6 +451,8 @@ function ParentProgress({ onZoom }: { onZoom: (src: string) => void }) {
 
   return (
     <>
+      <FamilyGoalEditor />
+
       <h3 className="section-title">📊 Each Kid's Progress</h3>
       <div className="msgtabs">
         {kids.map((k) => (

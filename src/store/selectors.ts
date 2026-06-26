@@ -261,6 +261,46 @@ export function activeAnnouncements(state: AppState): Announcement[] {
     .sort((x, y) => y.at - x.at);
 }
 
+// --- Family wall (reactions) + shared goal --------------------------------
+
+/** The stickers kids can react with. */
+export const REACTION_STICKERS = ["👏", "🔥", "🌟", "❤️", "😂"];
+
+/** Recent approved-task photos from every kid, newest first. */
+export function sharedPhotos(state: AppState, limit = 12): Submission[] {
+  return state.submissions
+    .filter((s) => s.status === "approved" && s.photo)
+    .sort(
+      (a, b) =>
+        (b.reviewedAt ?? b.submittedAt) - (a.reviewedAt ?? a.submittedAt),
+    )
+    .slice(0, limit);
+}
+
+/** Reaction tallies for a photo: per sticker, the count and whether `me` used it. */
+export function reactionSummary(
+  state: AppState,
+  submissionId: string,
+  me: KidId,
+): { emoji: string; count: number; mine: boolean }[] {
+  const active = (state.reactions ?? []).filter(
+    (r) => !r.deleted && r.submissionId === submissionId,
+  );
+  return REACTION_STICKERS.map((emoji) => {
+    const of = active.filter((r) => r.emoji === emoji);
+    return { emoji, count: of.length, mine: of.some((r) => r.by === me) };
+  });
+}
+
+/** Approved tasks (all kids) counting toward the current family goal. */
+export function familyGoalProgress(state: AppState): number {
+  const g = state.familyGoal;
+  if (!g) return 0;
+  return state.submissions.filter(
+    (s) => s.status === "approved" && s.date >= g.since,
+  ).length;
+}
+
 /** Unread messages addressed to `me` (optionally only from a given sender). */
 export function unreadFor(
   state: AppState,

@@ -8,6 +8,7 @@ import type {
   AppState,
   ChoreAssignment,
   Message,
+  Reaction,
   Submission,
 } from "../types";
 
@@ -27,6 +28,7 @@ function pickConfig(s: AppState): SyncConfig {
     lastSpin: s.lastSpin,
     ownedGear: s.ownedGear,
     avatar: s.avatar,
+    familyGoal: s.familyGoal,
     parentPin: s.parentPin,
   };
 }
@@ -79,9 +81,10 @@ function pushUpdate(
 const subHash = (s: Submission) =>
   `${s.status}|${s.reviewedAt ?? 0}|${s.note ?? ""}|${s.photo ? 1 : 0}`;
 
-// Re-push a message/announcement when it gets soft-deleted.
+// Re-push a message/announcement/reaction when it gets soft-deleted.
 const msgHash = (m: Message) => (m.deleted ? "d" : "");
 const annHash = (a: Announcement) => (a.deleted ? "d" : "");
+const reactHash = (r: Reaction) => (r.deleted ? "d" : "");
 
 /** Firebase keys can't contain . # $ / [ ]. */
 const safe = (code: string) => code.replace(/[.#$/[\]]/g, "_");
@@ -103,6 +106,7 @@ export function FamilySync() {
   const syncedChore = useRef<Set<string>>(new Set());
   const syncedMsg = useRef<Map<string, string>>(new Map());
   const syncedAnn = useRef<Map<string, string>>(new Map());
+  const syncedReact = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     const onCode = () => setCode(readSyncCode());
@@ -125,6 +129,7 @@ export function FamilySync() {
     syncedChore.current = new Set();
     syncedMsg.current = new Map();
     syncedAnn.current = new Map();
+    syncedReact.current = new Map();
     const base = `rooms/${safe(code)}`;
     const unsubs = [
       onValue(ref(db, `${base}/config`), (snap) => {
@@ -162,6 +167,12 @@ export function FamilySync() {
         if (as.length) {
           dispatch({ type: "INGEST_ANNOUNCEMENTS", announcements: as });
         }
+      }),
+      onValue(ref(db, `${base}/reactions`), (snap) => {
+        const val = (snap.val() as Record<string, Reaction> | null) ?? {};
+        const rs = Object.values(val).filter((r) => r && r.id);
+        rs.forEach((r) => syncedReact.current.set(r.id, reactHash(r)));
+        if (rs.length) dispatch({ type: "INGEST_REACTIONS", reactions: rs });
       }),
     ];
     return () => unsubs.forEach((u) => u());
@@ -270,6 +281,24 @@ export function FamilySync() {
       pushUpdate(db, `rooms/${safe(code)}/announcements`, updates);
     }
   }, [state.announcements, code]);
+
+  // Push new / removed reactions.
+  useEffect(() => {
+    if (!FIREBASE_READY || !code) return;
+    const db = getDb();
+    if (!db) return;
+    const updates: Record<string, Reaction> = {};
+    for (const r of state.reactions) {
+      const h = reactHash(r);
+      if (syncedReact.current.get(r.id) !== h) {
+        syncedReact.current.set(r.id, h);
+        updates[r.id] = r;
+      }
+    }
+    if (Object.keys(updates).length) {
+      pushUpdate(db, `rooms/${safe(code)}/reactions`, updates);
+    }
+  }, [state.reactions, code]);
 
   return null;
 }

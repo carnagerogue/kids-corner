@@ -4,6 +4,8 @@ import type {
   AppState,
   AvatarConfig,
   ChoreAssignment,
+  FamilyGoal,
+  Reaction,
   Kid,
   KidId,
   KidState,
@@ -190,6 +192,8 @@ export function defaultState(): AppState {
     themes,
     messages: [],
     announcements: [],
+    reactions: [],
+    familyGoal: null,
     appVisibility,
     exploreHidden,
   };
@@ -339,6 +343,23 @@ export function loadState(): AppState {
           .slice(-50)
       : [];
 
+    const reactions = Array.isArray(parsed.reactions)
+      ? (parsed.reactions as Reaction[])
+          .filter(
+            (r) =>
+              r &&
+              typeof r.id === "string" &&
+              typeof r.submissionId === "string",
+          )
+          .slice(-500)
+      : [];
+
+    const fg = parsed.familyGoal as FamilyGoal | null | undefined;
+    const familyGoal =
+      fg && typeof fg.target === "number" && typeof fg.since === "string"
+        ? { target: fg.target, reward: fg.reward ?? "", since: fg.since }
+        : null;
+
     const activeKid =
       typeof parsed.activeKid === "string" && ids.includes(parsed.activeKid)
         ? parsed.activeKid
@@ -381,6 +402,8 @@ export function loadState(): AppState {
       themes,
       messages,
       announcements,
+      reactions,
+      familyGoal,
       appVisibility,
       exploreHidden,
     };

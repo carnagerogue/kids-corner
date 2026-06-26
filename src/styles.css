@@ -1428,6 +1428,161 @@ button {
   flex: none;
 }
 
+/* --- Family goal bar ------------------------------------------------------*/
+.famgoal {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 16px 0 6px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, #a855f7 14%, var(--paper)),
+    var(--paper)
+  );
+  border: 2px solid #c084fc;
+  box-shadow: var(--shadow-sm);
+}
+.famgoal.is-won {
+  border-color: #ffce4a;
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, #ffce4a 22%, var(--paper)),
+    var(--paper)
+  );
+}
+.famgoal--mini {
+  margin: 0 0 12px;
+}
+.famgoal__icon {
+  font-size: 2rem;
+  flex: none;
+}
+.famgoal__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.famgoal__title {
+  font-family: var(--display);
+  font-size: 1.1rem;
+  color: var(--ink);
+}
+.famgoal__sub {
+  font-weight: 700;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+}
+.famgoal__bar {
+  height: 12px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+  margin-top: 4px;
+}
+.famgoal__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #c084fc, #7c5cff);
+  transition: width 0.4s ease;
+}
+.famgoal.is-won .famgoal__bar > span {
+  background: linear-gradient(90deg, #ffe08a, #ffc23d);
+}
+
+/* --- Family wall (reactions) ----------------------------------------------*/
+.wall {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.wallcard {
+  border: 2px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.wallcard__photo {
+  border: none;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  display: block;
+}
+.wallcard__photo img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+}
+.wallcard__who {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px 4px;
+  flex-wrap: wrap;
+}
+.wallcard__av {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--this-kid, var(--kid));
+  flex: none;
+}
+.wallcard__name {
+  font-weight: 800;
+  font-size: 0.82rem;
+  color: var(--ink);
+}
+.wallcard__task {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  width: 100%;
+}
+.wallcard__reacts {
+  display: flex;
+  gap: 4px;
+  padding: 4px 8px 9px;
+  flex-wrap: wrap;
+}
+.react {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1.5px solid var(--line);
+  background: var(--paper-2);
+  border-radius: 999px;
+  padding: 3px 7px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: transform 0.1s ease, border-color 0.12s ease;
+}
+.react:hover {
+  transform: translateY(-1px) scale(1.05);
+}
+.react.is-mine {
+  border-color: var(--kid);
+  background: color-mix(in srgb, var(--kid) 16%, var(--paper));
+}
+.react__n {
+  font-weight: 800;
+  font-size: 0.74rem;
+  color: var(--ink);
+}
+.react:not(.has-count) .react__emoji {
+  filter: grayscale(0.35);
+  opacity: 0.8;
+}
+
 /* --- Celebrations (level-up / badge party) --------------------------------*/
 .party {
   position: fixed;
