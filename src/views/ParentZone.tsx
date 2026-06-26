@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useApp } from "../store/AppContext";
 import { KID_EMOJIS, KID_PALETTE } from "../data/kids";
 import { CHORES, ACTIVITY_BY_ID } from "../data/activities";
@@ -81,10 +82,108 @@ function PinGate({
   );
 }
 
+type GTab = "review" | "messages" | "kids" | "apps" | "chores" | "settings";
+
+const GTABS: { id: GTab; emoji: string; label: string }[] = [
+  { id: "review", emoji: "📥", label: "Review" },
+  { id: "messages", emoji: "💬", label: "Messages" },
+  { id: "kids", emoji: "👧", label: "Kids" },
+  { id: "apps", emoji: "🧭", label: "Apps" },
+  { id: "chores", emoji: "🧹", label: "Chores" },
+  { id: "settings", emoji: "⚙️", label: "Settings" },
+];
+
 function ParentDashboard({ onLock }: { onLock: () => void }) {
+  const { state } = useApp();
+  const [tab, setTab] = useState<GTab>("review");
+  const [zoom, setZoom] = useState<string>("");
+
+  const pendingN = pendingSubmissions(state).length;
+  const unreadN = kidList(state).reduce(
+    (n, k) => n + parentUnreadCount(state, k.id),
+    0,
+  );
+
+  const subtitle: Record<GTab, string> = {
+    review: pendingN
+      ? `${pendingN} item${pendingN === 1 ? "" : "s"} waiting for your review`
+      : "All caught up — nothing waiting right now",
+    messages: "Chat with each child",
+    kids: "Add or remove children and set their login PINs",
+    apps: "Choose what each child sees in Apps and Explore",
+    chores: "Assign chores for the kids to finish with photo proof",
+    settings: "Cross-device sync, PINs, and resetting the summer",
+  };
+
+  return (
+    <div className="view gzone">
+      <MessageNotifier viewer="parent" />
+      <div className="view__header">
+        <div>
+          <h2 className="view__title">🧑‍🍼 Grown-Ups Dashboard</h2>
+          <p className="view__sub">{subtitle[tab]}</p>
+        </div>
+        <button className="btn btn--ghost" onClick={onLock}>
+          🔒 Lock
+        </button>
+      </div>
+
+      <nav className="gnav" aria-label="Grown-up sections">
+        {GTABS.map((t) => {
+          const badge =
+            t.id === "review" ? pendingN : t.id === "messages" ? unreadN : 0;
+          return (
+            <button
+              key={t.id}
+              className={`gnav__btn ${tab === t.id ? "is-active" : ""}`}
+              onClick={() => setTab(t.id)}
+            >
+              <span className="gnav__emoji">{t.emoji}</span>
+              <span className="gnav__label">{t.label}</span>
+              {badge > 0 && <span className="gnav__pip">{badge}</span>}
+            </button>
+          );
+        })}
+      </nav>
+
+      <div className="gpanel" key={tab}>
+        {tab === "review" && <ParentReview onZoom={setZoom} />}
+        {tab === "messages" && <ParentMessages />}
+        {tab === "kids" && (
+          <>
+            <ParentKids />
+            <ParentPins />
+          </>
+        )}
+        {tab === "apps" && (
+          <>
+            <ParentApps />
+            <ParentExplore />
+          </>
+        )}
+        {tab === "chores" && <ChoreAssigner />}
+        {tab === "settings" && (
+          <>
+            <CloudSync />
+            <ParentSettings />
+          </>
+        )}
+      </div>
+
+      {zoom &&
+        createPortal(
+          <div className="modal" onClick={() => setZoom("")}>
+            <img className="zoom" src={zoom} alt="Proof enlarged" />
+          </div>,
+          document.body,
+        )}
+    </div>
+  );
+}
+
+function ParentReview({ onZoom }: { onZoom: (src: string) => void }) {
   const { state, dispatch } = useApp();
   const pending = pendingSubmissions(state);
-  const [zoom, setZoom] = useState<string>("");
 
   const reviewedToday = state.submissions
     .filter((s) => s.status !== "pending" && s.reviewedAt)
@@ -109,20 +208,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
   };
 
   return (
-    <div className="view">
-      <MessageNotifier viewer="parent" />
-      <div className="view__header">
-        <div>
-          <h2 className="view__title">🧑‍🍼 Grown-Ups Dashboard</h2>
-          <p className="view__sub">
-            {pending.length} item{pending.length === 1 ? "" : "s"} waiting for review
-          </p>
-        </div>
-        <button className="btn btn--ghost" onClick={onLock}>
-          🔒 Lock
-        </button>
-      </div>
-
+    <>
       <h3 className="section-title">📥 Waiting for Approval</h3>
       {pending.length === 0 ? (
         <p className="empty">All caught up — nothing to review right now. 🎉</p>
@@ -139,7 +225,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
                 {s.photo ? (
                   <button
                     className="reviewcard__photo"
-                    onClick={() => setZoom(s.photo)}
+                    onClick={() => onZoom(s.photo)}
                     aria-label="Enlarge photo"
                   >
                     <img src={s.photo} alt="Proof" />
@@ -211,27 +297,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
           </div>
         </>
       )}
-
-      <ParentKids />
-
-      <ParentApps />
-
-      <ParentExplore />
-
-      <ParentMessages />
-
-      <CloudSync />
-
-      <ChoreAssigner />
-
-      <ParentSettings />
-
-      {zoom && (
-        <div className="modal" onClick={() => setZoom("")}>
-          <img className="zoom" src={zoom} alt="Proof enlarged" />
-        </div>
-      )}
-    </div>
+    </>
   );
 }
 
@@ -719,17 +785,6 @@ function ParentSettings() {
 
   return (
     <>
-      <h3 className="section-title">🔑 Kid Login PINs</h3>
-      <div className="settings">
-        {kidList(state).map((k) => (
-          <KidPinRow key={k.id} kidId={k.id} />
-        ))}
-        <p className="settings__hint">
-          Each kid enters their PIN to log in. Give each child a PIN only they
-          know so they can't log in as a sibling.
-        </p>
-      </div>
-
       <h3 className="section-title">⚙️ Settings</h3>
       <div className="settings">
         <form className="settings__row" onSubmit={savePin}>
@@ -757,6 +812,24 @@ function ParentSettings() {
         <p className="settings__hint">
           Current grown-up PIN is <code>{state.parentPin}</code>. This is a light
           gate to keep kids out — not real security.
+        </p>
+      </div>
+    </>
+  );
+}
+
+function ParentPins() {
+  const { state } = useApp();
+  return (
+    <>
+      <h3 className="section-title">🔑 Kid Login PINs</h3>
+      <div className="settings">
+        {kidList(state).map((k) => (
+          <KidPinRow key={k.id} kidId={k.id} />
+        ))}
+        <p className="settings__hint">
+          Each kid enters their PIN to log in. Give each child a PIN only they
+          know so they can't log in as a sibling.
         </p>
       </div>
     </>

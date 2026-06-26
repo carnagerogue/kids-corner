@@ -1,12 +1,6 @@
 import { useApp } from "../store/AppContext";
 import { getLevelInfo } from "../data/levels";
-import {
-  getKid,
-  getKidXp,
-  kidUnreadCount,
-  parentUnreadCount,
-  pendingCount,
-} from "../store/selectors";
+import { getKid, getKidXp, kidUnreadCount } from "../store/selectors";
 import { TABS, type TabId } from "../App";
 import type { KidId } from "../types";
 
@@ -22,9 +16,7 @@ export function TopBar({
   onLogout: () => void;
 }) {
   const { state } = useApp();
-  const pending = pendingCount(state);
   const kidUnread = kidUnreadCount(state, user);
-  const grownupPip = pending + parentUnreadCount(state);
   const kid = getKid(state, user);
   const level = getLevelInfo(getKidXp(state, user));
 
@@ -79,7 +71,6 @@ export function TopBar({
         >
           <span className="tabs__emoji">🔒</span>
           <span className="tabs__label">Grown-Ups</span>
-          {grownupPip > 0 && <span className="tabs__pip">{grownupPip}</span>}
         </button>
       </nav>
     </header>

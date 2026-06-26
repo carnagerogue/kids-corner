@@ -211,6 +211,79 @@ button {
   font-size: 1.1rem;
 }
 
+/* --- Grown-ups sub-navigation ---------------------------------------------*/
+.gzone {
+  display: flex;
+  flex-direction: column;
+}
+.gnav {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  margin-bottom: 22px;
+  background: var(--paper);
+  border-radius: 999px;
+  box-shadow: var(--shadow-sm);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.gnav::-webkit-scrollbar {
+  display: none;
+}
+.gnav__btn {
+  position: relative;
+  flex: 1 0 auto;
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.98rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.gnav__btn:hover {
+  color: var(--ink);
+}
+.gnav__btn.is-active {
+  background: linear-gradient(135deg, var(--kid), var(--kid-dark));
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+.gnav__emoji {
+  font-size: 1.15rem;
+}
+.gnav__pip {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #ff3b6b;
+  color: #fff;
+  font-size: 0.74rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.gnav__btn.is-active .gnav__pip {
+  background: rgba(255, 255, 255, 0.28);
+}
+.gpanel {
+  animation: rise 0.22s ease both;
+}
+.gpanel > .section-title:first-child {
+  margin-top: 0;
+}
+
 /* --- Shared view bits -----------------------------------------------------*/
 .view {
   animation: rise 0.3s ease both;
@@ -1209,7 +1282,7 @@ button {
 .modal {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 10000;
   background: rgba(20, 8, 30, 0.72);
   display: grid;
   place-items: center;
@@ -1219,10 +1292,11 @@ button {
 }
 .modal__card {
   width: min(560px, 100%);
+  max-height: calc(100vh - 32px);
   background: var(--paper);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  overflow: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
 }

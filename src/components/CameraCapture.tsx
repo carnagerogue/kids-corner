@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 const MAX_DIM = 640; // downscale so photos stay small in localStorage
 const JPEG_QUALITY = 0.55;
@@ -123,7 +124,7 @@ export function CameraCapture({
     start();
   }, [start]);
 
-  return (
+  return createPortal(
     <div className="modal" role="dialog" aria-modal="true" aria-label="Take a proof photo">
       <div className="modal__card">
         <div className="modal__head">
@@ -196,6 +197,7 @@ export function CameraCapture({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
