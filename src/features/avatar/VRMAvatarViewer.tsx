@@ -368,11 +368,17 @@ function VrmCharacter({
         // unavailable (no head bone), head items fall back to the bone offset.
         let s: number;
         if (slot === "hat" && hb) {
-          // Hat base sits right at the crown so it perches on the head.
+          // Sink the hat onto the head by a fraction of its OWN height so the
+          // head goes inside it (a cap to the forehead, a tall hat's brim to the
+          // crown) instead of the whole hat perching on top. normalizeGlb anchors
+          // the hat base at y=0, so its local box height is the rendered height.
+          obj.updateMatrixWorld(true);
+          const hatH = new THREE.Box3().setFromObject(obj).max.y || 0.1;
+          const sink = THREE.MathUtils.clamp(hatH * 0.7, 0.05, 0.16);
           s = placeBind(
             obj,
             parent,
-            new THREE.Vector3(hb.pos.x, hb.top - 0.04, hb.pos.z),
+            new THREE.Vector3(hb.pos.x, hb.top - sink, hb.pos.z),
             hb,
           );
         } else if (slot === "glasses" && hb) {
