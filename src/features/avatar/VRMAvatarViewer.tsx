@@ -94,6 +94,18 @@ function VrmCharacter({
   const accessoryAnimRef = useRef<
     { obj: THREE.Object3D; kind: "petBob" | "auraSpin"; baseY: number; amp: number }[]
   >([]);
+  // Bind-pose head snapshot, captured once at load BEFORE the idle animation
+  // poses the model. Head accessories (hat/glasses) are placed from THIS stable
+  // reference — never the live, animating bone — so a slow GLB load can't leave
+  // them floating where the head used to be. `matrixWorldInv` maps a bind-pose
+  // world point into the head bone's local frame, giving a rigid local offset
+  // that stays glued to the head in every animation pose.
+  const headBindRef = useRef<{
+    matrixWorldInv: THREE.Matrix4;
+    pos: THREE.Vector3;
+    scale: number;
+    top: number;
+  } | null>(null);
 
   // ---- Imperative load (loadAsync is not Suspense-friendly) --------------
   useEffect(() => {
@@ -157,6 +169,32 @@ function VrmCharacter({
         const framedHeight = box2.max.y - box2.min.y;
         onReady((framedHeight > 0.0001 ? framedHeight : 1.5) * 0.6);
 
+        // Snapshot the BIND-pose head reference now — the model is scaled,
+        // centered and (for VRM0) already rotateVRM0'd, but the idle mixer has
+        // not posed it yet, so the head bone is in its canonical upright rest
+        // position. Head accessories are placed from this snapshot regardless of
+        // when they load, so they can never lag the bind→idle transition.
+        got.scene.updateWorldMatrix(true, true);
+        const headRaw = got.humanoid?.getRawBoneNode("head");
+        if (headRaw) {
+          headRaw.updateWorldMatrix(true, false);
+          const headWorldPos = headRaw.getWorldPosition(new THREE.Vector3());
+          // Measure the crown in the SAME (seated) frame as the head bone. Crown
+          // = top of the model, but clamped to a sane skull height above the head
+          // bone so a tall hair mesh / ahoge on a user-supplied model can't push
+          // hats up off the head. For the three bundled rigs the cap never bites
+          // (their box top sits only ~0.21–0.23 above the head bone = the skull).
+          const seatedBox = new THREE.Box3().setFromObject(got.scene);
+          headBindRef.current = {
+            matrixWorldInv: headRaw.matrixWorld.clone().invert(),
+            pos: headWorldPos,
+            scale: headRaw.getWorldScale(new THREE.Vector3()).x || 1,
+            top: Math.min(seatedBox.max.y, headWorldPos.y + 0.33),
+          };
+        } else {
+          headBindRef.current = null;
+        }
+
         // (Accessories are attached in a separate effect so equips update live.)
 
         // Load + play a shared idle animation (.vrma). createVRMAnimationClip
@@ -192,6 +230,7 @@ function VrmCharacter({
       alive = false;
       mixerRef.current?.stopAllAction();
       mixerRef.current = null;
+      headBindRef.current = null; // drop the stale snapshot until the next load
       if (loaded) VRMUtils.deepDispose(loaded.scene);
       setVrm(null);
     };
@@ -237,44 +276,46 @@ function VrmCharacter({
       parent.add(obj);
       return s;
     };
-    // Place an accessory at an explicit WORLD position, standing upright. Raw
-    // bone local axes are arbitrary per rig (a head bone's local "up" rarely
-    // points world-up), so a fixed local offset lands unpredictably — see the
-    // hat-over-the-face bug. For head items we instead compute the target in
-    // world space (from the model's actual head box) and convert to bone-local,
-    // then cancel the bone's world rotation so the prop sits level. It still
-    // rides the bone, so it follows head movement.
-    const placeWorld = (
+    // Place a HEAD accessory using the BIND-pose head snapshot. Raw bone local
+    // axes are arbitrary per rig (a head bone's local "up" rarely points
+    // world-up), so a fixed local offset lands unpredictably — that was the
+    // hat-over-the-face bug. And localizing a world target against the LIVE bone
+    // matrix races the idle animation, leaving props floating where the head
+    // *was* — that was the floating bug. So we compute the target in the model's
+    // bind-pose world frame, map it to a rigid bone-LOCAL offset via the bind
+    // inverse matrix, and stand it upright via the bind rotation. The offset is
+    // constant in bone-local space, so `boneMatrixWorld(anyPose) · offset` is the
+    // crown in that pose — the prop stays glued to the head in every frame, no
+    // matter when it loads. `hb` is the head bind snapshot; `parent` is the live
+    // bone the prop rides.
+    const placeBind = (
       obj: THREE.Object3D,
       parent: THREE.Object3D,
-      worldPos: THREE.Vector3,
+      worldTargetBind: THREE.Vector3,
+      hb: NonNullable<typeof headBindRef.current>,
     ): number => {
+      // POSITION comes from the BIND snapshot → a rigid bone-local offset that
+      // can never float (the whole point of this fix). Assumes ~uniform bone
+      // scale (true for these rigs); `1/hb.scale` undoes the bone's world scale
+      // so the prop renders at its normalized real-world size.
+      obj.scale.setScalar(1 / hb.scale);
+      obj.position.copy(worldTargetBind.clone().applyMatrix4(hb.matrixWorldInv));
+      // ORIENTATION reads the LIVE (settled idle) bone, not the bind pose: some
+      // rigs carry a rest head-tilt that the idle straightens out (Seed-san has a
+      // ~9° bind pitch), so freezing upright at bind would leave the prop visibly
+      // tilted. A small orientation error never detaches the prop, so it's safe
+      // to read the live bone here even though position must not.
       parent.updateWorldMatrix(true, false);
-      const ws = new THREE.Vector3();
-      parent.getWorldScale(ws);
-      const s = ws.x || 1;
-      obj.scale.setScalar(1 / s);
-      obj.position.copy(parent.worldToLocal(worldPos.clone()));
       const pq = new THREE.Quaternion();
       parent.getWorldQuaternion(pq);
-      obj.quaternion.copy(pq.invert()); // stand upright regardless of bone tilt
+      obj.quaternion.copy(pq.invert()); // stand upright in the current pose
       obj.traverse((o) => (o.frustumCulled = false));
       parent.add(obj);
-      return s;
+      return hb.scale;
     };
 
-    // Head metrics (world space) for accurate hat/glasses placement. The model
-    // top is the crown of the head (idle keeps arms down), and the head bone
-    // gives the head's X/Z center.
-    v.scene.updateWorldMatrix(true, true);
-    const modelBox = new THREE.Box3().setFromObject(v.scene);
-    const headTop = modelBox.max.y;
-    const headPos = new THREE.Vector3();
-    const headNode = rawBone("head");
-    if (headNode) {
-      headNode.updateWorldMatrix(true, false);
-      headNode.getWorldPosition(headPos);
-    }
+    // Stable bind-pose head reference (captured at load, before the idle pose).
+    const hb = headBindRef.current;
 
     (async () => {
       const slots = ["hat", "glasses", "backpack", "handheld", "pet", "aura"] as const;
@@ -303,22 +344,26 @@ function VrmCharacter({
         if (!obj) obj = buildAccessory(slot, item.value ?? "", item.color);
         if (!obj || cancelled) continue;
 
-        // Head items (hat/glasses) use world-space anchoring; everything else
-        // rides its bone with the authored local offset (works well off-head).
+        // Head items (hat/glasses) anchor to the stable bind-pose head snapshot
+        // (immune to the idle pose); everything else rides its bone with the
+        // authored local offset (works well off-head). If the head snapshot is
+        // unavailable (no head bone), head items fall back to the bone offset.
         let s: number;
-        if (slot === "hat") {
+        if (slot === "hat" && hb) {
           // Hat base sits right at the crown so it perches on the head.
-          s = placeWorld(
+          s = placeBind(
             obj,
             parent,
-            new THREE.Vector3(headPos.x, headTop - 0.04, headPos.z),
+            new THREE.Vector3(hb.pos.x, hb.top - 0.04, hb.pos.z),
+            hb,
           );
-        } else if (slot === "glasses") {
-          // Glasses centered at eye height, pushed forward to the face.
-          s = placeWorld(
+        } else if (slot === "glasses" && hb) {
+          // Glasses centered at eye height, pushed forward to the face front.
+          s = placeBind(
             obj,
             parent,
-            new THREE.Vector3(headPos.x, headTop - 0.13, headPos.z + 0.07),
+            new THREE.Vector3(hb.pos.x, hb.top - 0.13, hb.pos.z + 0.07),
+            hb,
           );
         } else {
           s = place(obj, parent, p.offset, p.rotation);
