@@ -5,6 +5,7 @@ import { readSession, writeSession } from "./store/storage";
 import { TopBar } from "./components/TopBar";
 import { ScheduleNotifier } from "./components/ScheduleNotifier";
 import { MessageNotifier } from "./components/MessageNotifier";
+import { AnnouncementNotifier } from "./components/AnnouncementNotifier";
 import { Celebrations } from "./components/Celebrations";
 import { LoginScreen } from "./components/LoginScreen";
 import { CommandCenter } from "./views/CommandCenter";
@@ -110,6 +111,7 @@ export function App() {
     <div className="app" style={themeStyle}>
       <ScheduleNotifier />
       <MessageNotifier viewer={user} />
+      <AnnouncementNotifier />
       <Celebrations user={user} />
       <TopBar tab={tab} onTab={setTab} user={user} onLogout={logout} />
       <main className="app__main">

@@ -509,6 +509,19 @@ function reducer(state: AppState, action: Action): AppState {
     case "SEND_MESSAGE": {
       const text = action.text.trim();
       if ((!text && !action.photo) || action.from === action.to) return state;
+      // Guard against accidental double-taps: drop an identical message sent to
+      // the same person within the last second.
+      const now0 = Date.now();
+      const isDup = state.messages.some(
+        (m) =>
+          m.from === action.from &&
+          m.to === action.to &&
+          !m.deleted &&
+          m.text === text.slice(0, 500) &&
+          !!m.photo === !!action.photo &&
+          now0 - m.at < 1000,
+      );
+      if (isDup) return state;
       const message: Message = {
         id: newId(),
         from: action.from,

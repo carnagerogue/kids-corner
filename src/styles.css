@@ -4321,6 +4321,11 @@ body.fun-cursor-on * {
   border-left-color: #6366f1;
   bottom: 22px;
 }
+.toast--ann {
+  border-color: #ffce4a;
+  border-left-color: #ffce4a;
+  bottom: 22px;
+}
 
 /* Required app — prominent on the dashboard. */
 .reqapp .appcard {
