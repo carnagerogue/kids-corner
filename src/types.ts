@@ -30,11 +30,23 @@ export type Kid = {
 
 // --- Avatar dress-up ------------------------------------------------------
 
-/** The customizable slots of a kid's avatar. */
-export type GearSlot = "color" | "outfit" | "hat" | "face" | "pet" | "background";
+/** The customizable layers of a kid's chibi avatar. */
+export type GearSlot =
+  | "skin"
+  | "hair"
+  | "hairColor"
+  | "face"
+  | "outfit"
+  | "hat"
+  | "accessory"
+  | "pet"
+  | "scene";
 
 /** Which gear item id is equipped in each slot (missing = the free default). */
 export type AvatarConfig = Partial<Record<GearSlot, string>>;
+
+/** Collectible tiers, cheap → showstopper. */
+export type Rarity = "common" | "rare" | "epic" | "legendary";
 
 /** A buyable/equippable avatar piece (see data/avatar.tsx). */
 export type GearItem = {
@@ -45,11 +57,11 @@ export type GearItem = {
   price: number;
   /** Hidden in the shop until the kid reaches this level. */
   levelReq?: number;
-  /** Shop tile icon (emoji or a color swatch). */
-  icon: string;
+  /** Collectible tier (drives the card's frame + label). */
+  rarity?: Rarity;
   /**
-   * For color/outfit/background slots: a CSS color. For hat/face/pet slots:
-   * the emoji rendered on the avatar. Empty string = nothing in that slot.
+   * Slot-specific value used by the renderer: a CSS color for skin/hairColor,
+   * or a style/key string the layer renderers switch on. Empty = nothing.
    */
   value: string;
 };

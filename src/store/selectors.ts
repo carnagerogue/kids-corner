@@ -189,9 +189,18 @@ export function ownsGear(state: AppState, kidId: KidId, gearId: string): boolean
   return (state.ownedGear?.[kidId] ?? []).includes(gearId);
 }
 
-/** The kid's equipped gear, with free defaults filled in for empty slots. */
+/** The kid's equipped gear, defaults filling empty slots. Saved ids that
+ * aren't valid for the current catalog (e.g. from an older avatar version)
+ * are ignored so the premium defaults still show. */
 export function equippedAvatar(state: AppState, kidId: KidId): AvatarConfig {
-  return { ...defaultAvatarConfig(), ...(state.avatar?.[kidId] ?? {}) };
+  const out: AvatarConfig = { ...defaultAvatarConfig() };
+  const saved = state.avatar?.[kidId] ?? {};
+  for (const key of Object.keys(saved) as (keyof AvatarConfig)[]) {
+    const id = saved[key];
+    const gear = id ? GEAR_BY_ID[id] : undefined;
+    if (gear && gear.slot === key) out[key] = id;
+  }
+  return out;
 }
 
 /** Status of a given task for a kid on a given day (latest submission wins). */
