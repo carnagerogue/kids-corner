@@ -303,17 +303,45 @@ export function computeStreak(
   const cursor = new Date(`${today}T00:00:00`);
   if (!activeOn(today)) cursor.setDate(cursor.getDate() - 1);
 
+  // One "freeze" forgives a single missed day so a streak survives an off day.
   let streak = 0;
+  let graceUsed = false;
   for (let i = 0; i < 400; i++) {
     const key = isoKey(cursor);
     if (activeOn(key)) {
       streak++;
+      cursor.setDate(cursor.getDate() - 1);
+    } else if (!graceUsed && streak > 0) {
+      graceUsed = true; // skip this gap day, keep the streak alive
       cursor.setDate(cursor.getDate() - 1);
     } else {
       break;
     }
   }
   return streak;
+}
+
+// --- Daily goal -----------------------------------------------------------
+
+/** How many tasks a kid aims to finish each day. */
+export const DAILY_GOAL = 3;
+
+/** Approved tasks the kid finished on a given day (the daily-goal progress). */
+export function dailyGoalDone(
+  state: AppState,
+  kidId: KidId,
+  date: string = todayKey(),
+): number {
+  return approvedSubmissions(state, kidId).filter((s) => s.date === date).length;
+}
+
+/** Has the kid hit today's goal? */
+export function dailyGoalMet(
+  state: AppState,
+  kidId: KidId,
+  date: string = todayKey(),
+): boolean {
+  return dailyGoalDone(state, kidId, date) >= DAILY_GOAL;
 }
 
 export function computeStats(

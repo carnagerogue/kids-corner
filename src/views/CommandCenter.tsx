@@ -5,6 +5,9 @@ import {
   choreAssignmentsFor,
   coinBalance,
   computeStats,
+  computeStreak,
+  DAILY_GOAL,
+  dailyGoalDone,
   effectiveSchedule,
   equippedAvatar,
   getDay,
@@ -159,6 +162,48 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
           )}
         </div>
           </section>
+
+          {(() => {
+            const goalDone = dailyGoalDone(state, kid.id);
+            const goalMet = goalDone >= DAILY_GOAL;
+            const streak = computeStreak(state, kid.id);
+            return (
+              <section className={`goalcard ${goalMet ? "is-met" : ""}`}>
+                <ProgressRing
+                  progress={Math.min(1, goalDone / DAILY_GOAL)}
+                  color={kid.color}
+                  size={74}
+                >
+                  <span className="goalcard__count">
+                    {goalMet ? "✓" : `${goalDone}/${DAILY_GOAL}`}
+                  </span>
+                </ProgressRing>
+                <div className="goalcard__body">
+                  <strong className="goalcard__title">
+                    {goalMet ? "🎯 Daily goal complete!" : "🎯 Today's Goal"}
+                  </strong>
+                  <span className="goalcard__sub">
+                    {goalMet
+                      ? `Amazing — ${goalDone} tasks done today!`
+                      : `Finish ${DAILY_GOAL - goalDone} more to hit your goal.`}
+                  </span>
+                  {streak > 0 && (
+                    <span className="goalcard__streak">
+                      🔥 {streak}-day streak
+                    </span>
+                  )}
+                </div>
+                {!goalMet && (
+                  <button
+                    className="btn btn--primary btn--sm"
+                    onClick={() => onTab("missions")}
+                  >
+                    Pick a mission →
+                  </button>
+                )}
+              </section>
+            );
+          })()}
 
           {mandatory && (
             <>

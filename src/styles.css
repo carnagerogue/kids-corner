@@ -771,6 +771,59 @@ button {
   backdrop-filter: blur(2px);
 }
 
+/* --- Daily goal card ------------------------------------------------------*/
+.goalcard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 18px 0 6px;
+  padding: 16px 18px;
+  border-radius: var(--radius);
+  background: var(--paper);
+  border: 2px solid var(--line);
+  box-shadow: var(--shadow-sm);
+}
+.goalcard.is-met {
+  border-color: #4ade80;
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, #4ade80 12%, var(--paper)),
+    var(--paper)
+  );
+}
+.goalcard__count {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+.goalcard__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.goalcard__title {
+  font-family: var(--display);
+  font-size: 1.15rem;
+  color: var(--ink);
+}
+.goalcard__sub {
+  font-weight: 700;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+.goalcard__streak {
+  margin-top: 4px;
+  font-weight: 800;
+  font-size: 0.82rem;
+  color: #d9480f;
+}
+.goalcard .btn {
+  flex: none;
+}
+
 /* --- Celebrations (level-up / badge party) --------------------------------*/
 .party {
   position: fixed;
