@@ -250,8 +250,8 @@ export function buildAccessory(
  * built-in props. Returns a wrapper group ready to attach. */
 export function normalizeGlb(scene: THREE.Object3D, slot: string): THREE.Group {
   const target: Record<string, number> = {
-    hat: 0.2, // hats are sized by WIDTH (head circumference), not max dim
-    glasses: 0.14,
+    hat: 0.23, // hat WIDTH (left-right) ≈ a bit over head width so it fits over
+    glasses: 0.17, // glasses span a bit wider than the eyes
     backpack: 0.3,
     handheld: 0.22,
     pet: 0.24,
@@ -262,11 +262,13 @@ export function normalizeGlb(scene: THREE.Object3D, slot: string): THREE.Group {
   scene.updateWorldMatrix(true, true);
   let box = new THREE.Box3().setFromObject(scene);
   const size = box.getSize(new THREE.Vector3());
-  // Hats fit the head by their horizontal footprint so a tall hat (wizard/party
-  // cone) keeps its height instead of being shrunk to a dot by max-dim scaling.
+  // Hats fit the head by their LEFT-RIGHT width (size.x): a cap's visor / a wide
+  // brim inflates the depth (z), and a cone inflates the height (y), so scaling
+  // by those shrinks the part that actually hugs the head. Width tracks head
+  // circumference and keeps the prop proportional.
   const denom =
     slot === "hat"
-      ? Math.max(size.x, size.z) || 1
+      ? size.x || 1
       : Math.max(size.x, size.y, size.z) || 1;
   scene.scale.setScalar(t / denom);
   scene.updateWorldMatrix(true, true);
