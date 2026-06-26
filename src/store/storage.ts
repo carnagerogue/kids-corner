@@ -5,11 +5,13 @@ import type {
   AvatarConfig,
   ChoreAssignment,
   FamilyGoal,
+  Loadout3D,
   Reaction,
   Kid,
   KidId,
   KidState,
   Message,
+  SavedLoadout3D,
   ScheduleBlock,
   SchedulePlan,
   Submission,
@@ -189,6 +191,9 @@ export function defaultState(): AppState {
     lastSpin: {},
     ownedGear: {},
     avatar: {},
+    avatar3d: {},
+    loadouts3d: {},
+    purchasesLocked: {},
     themes,
     messages: [],
     announcements: [],
@@ -259,6 +264,9 @@ export function loadState(): AppState {
     const lastSpin: Record<KidId, string> = {};
     const ownedGear: Record<KidId, string[]> = {};
     const avatar: Record<KidId, AvatarConfig> = {};
+    const avatar3d: Record<KidId, Loadout3D> = {};
+    const loadouts3d: Record<KidId, SavedLoadout3D[]> = {};
+    const purchasesLocked: Record<KidId, boolean> = {};
     for (const id of ids) {
       const k = parsed.kids?.[id];
       kids[id] = k
@@ -315,6 +323,26 @@ export function loadState(): AppState {
       const av = (parsed.avatar as Record<string, unknown> | undefined)?.[id];
       avatar[id] =
         av && typeof av === "object" ? (av as AvatarConfig) : {};
+
+      const av3 = (parsed.avatar3d as Record<string, unknown> | undefined)?.[id];
+      avatar3d[id] =
+        av3 && typeof av3 === "object" ? (av3 as Loadout3D) : {};
+
+      const lo3 = (parsed.loadouts3d as Record<string, unknown> | undefined)?.[id];
+      loadouts3d[id] = Array.isArray(lo3)
+        ? (lo3 as unknown[]).filter(
+            (l): l is SavedLoadout3D =>
+              !!l &&
+              typeof (l as SavedLoadout3D).id === "string" &&
+              typeof (l as SavedLoadout3D).name === "string" &&
+              typeof (l as SavedLoadout3D).loadout === "object",
+          )
+        : [];
+
+      const pl = (parsed.purchasesLocked as Record<string, unknown> | undefined)?.[
+        id
+      ];
+      purchasesLocked[id] = pl === true;
     }
 
     const submissions = Array.isArray(parsed.submissions)
@@ -399,6 +427,9 @@ export function loadState(): AppState {
       lastSpin,
       ownedGear,
       avatar,
+      avatar3d,
+      loadouts3d,
+      purchasesLocked,
       themes,
       messages,
       announcements,

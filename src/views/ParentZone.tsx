@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useApp } from "../store/AppContext";
+import { ParentAvatarControls } from "../features/avatar/ParentAvatarControls";
 import { KID_EMOJIS, KID_PALETTE } from "../data/kids";
 import { APP_CATALOG } from "../data/applications";
 import { RESOURCES, RESOURCE_CATEGORIES } from "../data/resources";
@@ -125,6 +126,7 @@ type GTab =
   | "apps"
   | "chores"
   | "missions"
+  | "avatar"
   | "settings";
 
 const GTABS: { id: GTab; emoji: string; label: string }[] = [
@@ -136,6 +138,7 @@ const GTABS: { id: GTab; emoji: string; label: string }[] = [
   { id: "apps", emoji: "🧭", label: "Apps" },
   { id: "chores", emoji: "🧹", label: "Chores" },
   { id: "missions", emoji: "🖼️", label: "Examples" },
+  { id: "avatar", emoji: "🧢", label: "Avatar" },
   { id: "settings", emoji: "⚙️", label: "Settings" },
 ];
 
@@ -161,6 +164,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
     apps: "Choose what each child sees in Apps and Explore",
     chores: "Assign chores for the kids to finish with photo proof",
     missions: "Add an example photo so kids can see the finished result",
+    avatar: "Coins, rewards, unlocks, and avatar controls for each child",
     settings: "Cross-device sync, PINs, and resetting the summer",
   };
 
@@ -214,6 +218,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
         )}
         {tab === "chores" && <ChoreAssigner />}
         {tab === "missions" && <MissionExamples />}
+        {tab === "avatar" && <ParentAvatarControls />}
         {tab === "settings" && (
           <>
             <CloudSync />

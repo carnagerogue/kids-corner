@@ -10,15 +10,19 @@ import type {
   ActivityIdea,
   Announcement,
   AppState,
+  Avatar3DBuyInfo,
+  Avatar3DSlot,
   AvatarConfig,
   ChoreAssignment,
   FamilyGoal,
   GearSlot,
   Kid,
   KidId,
+  Loadout3D,
   Message,
   ParticipantId,
   Reaction,
+  SavedLoadout3D,
   SchedulePlan,
   ScheduleScope,
   Submission,
@@ -42,6 +46,9 @@ export type SyncConfig = {
   lastSpin: Record<string, string>;
   ownedGear: Record<string, string[]>;
   avatar: Record<string, AvatarConfig>;
+  avatar3d: Record<string, Loadout3D>;
+  loadouts3d: Record<string, SavedLoadout3D[]>;
+  purchasesLocked: Record<string, boolean>;
   familyGoal: FamilyGoal | null;
   parentPin: string;
 };
@@ -108,6 +115,21 @@ export type Action =
   | { type: "SET_ACTIVITY_IMAGE"; activityId: string; image: string | null }
   | { type: "BUY_GEAR"; kidId: KidId; gearId: string }
   | { type: "EQUIP_GEAR"; kidId: KidId; slot: GearSlot; gearId: string }
+  // --- 3D avatar actions (reuse the same coin ledger) ---
+  | { type: "BUY_AVATAR_ITEM"; kidId: KidId; item: Avatar3DBuyInfo }
+  | {
+      type: "EQUIP_AVATAR_ITEM";
+      kidId: KidId;
+      slot: Avatar3DSlot;
+      itemId: string | null;
+    }
+  | { type: "GRANT_COINS"; kidId: KidId; amount: number }
+  | { type: "GRANT_AVATAR_ITEM"; kidId: KidId; itemId: string }
+  | { type: "RESET_AVATAR3D"; kidId: KidId }
+  | { type: "SET_PURCHASES_LOCKED"; kidId: KidId; locked: boolean }
+  | { type: "SAVE_LOADOUT"; kidId: KidId; name: string; emoji?: string }
+  | { type: "APPLY_LOADOUT"; kidId: KidId; loadoutId: string }
+  | { type: "DELETE_LOADOUT"; kidId: KidId; loadoutId: string }
   | {
       type: "APPLY_SPIN";
       kidId: KidId;
@@ -478,6 +500,127 @@ function reducer(state: AppState, action: Action): AppState {
       };
     }
 
+    case "BUY_AVATAR_ITEM": {
+      const { kidId, item } = action;
+      if (item.price <= 0) return state; // free items never need buying
+      if (state.purchasesLocked?.[kidId]) return state; // grown-up lock
+      if ((state.ownedGear[kidId] ?? []).includes(item.id)) return state;
+      if (coinBalance(state, kidId) < item.price) return state;
+      if (
+        item.levelReq &&
+        getLevelInfo(getKidXp(state, kidId)).rank.level < item.levelReq
+      ) {
+        return state;
+      }
+      const owned = state.ownedGear[kidId] ?? [];
+      return {
+        ...state,
+        coinsSpent: {
+          ...state.coinsSpent,
+          [kidId]: (state.coinsSpent[kidId] ?? 0) + item.price,
+        },
+        ownedGear: { ...state.ownedGear, [kidId]: [...owned, item.id] },
+        // Auto-equip the freshly bought piece.
+        avatar3d: {
+          ...state.avatar3d,
+          [kidId]: { ...(state.avatar3d[kidId] ?? {}), [item.slot]: item.id },
+        },
+      };
+    }
+
+    case "EQUIP_AVATAR_ITEM": {
+      const { kidId, slot, itemId } = action;
+      const next: Loadout3D = { ...(state.avatar3d[kidId] ?? {}) };
+      if (itemId === null) delete next[slot];
+      else next[slot] = itemId;
+      return { ...state, avatar3d: { ...state.avatar3d, [kidId]: next } };
+    }
+
+    case "GRANT_COINS": {
+      // Grown-up add (+) or remove (−) coins. coinBalance() floors at 0, so a
+      // big negative just zeroes the spendable balance.
+      const { kidId, amount } = action;
+      if (!amount) return state;
+      return {
+        ...state,
+        coinsBonus: {
+          ...state.coinsBonus,
+          [kidId]: (state.coinsBonus[kidId] ?? 0) + amount,
+        },
+      };
+    }
+
+    case "GRANT_AVATAR_ITEM": {
+      // Grown-up unlocks an item as a reward (no coin cost). Works for any
+      // owned-gear id (2D or 3D).
+      const { kidId, itemId } = action;
+      const owned = state.ownedGear[kidId] ?? [];
+      if (owned.includes(itemId)) return state;
+      return {
+        ...state,
+        ownedGear: { ...state.ownedGear, [kidId]: [...owned, itemId] },
+      };
+    }
+
+    case "RESET_AVATAR3D": {
+      return {
+        ...state,
+        avatar3d: { ...state.avatar3d, [action.kidId]: {} },
+      };
+    }
+
+    case "SET_PURCHASES_LOCKED": {
+      return {
+        ...state,
+        purchasesLocked: {
+          ...state.purchasesLocked,
+          [action.kidId]: action.locked,
+        },
+      };
+    }
+
+    case "SAVE_LOADOUT": {
+      const { kidId, name, emoji } = action;
+      const preset: SavedLoadout3D = {
+        id: newId(),
+        name: name.trim() || "My Look",
+        loadout: { ...(state.avatar3d[kidId] ?? {}) },
+        ...(emoji ? { emoji } : {}),
+      };
+      const list = state.loadouts3d[kidId] ?? [];
+      return {
+        ...state,
+        loadouts3d: {
+          ...state.loadouts3d,
+          [kidId]: [...list, preset].slice(-12),
+        },
+      };
+    }
+
+    case "APPLY_LOADOUT": {
+      const { kidId, loadoutId } = action;
+      const preset = (state.loadouts3d[kidId] ?? []).find(
+        (l) => l.id === loadoutId,
+      );
+      if (!preset) return state;
+      return {
+        ...state,
+        avatar3d: { ...state.avatar3d, [kidId]: { ...preset.loadout } },
+      };
+    }
+
+    case "DELETE_LOADOUT": {
+      const { kidId, loadoutId } = action;
+      const list = state.loadouts3d[kidId] ?? [];
+      return {
+        ...state,
+        loadouts3d: {
+          ...state.loadouts3d,
+          [kidId]: list.filter((l) => l.id !== loadoutId),
+        },
+      };
+    }
+
     case "APPLY_SPIN": {
       const kid = action.kidId;
       // Validate the spin is actually allowed (free once/day, else affordable).
@@ -733,6 +876,9 @@ function reducer(state: AppState, action: Action): AppState {
       const lastSpin: Record<string, string> = {};
       const ownedGear: Record<string, string[]> = {};
       const avatar: Record<string, AvatarConfig> = {};
+      const avatar3d: Record<string, Loadout3D> = {};
+      const loadouts3d: Record<string, SavedLoadout3D[]> = {};
+      const purchasesLocked: Record<string, boolean> = {};
       for (const k of kidProfiles) {
         kids[k.id] = state.kids[k.id] ?? emptyKidState();
         kidPins[k.id] = pick(cfg.kidPins, state.kidPins, k.id, "0000");
@@ -744,6 +890,14 @@ function reducer(state: AppState, action: Action): AppState {
         lastSpin[k.id] = pick(cfg.lastSpin, state.lastSpin, k.id, "");
         ownedGear[k.id] = pick(cfg.ownedGear, state.ownedGear, k.id, []);
         avatar[k.id] = pick(cfg.avatar, state.avatar, k.id, {});
+        avatar3d[k.id] = pick(cfg.avatar3d, state.avatar3d, k.id, {});
+        loadouts3d[k.id] = pick(cfg.loadouts3d, state.loadouts3d, k.id, []);
+        purchasesLocked[k.id] = pick(
+          cfg.purchasesLocked,
+          state.purchasesLocked,
+          k.id,
+          false,
+        );
       }
       const activeKid = kidProfiles.some((k) => k.id === state.activeKid)
         ? state.activeKid
@@ -796,6 +950,9 @@ function reducer(state: AppState, action: Action): AppState {
         lastSpin,
         ownedGear,
         avatar,
+        avatar3d,
+        loadouts3d,
+        purchasesLocked,
         familyGoal:
           cfg.familyGoal !== undefined ? cfg.familyGoal : state.familyGoal,
         parentPin: cfg.parentPin || state.parentPin,

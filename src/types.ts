@@ -69,6 +69,54 @@ export type GearItem = {
   value: string;
 };
 
+// --- 3D avatar (VRoid/VRM-compatible game layer) --------------------------
+// A richer, manifest-driven cosmetic system that renders in Three.js. It reuses
+// the SAME coin economy as the 2D gear above (ownedGear + coinsSpent), so coins
+// stay unified. See src/features/avatar/ and public/assets/avatar/.
+
+/** Cosmetic slots of the 3D avatar (a superset of the 2D GearSlots). */
+export type Avatar3DSlot =
+  | "base"
+  | "skinTone"
+  | "eyeColor"
+  | "hairStyle"
+  | "hairColor"
+  | "outfit"
+  | "shoes"
+  | "hat"
+  | "glasses"
+  | "backpack"
+  | "handheld"
+  | "pet"
+  | "aura"
+  | "room"
+  | "animation";
+
+/** Which manifest item id is equipped in each 3D slot (missing = default). */
+export type Loadout3D = Partial<Record<Avatar3DSlot, string>>;
+
+/** A saved outfit preset a learner can re-apply (School Mode, Space Mode, …). */
+export type SavedLoadout3D = {
+  id: string;
+  name: string;
+  emoji?: string;
+  loadout: Loadout3D;
+};
+
+/**
+ * The minimal item facts the UI hands to BUY_AVATAR_ITEM so the pure reducer can
+ * validate a purchase without ever reading the (async-loaded) manifest.
+ */
+export type Avatar3DBuyInfo = {
+  id: string;
+  slot: Avatar3DSlot;
+  price: number;
+  levelReq?: number;
+};
+
+/** Rarity tiers used by the 3D manifest (extends the 2D Rarity set). */
+export type Rarity3D = Rarity | "uncommon" | "seasonal";
+
 // --- Activities (the summer mission library) ------------------------------
 
 export type ActivityCategory =
@@ -323,6 +371,12 @@ export type AppState = {
   ownedGear: Record<KidId, string[]>;
   /** Each kid's currently equipped avatar gear, per slot. */
   avatar: Record<KidId, AvatarConfig>;
+  /** Each kid's equipped 3D/VRM avatar loadout (manifest item ids per slot). */
+  avatar3d: Record<KidId, Loadout3D>;
+  /** Each kid's saved 3D outfit presets (School Mode, Space Mode, …). */
+  loadouts3d: Record<KidId, SavedLoadout3D[]>;
+  /** Per-kid grown-up lock that disables shop purchases when true. */
+  purchasesLocked: Record<KidId, boolean>;
   /** Each kid's chosen look for the cursor + background. */
   themes: Record<KidId, ThemeId>;
   /** Messages between each kid and the grown-ups. */
