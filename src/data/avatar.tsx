@@ -214,7 +214,8 @@ function renderHairBack(style: string, c: Hair) {
       return (
         <g stroke={LINE} strokeWidth={LW} strokeLinejoin="round">
           <path d="M206 98 q60 16 44 90 q-8 36 -34 48 q12 -10 12 -30 q14 -42 0 -74 q-8 -24 -34 -34 z" fill={c.base} />
-          <path d="M214 116 q30 20 22 62" fill="none" stroke={c.light} strokeWidth="6" strokeLinecap="round" opacity="0.6" />
+          <path d="M210 112 q28 18 20 60" fill="none" stroke={c.dark} strokeWidth="4" strokeLinecap="round" opacity="0.5" />
+          <path d="M218 118 q26 18 18 56" fill="none" stroke={c.light} strokeWidth="6" strokeLinecap="round" opacity="0.6" />
         </g>
       );
     case "twintails":
@@ -222,6 +223,8 @@ function renderHairBack(style: string, c: Hair) {
         <g stroke={LINE} strokeWidth={LW} strokeLinejoin="round">
           <path d="M72 104 q-48 10 -42 76 q4 32 26 44 q-10 -10 -8 -28 q-12 -38 2 -64 q8 -22 30 -28 z" fill={c.base} />
           <path d="M228 104 q48 10 42 76 q-4 32 -26 44 q10 -10 8 -28 q12 -38 -2 -64 q-8 -22 -30 -28 z" fill={c.base} />
+          <path d="M58 118 q-22 22 -14 64" fill="none" stroke={c.light} strokeWidth="5" strokeLinecap="round" opacity="0.6" />
+          <path d="M242 118 q22 22 14 64" fill="none" stroke={c.light} strokeWidth="5" strokeLinecap="round" opacity="0.6" />
         </g>
       );
     case "bob":
@@ -344,7 +347,15 @@ function renderHairFront(style: string, c: Hair) {
             d="M70 120 C70 56 112 30 150 30 C188 30 230 56 230 120 L214 112 L206 126 L190 108 L174 124 L160 106 L150 120 L140 106 L126 124 L110 108 L94 126 L86 112 Z"
             fill={c.base}
           />
+          {/* darker strand separations for layered locks */}
+          <g stroke={c.dark} strokeWidth="2.5" fill="none" opacity="0.5" strokeLinecap="round">
+            <path d="M120 46 q-12 34 -24 70" />
+            <path d="M150 42 q-2 38 -1 76" />
+            <path d="M180 46 q12 34 24 70" />
+          </g>
           {shine}
+          {/* lighter highlight strand */}
+          <path d="M126 66 q22 -14 48 0" stroke={c.light} strokeWidth="3" fill="none" opacity="0.6" strokeLinecap="round" />
         </>,
       );
   }
@@ -497,6 +508,22 @@ function renderHat(key: string) {
           <path d="M189 50 L207 28 L209 54 z" fill="#ffb3d1" stroke="none" />
         </g>
       );
+    case "snapback":
+      return (
+        <g stroke={LINE} strokeWidth={LW} strokeLinejoin="round">
+          <path d="M88 76 q62 -42 124 0 q2 -42 -62 -42 q-64 0 -62 42 z" fill="#2a2738" />
+          <path d="M86 76 q-30 0 -40 14 q34 8 56 -4 z" fill="#1f1c2c" />
+          <rect x={132} y={44} width={36} height={20} rx={3} fill="#ef4444" />
+        </g>
+      );
+    case "headband":
+      return (
+        <g stroke={LINE} strokeWidth={LW} strokeLinejoin="round">
+          <path d="M74 98 q76 -20 152 0 l0 15 q-76 -19 -152 0 z" fill="#ef4444" />
+          <path d="M224 102 l20 -7 -3 16 z" fill="#ef4444" />
+          <rect x={140} y={101} width={20} height={9} rx={2} fill="#fff" stroke="none" />
+        </g>
+      );
     default:
       return null;
   }
@@ -535,6 +562,28 @@ function renderAccessory(key: string, where: "back" | "front") {
           <path d="M80 116 Q150 36 220 116" fill="none" strokeWidth="9" strokeLinecap="round" />
           <rect x={68} y={112} width={24} height={34} rx={9} fill="#ff5a8a" />
           <rect x={208} y={112} width={24} height={34} rx={9} fill="#ff5a8a" />
+        </g>
+      );
+    case "scarf":
+      return (
+        <g stroke={LINE} strokeWidth={LW} strokeLinejoin="round">
+          <path d="M120 212 q30 16 60 0 l-3 16 q-27 12 -54 0 z" fill="#ef4444" />
+          <path d="M166 224 l14 44 -20 -6 z" fill="#d23a3a" />
+        </g>
+      );
+    case "sword":
+      return (
+        <g stroke={LINE} strokeWidth={LW} strokeLinejoin="round">
+          <path d="M205 206 l10 0 -2 70 -6 0 z" fill="#dfe6f2" />
+          <rect x={196} y={276} width={28} height={7} rx={3} fill="#caa05a" />
+          <rect x={206} y={282} width={8} height={18} rx={3} fill="#7a4a22" />
+        </g>
+      );
+    case "shield":
+      return (
+        <g stroke={LINE} strokeWidth={LW} strokeLinejoin="round">
+          <path d="M66 262 q24 -10 48 0 l-5 32 q-19 16 -38 0 z" fill="#3a5a8c" />
+          <path d="M90 270 v22 M77 281 h26" stroke="#ffd23f" strokeWidth="3.5" />
         </g>
       );
     case "badge":
@@ -656,6 +705,8 @@ export const GEAR: GearItem[] = [
   item("hat-none", "hat", "No Hat", 0, ""),
   item("hat-cap", "hat", "Quest Cap", 40, "cap"),
   item("hat-beanie", "hat", "Beanie", 40, "beanie"),
+  item("hat-snapback", "hat", "Snapback", 50, "snapback"),
+  item("hat-headband", "hat", "Sport Headband", 40, "headband"),
   item("hat-flower", "hat", "Flower Wreath", 70, "flower", "rare"),
   item("hat-party", "hat", "Party Cone", 60, "party"),
   item("hat-ears", "hat", "Cat Ears", 80, "ears", "rare"),
@@ -665,7 +716,10 @@ export const GEAR: GearItem[] = [
   item("acc-glasses", "accessory", "Round Glasses", 40, "glasses"),
   item("acc-headphones", "accessory", "Headphones", 60, "headphones"),
   item("acc-backpack", "accessory", "Trail Pack", 50, "backpack"),
+  item("acc-scarf", "accessory", "Cozy Scarf", 50, "scarf"),
   item("acc-badge", "accessory", "Star Badge", 40, "badge"),
+  item("acc-sword", "accessory", "Hero Sword", 90, "sword", "rare"),
+  item("acc-shield", "accessory", "Guard Shield", 90, "shield", "rare"),
   item("acc-cape", "accessory", "Hero Cape", 150, "cape", "epic", 2),
   item("acc-wings", "accessory", "Star Wings", 240, "wings", "legendary", 4),
   // pets
