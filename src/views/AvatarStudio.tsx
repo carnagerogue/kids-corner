@@ -67,7 +67,9 @@ export function AvatarStudio() {
           </div>
           <p className="studio__credits">
             Sample 3D models: © pixiv Inc. &amp; “Seed-san” © VirtualCast, Inc. ·
-            idle animation from moeru-ai/airi (MIT). Replace with your own VRoid
+            idle animation from moeru-ai/airi (MIT) · accessories via Poly Pizza:
+            Quaternius &amp; iPoly3D (CC0), “Cat Ears”/“Aviators” © Poly by Google
+            &amp; “Ball Cap” © Jarlan Perez (CC-BY). Replace with your own VRoid
             models anytime.
           </p>
         </div>

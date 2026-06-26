@@ -37,6 +37,7 @@ import {
   ACCESSORY_PLACEMENT,
   buildAccessory,
   disposeAccessory,
+  normalizeGlb,
 } from "./AvatarAccessories";
 import type { EmoteName } from "./webgl";
 
@@ -236,6 +237,44 @@ function VrmCharacter({
       parent.add(obj);
       return s;
     };
+    // Place an accessory at an explicit WORLD position, standing upright. Raw
+    // bone local axes are arbitrary per rig (a head bone's local "up" rarely
+    // points world-up), so a fixed local offset lands unpredictably — see the
+    // hat-over-the-face bug. For head items we instead compute the target in
+    // world space (from the model's actual head box) and convert to bone-local,
+    // then cancel the bone's world rotation so the prop sits level. It still
+    // rides the bone, so it follows head movement.
+    const placeWorld = (
+      obj: THREE.Object3D,
+      parent: THREE.Object3D,
+      worldPos: THREE.Vector3,
+    ): number => {
+      parent.updateWorldMatrix(true, false);
+      const ws = new THREE.Vector3();
+      parent.getWorldScale(ws);
+      const s = ws.x || 1;
+      obj.scale.setScalar(1 / s);
+      obj.position.copy(parent.worldToLocal(worldPos.clone()));
+      const pq = new THREE.Quaternion();
+      parent.getWorldQuaternion(pq);
+      obj.quaternion.copy(pq.invert()); // stand upright regardless of bone tilt
+      obj.traverse((o) => (o.frustumCulled = false));
+      parent.add(obj);
+      return s;
+    };
+
+    // Head metrics (world space) for accurate hat/glasses placement. The model
+    // top is the crown of the head (idle keeps arms down), and the head bone
+    // gives the head's X/Z center.
+    v.scene.updateWorldMatrix(true, true);
+    const modelBox = new THREE.Box3().setFromObject(v.scene);
+    const headTop = modelBox.max.y;
+    const headPos = new THREE.Vector3();
+    const headNode = rawBone("head");
+    if (headNode) {
+      headNode.updateWorldMatrix(true, false);
+      headNode.getWorldPosition(headPos);
+    }
 
     (async () => {
       const slots = ["hat", "glasses", "backpack", "handheld", "pet", "aura"] as const;
@@ -255,7 +294,8 @@ function VrmCharacter({
               disposeAccessory(g.scene);
               return;
             }
-            obj = g.scene;
+            // Real asset: normalize its arbitrary size/origin to fit this slot.
+            obj = normalizeGlb(g.scene, slot);
           } catch {
             // missing/broken .glb → fall back to the built-in prop
           }
@@ -263,7 +303,26 @@ function VrmCharacter({
         if (!obj) obj = buildAccessory(slot, item.value ?? "", item.color);
         if (!obj || cancelled) continue;
 
-        const s = place(obj, parent, p.offset, p.rotation);
+        // Head items (hat/glasses) use world-space anchoring; everything else
+        // rides its bone with the authored local offset (works well off-head).
+        let s: number;
+        if (slot === "hat") {
+          // Hat base sits right at the crown so it perches on the head.
+          s = placeWorld(
+            obj,
+            parent,
+            new THREE.Vector3(headPos.x, headTop - 0.04, headPos.z),
+          );
+        } else if (slot === "glasses") {
+          // Glasses centered at eye height, pushed forward to the face.
+          s = placeWorld(
+            obj,
+            parent,
+            new THREE.Vector3(headPos.x, headTop - 0.13, headPos.z + 0.07),
+          );
+        } else {
+          s = place(obj, parent, p.offset, p.rotation);
+        }
         attached.push(obj);
         if (p.animate) {
           animated.push({ obj, kind: p.animate, baseY: obj.position.y, amp: 0.025 / s });
@@ -364,10 +423,10 @@ function VrmCharacter({
   });
 
   if (!vrm) return null;
-  // three-vrm already orients the model to face +Z (toward our +Z camera), and
-  // rotateVRM0 brings legacy VRM0 models into that same convention — so NO extra
-  // yaw is needed. (Verified against a real VRM1 model: adding 180° showed the
-  // character's back.) Wrapper group kept at identity for future transforms.
+  // three-vrm orients the model facing +Z (toward our +Z camera); rotateVRM0
+  // brings legacy VRM0 models into that same convention — so NO extra yaw is
+  // needed. (Adding 180° was verified to show the character's back.) The wrapper
+  // group carries only the per-frame idle sway/emote motion set in useFrame.
   return (
     <group ref={groupRef} rotation={[0, 0, 0]}>
       <primitive object={vrm.scene} />

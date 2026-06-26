@@ -7,10 +7,14 @@ in the table below before it ships.**
 
 ---
 
-## Current status: NO third-party binary assets are bundled
+## Current status: a few clearly-licensed third-party assets are bundled
 
-Kids Corner bundles a few **clearly-licensed** third-party assets (two sample
-anime characters + one idle animation — see the log below). Everything else is
+Kids Corner bundles a small set of **clearly-licensed** third-party assets:
+two sample anime characters, one idle animation, and six accessory props
+(`.glb` hats / glasses / a backpack — all CC0 or CC-BY, see the log below).
+Accessories are layered onto whatever VRM loads via the bone-attach pipeline in
+`VRMAvatarViewer.tsx`; head items (hats/glasses) are anchored in world space to
+the model's head box so they sit correctly on any rig. Everything else is
 original or emoji.
 
 1. **3D characters** — the app loads a **real VRoid `.vrm`** per learner from
@@ -45,6 +49,12 @@ placeholder for a model, the emoji for an icon) — never to fake geometry.
 | `models/claire-base.vrm` | base / default character (Claire) | pixiv Inc. © 2022 | https://github.com/pixiv/three-vrm — `packages/three-vrm/examples/models/VRM1_Constraint_Twist_Sample.vrm` | [VRM 1.0 License](https://vrm.dev/licenses/1.0/) — verified from the model's embedded `VRMC_vrm.meta` | **Yes** (`commercialUsage: corporation`) | **Yes** (`modification: allowModificationRedistribution`) | **Yes** (`allowRedistribution: true`; `creditNotation: unnecessary`, `avatarPermission: everyone`) | 2026-06-26 | Claude (automated) |
 | `models/coby-base.vrm`, `hailee-base.vrm` (same file) | base / default character (Coby, Hailee) | VirtualCast, Inc. ("Seed-san") | https://github.com/vrm-c/vrm-specification — `samples/Seed-san/vrm/Seed-san.vrm` | [VRM 1.0 License](https://vrm.dev/licenses/1.0/) — verified from embedded `VRMC_vrm.meta` | **Yes** (`commercialUsage: corporation`) | **Yes** (`modification: allowModificationRedistribution`) | **Yes** (`allowRedistribution: true`; `avatarPermission: everyone`) — ⚠️ **credit required** (`creditNotation: required`; credited in-app + here) | 2026-06-26 | Claude (automated) |
 | `animations/idle_loop.vrma` | idle animation (all learners) | moeru-ai / airi contributors | https://github.com/moeru-ai/airi — `packages/stage-ui-three/src/assets/vrm/animations/idle_loop.vrma` | **MIT** (repo license; redistribution + modification permitted with notice) | Yes | Yes | Yes (notice preserved; credited in-app + here) | 2026-06-26 | Claude (automated) |
+| `hats/crown.glb` | hat / `crown` (Royal Crown) | Quaternius | https://poly.pizza/m/i0PZVuVlYv | **CC0 1.0** (public domain) | Yes | Yes | Yes (no attribution required) | 2026-06-26 | Claude (automated) |
+| `hats/ball-cap.glb` | hat / `ball-cap` (Ball Cap) | Jarlan Perez | https://poly.pizza/m/2uKEHjO_QL0 | **CC-BY 3.0** | Yes | Yes | Yes — ⚠️ **credit required** (credited in-app + here) | 2026-06-26 | Claude (automated) |
+| `hats/cat-ears.glb` | hat / `cat-ears` (Cat Ears) | Poly by Google | https://poly.pizza/m/197Gkpt6GNV | **CC-BY 3.0** | Yes | Yes | Yes — ⚠️ **credit required** (credited in-app + here) | 2026-06-26 | Claude (automated) |
+| `glasses/round-glasses.glb` | glasses / `round-glasses` (Round Glasses) — Aviator model | Poly by Google | https://poly.pizza/m/0Wsi-ygmiIX | **CC-BY 3.0** | Yes | Yes | Yes — ⚠️ **credit required** (credited in-app + here) | 2026-06-26 | Claude (automated) |
+| `glasses/cool-shades.glb` | glasses / `cool-shades` (Cool Shades) | iPoly3D (Glasses Pack) | https://poly.pizza/bundle/Glasses-Pack-gPz05eJm9w | **CC0 1.0** (public domain) | Yes | Yes | Yes (no attribution required) | 2026-06-26 | Claude (automated) |
+| `backpacks/school-bag.glb` | backpack / `school-bag` (School Bag) | Quaternius | https://poly.pizza (Quaternius pack) | **CC0 1.0** (public domain) | Yes | Yes | Yes (no attribution required) | 2026-06-26 | Claude (automated) |
 
 > **Note on `claire-base.vrm`:** it is pixiv's official, widely-used three-vrm
 > sample — a normal, fully-clothed anime character, appropriate as a kid avatar.

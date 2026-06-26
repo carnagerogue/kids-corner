@@ -244,6 +244,45 @@ export function buildAccessory(
   }
 }
 
+/** Real .glb accessories come in arbitrary sizes/origins. Normalize one to a
+ * sensible world size for its slot and anchor it (hats/pets sit on their base,
+ * others centered) so the same per-slot placement offsets work as for the
+ * built-in props. Returns a wrapper group ready to attach. */
+export function normalizeGlb(scene: THREE.Object3D, slot: string): THREE.Group {
+  const target: Record<string, number> = {
+    hat: 0.2, // hats are sized by WIDTH (head circumference), not max dim
+    glasses: 0.14,
+    backpack: 0.3,
+    handheld: 0.22,
+    pet: 0.24,
+  };
+  const t = target[slot] ?? 0.22;
+  scene.position.set(0, 0, 0);
+  scene.scale.setScalar(1);
+  scene.updateWorldMatrix(true, true);
+  let box = new THREE.Box3().setFromObject(scene);
+  const size = box.getSize(new THREE.Vector3());
+  // Hats fit the head by their horizontal footprint so a tall hat (wizard/party
+  // cone) keeps its height instead of being shrunk to a dot by max-dim scaling.
+  const denom =
+    slot === "hat"
+      ? Math.max(size.x, size.z) || 1
+      : Math.max(size.x, size.y, size.z) || 1;
+  scene.scale.setScalar(t / denom);
+  scene.updateWorldMatrix(true, true);
+  box = new THREE.Box3().setFromObject(scene);
+  const c = box.getCenter(new THREE.Vector3());
+  if (slot === "hat" || slot === "pet") {
+    scene.position.set(-c.x, -box.min.y, -c.z); // base at origin
+  } else {
+    scene.position.set(-c.x, -c.y, -c.z); // centered
+  }
+  scene.traverse((o) => (o.frustumCulled = false));
+  const wrap = new THREE.Group();
+  wrap.add(scene);
+  return wrap;
+}
+
 /** Dispose a built accessory's geometry + materials. */
 export function disposeAccessory(obj: THREE.Object3D) {
   obj.traverse((o) => {
