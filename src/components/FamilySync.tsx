@@ -54,6 +54,25 @@ function canon(cfg: unknown): string {
   return JSON.stringify(prune(cfg) ?? {});
 }
 
+/**
+ * Write an id-keyed update, stripping undefined/empty first (Firebase rejects
+ * `undefined` — e.g. an approved submission's absent `note` — by *throwing
+ * synchronously*, which a plain `.catch` wouldn't catch). Never let a sync to
+ * the cloud crash the app.
+ */
+function pushUpdate(
+  db: ReturnType<typeof getDb>,
+  path: string,
+  updates: Record<string, unknown>,
+): void {
+  if (!db) return;
+  try {
+    void update(ref(db, path), (prune(updates) ?? {}) as object).catch(() => {});
+  } catch {
+    /* ignore — best-effort sync */
+  }
+}
+
 const subHash = (s: Submission) =>
   `${s.status}|${s.reviewedAt ?? 0}|${s.note ?? ""}|${s.photo ? 1 : 0}`;
 
@@ -176,9 +195,7 @@ export function FamilySync() {
       }
     }
     if (Object.keys(updates).length) {
-      void update(ref(db, `rooms/${safe(code)}/submissions`), updates).catch(
-        () => {},
-      );
+      pushUpdate(db, `rooms/${safe(code)}/submissions`, updates);
     }
   }, [state.submissions, code]);
 
@@ -195,10 +212,7 @@ export function FamilySync() {
       }
     }
     if (Object.keys(updates).length) {
-      void update(
-        ref(db, `rooms/${safe(code)}/choreAssignments`),
-        updates,
-      ).catch(() => {});
+      pushUpdate(db, `rooms/${safe(code)}/choreAssignments`, updates);
     }
   }, [state.choreAssignments, code]);
 
@@ -215,9 +229,7 @@ export function FamilySync() {
       }
     }
     if (Object.keys(updates).length) {
-      void update(ref(db, `rooms/${safe(code)}/messages`), updates).catch(
-        () => {},
-      );
+      pushUpdate(db, `rooms/${safe(code)}/messages`, updates);
     }
   }, [state.messages, code]);
 

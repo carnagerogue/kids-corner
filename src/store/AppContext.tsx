@@ -252,7 +252,8 @@ function reducer(state: AppState, action: Action): AppState {
           xp: action.xp,
           date,
           submittedAt: now,
-          partnerId: p.partner,
+          // Omit partner when solo (Firebase rejects `undefined`).
+          ...(p.partner ? { partnerId: p.partner } : {}),
         };
         submissions = [...kept, submission];
         changed = true;
@@ -270,7 +271,8 @@ function reducer(state: AppState, action: Action): AppState {
           ...s,
           status: action.decision,
           reviewedAt: Date.now(),
-          note: action.note,
+          // Omit note when absent (Firebase rejects `undefined`).
+          ...(action.note ? { note: action.note } : { note: "" }),
           // Free the photo once it's been reviewed.
           photo: action.decision === "approved" ? s.photo : "",
         };
