@@ -33,6 +33,11 @@ import {
 } from "@pixiv/three-vrm-animation";
 import type { Loadout3D } from "../../types";
 import { itemById, resolveAssetUrl } from "./AvatarManifest";
+import {
+  ACCESSORY_PLACEMENT,
+  buildAccessory,
+  disposeAccessory,
+} from "./AvatarAccessories";
 import type { EmoteName } from "./webgl";
 
 // ---------------------------------------------------------------------------
@@ -49,19 +54,6 @@ export type VRMAvatarViewerProps = {
   /** Called on any load failure so the caller can show a placeholder. */
   onError: () => void;
 };
-
-// Slots whose equipped item may carry a real .glb accessory to attach, mapped
-// to the VRM humanoid bone the prop should ride. Guarded against null bones.
-const ACCESSORY_SLOTS: ReadonlyArray<{
-  slot: keyof Loadout3D;
-  bone: VRMHumanBoneName;
-}> = [
-  { slot: "hat", bone: "head" },
-  { slot: "glasses", bone: "head" },
-  { slot: "backpack", bone: "chest" },
-  { slot: "handheld", bone: "rightHand" },
-  { slot: "pet", bone: "hips" },
-];
 
 // ---------------------------------------------------------------------------
 // VRM character — load, optimize, face camera, frame, animate, dispose.
@@ -97,19 +89,19 @@ function VrmCharacter({
   // Idle animation mixer — retargets a .vrma idle to THIS model's normalized
   // rig, so any VRM (T-posed or not) stands naturally. No hand-authored posing.
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
+  // Accessories needing per-frame motion (pet bob / aura spin).
+  const accessoryAnimRef = useRef<
+    { obj: THREE.Object3D; kind: "petBob" | "auraSpin"; baseY: number; amp: number }[]
+  >([]);
 
   // ---- Imperative load (loadAsync is not Suspense-friendly) --------------
   useEffect(() => {
     let alive = true;
     let loaded: VRM | null = null;
-    const accessoryRoots: THREE.Object3D[] = [];
 
     // VRM loader: VRMLoaderPlugin registered so gltf.userData.vrm is populated.
     const loader = new GLTFLoader();
     loader.register((parser) => new VRMLoaderPlugin(parser));
-    // Separate plain loader for accessory .glb files — they are NOT VRMs and
-    // must not be run through the VRM parser.
-    const accessoryLoader = new GLTFLoader();
 
     loader
       .loadAsync(modelUrl)
@@ -164,31 +156,7 @@ function VrmCharacter({
         const framedHeight = box2.max.y - box2.min.y;
         onReady((framedHeight > 0.0001 ? framedHeight : 1.5) * 0.6);
 
-        // ---- Optional GLB accessories: try-load each, silently skip --------
-        for (const { slot, bone } of ACCESSORY_SLOTS) {
-          const item = itemById(loadout[slot]);
-          const path = item?.assetPath;
-          // Only real .glb accessories — never a .vrm (that's a base body).
-          if (!path || !/\.glb$/i.test(path)) continue;
-          const boneNode = got.humanoid?.getNormalizedBoneNode(bone) ?? null;
-          if (!boneNode) continue;
-          try {
-            const accUrl = resolveAssetUrl(path);
-            const accGltf = await accessoryLoader.loadAsync(accUrl);
-            if (!alive) {
-              // Component unmounted mid-load — dispose the orphan immediately.
-              VRMUtils.deepDispose(accGltf.scene);
-              return;
-            }
-            accGltf.scene.traverse((o) => {
-              o.frustumCulled = false;
-            });
-            boneNode.add(accGltf.scene);
-            accessoryRoots.push(accGltf.scene);
-          } catch {
-            // Missing / broken accessory — never substitute primitives.
-          }
-        }
+        // (Accessories are attached in a separate effect so equips update live.)
 
         // Load + play a shared idle animation (.vrma). createVRMAnimationClip
         // retargets it to THIS model's normalized humanoid, so the character
@@ -223,18 +191,105 @@ function VrmCharacter({
       alive = false;
       mixerRef.current?.stopAllAction();
       mixerRef.current = null;
-      // Detach + dispose accessories, then the VRM itself.
-      for (const root of accessoryRoots) {
-        root.parent?.remove(root);
-        VRMUtils.deepDispose(root);
-      }
       if (loaded) VRMUtils.deepDispose(loaded.scene);
       setVrm(null);
     };
-    // loadout is intentionally re-read on modelUrl change; accessory swaps are
-    // rare and a full reload keeps bone-attachment lifecycle simple/correct.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelUrl]);
+
+  // ---- Accessories: build + attach equipped props; re-runs on every equip so
+  // changes show live. Uses RAW bones (the rendered/animated skeleton) and
+  // auto-scales into each model's bone space. A real .glb at the item's
+  // assetPath overrides the built-in procedural prop. ----------------------
+  useEffect(() => {
+    if (!vrm) return;
+    const v = vrm;
+    let cancelled = false;
+    const loader = new GLTFLoader();
+    const attached: THREE.Object3D[] = [];
+    const animated: typeof accessoryAnimRef.current = [];
+
+    const rawBone = (n: VRMHumanBoneName) => v.humanoid?.getRawBoneNode(n) ?? null;
+    const resolveParent = (b: string): THREE.Object3D | null => {
+      if (b === "root") return v.scene;
+      if (b === "chest")
+        return (
+          rawBone("chest") ?? rawBone("upperChest") ?? rawBone("spine") ?? rawBone("hips")
+        );
+      if (b === "spine") return rawBone("spine") ?? rawBone("hips");
+      return rawBone(b as VRMHumanBoneName);
+    };
+    const place = (
+      obj: THREE.Object3D,
+      parent: THREE.Object3D,
+      offset: [number, number, number],
+      rotation?: [number, number, number],
+    ): number => {
+      parent.updateWorldMatrix(true, false);
+      const ws = new THREE.Vector3();
+      parent.getWorldScale(ws);
+      const s = ws.x || 1; // bone world scale → keep props at real-world size
+      obj.scale.setScalar(1 / s);
+      obj.position.set(offset[0] / s, offset[1] / s, offset[2] / s);
+      if (rotation) obj.rotation.set(rotation[0], rotation[1], rotation[2]);
+      obj.traverse((o) => (o.frustumCulled = false));
+      parent.add(obj);
+      return s;
+    };
+
+    (async () => {
+      const slots = ["hat", "glasses", "backpack", "handheld", "pet", "aura"] as const;
+      for (const slot of slots) {
+        if (cancelled) break;
+        const item = itemById(loadout[slot]);
+        if (!item) continue;
+        const p = ACCESSORY_PLACEMENT[slot];
+        const parent = resolveParent(p.bone);
+        if (!parent) continue;
+
+        let obj: THREE.Object3D | null = null;
+        if (item.assetPath && /\.glb$/i.test(item.assetPath)) {
+          try {
+            const g = await loader.loadAsync(resolveAssetUrl(item.assetPath));
+            if (cancelled) {
+              disposeAccessory(g.scene);
+              return;
+            }
+            obj = g.scene;
+          } catch {
+            // missing/broken .glb → fall back to the built-in prop
+          }
+        }
+        if (!obj) obj = buildAccessory(slot, item.value ?? "", item.color);
+        if (!obj || cancelled) continue;
+
+        const s = place(obj, parent, p.offset, p.rotation);
+        attached.push(obj);
+        if (p.animate) {
+          animated.push({ obj, kind: p.animate, baseY: obj.position.y, amp: 0.025 / s });
+        }
+      }
+      if (!cancelled) accessoryAnimRef.current = animated;
+    })();
+
+    return () => {
+      cancelled = true;
+      accessoryAnimRef.current = [];
+      for (const o of attached) {
+        o.parent?.remove(o);
+        disposeAccessory(o);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    vrm,
+    loadout.hat,
+    loadout.glasses,
+    loadout.backpack,
+    loadout.handheld,
+    loadout.pet,
+    loadout.aura,
+  ]);
 
   // ---- Per-frame: rest pose → active emote, then vrm.update(delta) -------
   useFrame(({ clock }, delta) => {
@@ -298,6 +353,12 @@ function VrmCharacter({
     em?.setValue("blink", blinkValue.current);
     em?.setValue("happy", happy);
     em?.setValue("relaxed", relaxed);
+
+    // Animate pet (bob) + aura (spin) accessories.
+    for (const a of accessoryAnimRef.current) {
+      if (a.kind === "petBob") a.obj.position.y = a.baseY + Math.sin(t * 3) * a.amp;
+      else a.obj.rotation.y = t * 0.7;
+    }
 
     vrm.update(delta);
   });
