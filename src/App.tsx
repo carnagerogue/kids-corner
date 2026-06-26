@@ -6,6 +6,7 @@ import { TopBar } from "./components/TopBar";
 import { ScheduleNotifier } from "./components/ScheduleNotifier";
 import { MessageNotifier } from "./components/MessageNotifier";
 import { AnnouncementNotifier } from "./components/AnnouncementNotifier";
+import { ReactionNotifier } from "./components/ReactionNotifier";
 import { Celebrations } from "./components/Celebrations";
 import { LoginScreen } from "./components/LoginScreen";
 import { CommandCenter } from "./views/CommandCenter";
@@ -112,6 +113,7 @@ export function App() {
       <ScheduleNotifier />
       <MessageNotifier viewer={user} />
       <AnnouncementNotifier />
+      <ReactionNotifier user={user} />
       <Celebrations user={user} />
       <TopBar tab={tab} onTab={setTab} user={user} onLogout={logout} />
       <main className="app__main">

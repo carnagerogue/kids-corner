@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useApp } from "../store/AppContext";
-import { DAILY_GOAL, dailyGoalMet, getKidXp } from "../store/selectors";
+import {
+  DAILY_GOAL,
+  dailyGoalMet,
+  familyGoalProgress,
+  getKidXp,
+} from "../store/selectors";
 import { getLevelInfo } from "../data/levels";
 import { BADGE_BY_ID } from "../data/badges";
 import { playFanfare } from "../chime";
@@ -68,10 +73,13 @@ export function Celebrations({ user }: { user: KidId }) {
   const badges = state.kids[user]?.badges ?? [];
   const badgeKey = badges.join(",");
   const goalMet = dailyGoalMet(state, user);
+  const fam = state.familyGoal;
+  const famReached = !!fam && familyGoalProgress(state) >= fam.target;
 
   const seenLevel = useRef(levelNum);
   const seenBadges = useRef(new Set(badges));
   const seenGoal = useRef(goalMet);
+  const seenFam = useRef(famReached);
   const [queue, setQueue] = useState<Party[]>([]);
 
   // Reset the watermarks when switching kids so we don't party for the new
@@ -80,6 +88,7 @@ export function Celebrations({ user }: { user: KidId }) {
     seenLevel.current = getLevelInfo(getKidXp(state, user)).rank.level;
     seenBadges.current = new Set(state.kids[user]?.badges ?? []);
     seenGoal.current = dailyGoalMet(state, user);
+    seenFam.current = !!state.familyGoal && famReached;
     setQueue([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -116,6 +125,16 @@ export function Celebrations({ user }: { user: KidId }) {
         subtitle: `${DAILY_GOAL} tasks done today — you're on fire!`,
       });
     }
+    if (famReached && !seenFam.current && fam) {
+      events.push({
+        kind: "goal",
+        emoji: "🏡",
+        title: "Family goal reached!",
+        subtitle: `Everyone earned ${fam.reward}! 🎁`,
+      });
+    }
+    // Always track the family-goal watermark so a reset re-arms it.
+    seenFam.current = famReached;
     if (events.length) {
       seenLevel.current = levelNum;
       seenBadges.current = new Set(badges);
@@ -124,7 +143,7 @@ export function Celebrations({ user }: { user: KidId }) {
       playFanfare();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [levelNum, badgeKey, goalMet]);
+  }, [levelNum, badgeKey, goalMet, famReached]);
 
   const current = queue[0];
 

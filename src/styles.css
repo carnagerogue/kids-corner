@@ -3632,8 +3632,13 @@ button {
 }
 
 @media (max-width: 440px) {
-  .whoami__meta {
+  /* Keep the coin chip (engagement!) but drop the name + level to save space. */
+  .whoami__name,
+  .whoami__lvl {
     display: none;
+  }
+  .whoami__meta {
+    flex-direction: row;
   }
 }
 
@@ -4479,6 +4484,11 @@ body.fun-cursor-on * {
 .toast--ann {
   border-color: #ffce4a;
   border-left-color: #ffce4a;
+  bottom: 22px;
+}
+.toast--react {
+  border-color: #ff5a9e;
+  border-left-color: #ff5a9e;
   bottom: 22px;
 }
 
