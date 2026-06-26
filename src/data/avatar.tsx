@@ -287,6 +287,33 @@ function renderHairFront(style: string, c: Hair) {
           {shine}
         </>,
       );
+    case "fauxhawk":
+      return wrap(
+        <>
+          <path
+            d="M74 120 C76 70 110 40 150 40 C190 40 224 70 226 120 L210 110 L202 116 L192 74 L176 114 L164 58 L150 106 L136 58 L124 114 L108 74 L98 116 L90 110 Z"
+            fill={c.base}
+          />
+          {shine}
+        </>,
+      );
+    case "messy":
+      return wrap(
+        <>
+          <path
+            d="M62 126 C66 54 110 28 150 28 C190 28 234 54 238 126 L218 98 L208 124 L196 96 L182 122 L168 90 L154 118 L150 92 L146 118 L132 90 L118 122 L104 96 L92 124 L82 98 Z"
+            fill={c.base}
+          />
+          {shine}
+        </>,
+      );
+    case "buzz":
+      return wrap(
+        <>
+          <path d="M78 116 C80 70 112 44 150 44 C188 44 220 70 222 116 q-72 -16 -144 0 z" fill={c.base} />
+          {shine}
+        </>,
+      );
     case "sideswept":
       return wrap(
         <>
@@ -336,6 +363,10 @@ function renderOutfit(key: string, skin: Tone, body: string) {
     princess: { main: "#ff8fc6", trim: "#ffe08a", pants: "#ffc2e0", shoe: "#fff", emblem: "#ffe08a" },
     varsity: { main: "#3a5a8c", trim: "#ffd23f", pants: "#2a2738", shoe: "#fff", emblem: "#ffd23f" },
     tracksuit: { main: "#22c3a6", trim: "#1f2733", pants: "#1f2733", shoe: "#fff", emblem: "#fff" },
+    soccer: { main: "#16a34a", trim: "#fff", pants: "#fff", shoe: "#1f2733", emblem: "#fff" },
+    camo: { main: "#5a6b3a", trim: "#3a4528", pants: "#3a4528", shoe: "#2a2738", emblem: "#cdd6a8" },
+    skater: { main: "#3a3550", trim: "#ef4444", pants: "#1f2733", shoe: "#ef4444", emblem: "#ef4444" },
+    knight: { main: "#9aa6b8", trim: "#ffd23f", pants: "#5a626e", shoe: "#3a4150", emblem: "#ffd23f" },
     kimono: { main: "#7c3a8c", trim: "#ffe08a", pants: "#3a2348", shoe: "#2a2030", emblem: "#ff8fc6" },
     sunny: { main: "#ffce4a", trim: "#ff8a3d", pants: "#ff8a3d", shoe: "#fff", emblem: "#fff" },
   };
@@ -572,27 +603,31 @@ export const GEAR: GearItem[] = [
     item(`skin-${k}`, "skin", titleCase(k), 0, k, "common", i === 0 ? undefined : undefined),
   ),
   // hair styles
+  // hair styles — free (part of who you are, not paywalled)
   item("hair-ponytail", "hair", "Ponytail", 0, "ponytail"),
-  item("hair-short", "hair", "Short & Tidy", 40, "short"),
-  item("hair-spiky", "hair", "Spiky", 40, "spiky"),
-  item("hair-sideswept", "hair", "Side Swept", 50, "sideswept"),
-  item("hair-twintails", "hair", "Twin Tails", 60, "twintails", "rare"),
-  item("hair-bob", "hair", "Bob Cut", 50, "bob"),
-  item("hair-buns", "hair", "Double Buns", 70, "buns", "rare"),
-  item("hair-puff", "hair", "Curly Puff", 60, "puff", "rare"),
-  item("hair-long", "hair", "Long & Wavy", 80, "long", "rare"),
-  // hair colors
-  ...Object.keys(HAIR_COLORS).map((k, i) =>
-    item(`hc-${k}`, "hairColor", titleCase(k), i < 4 ? 0 : 40, k, i >= 4 ? "rare" : "common"),
+  item("hair-short", "hair", "Short & Tidy", 0, "short"),
+  item("hair-spiky", "hair", "Spiky", 0, "spiky"),
+  item("hair-fauxhawk", "hair", "Faux Hawk", 0, "fauxhawk"),
+  item("hair-messy", "hair", "Messy", 0, "messy"),
+  item("hair-buzz", "hair", "Buzz Cut", 0, "buzz"),
+  item("hair-sideswept", "hair", "Side Swept", 0, "sideswept"),
+  item("hair-twintails", "hair", "Twin Tails", 0, "twintails"),
+  item("hair-bob", "hair", "Bob Cut", 0, "bob"),
+  item("hair-buns", "hair", "Double Buns", 0, "buns"),
+  item("hair-puff", "hair", "Curly Puff", 0, "puff"),
+  item("hair-long", "hair", "Long & Wavy", 0, "long"),
+  // hair colors — free
+  ...Object.keys(HAIR_COLORS).map((k) =>
+    item(`hc-${k}`, "hairColor", titleCase(k), 0, k),
   ),
-  // eye shapes
+  // eye shapes — free
   item("es-round", "eyeShape", "Round", 0, "round"),
-  item("es-wide", "eyeShape", "Wide", 40, "wide"),
-  item("es-gentle", "eyeShape", "Gentle", 40, "gentle"),
-  item("es-sharp", "eyeShape", "Sharp", 50, "sharp"),
-  // eye colors
-  ...Object.keys(EYE_COLORS).map((k, i) =>
-    item(`ec-${k}`, "eyeColor", titleCase(k), i < 3 ? 0 : 40, k, i >= 6 ? "rare" : "common"),
+  item("es-wide", "eyeShape", "Wide", 0, "wide"),
+  item("es-gentle", "eyeShape", "Gentle", 0, "gentle"),
+  item("es-sharp", "eyeShape", "Sharp", 0, "sharp"),
+  // eye colors — free
+  ...Object.keys(EYE_COLORS).map((k) =>
+    item(`ec-${k}`, "eyeColor", titleCase(k), 0, k),
   ),
   // faces
   item("face-cheerful", "face", "Cheerful", 0, "cheerful"),
@@ -606,8 +641,12 @@ export const GEAR: GearItem[] = [
   item("outfit-vest", "outfit", "Ranger Vest", 80, "vest", "rare"),
   item("outfit-sporty", "outfit", "Sporty Kit", 60, "sporty"),
   item("outfit-sunny", "outfit", "Summer Set", 50, "sunny"),
+  item("outfit-soccer", "outfit", "Soccer Kit", 60, "soccer"),
   item("outfit-varsity", "outfit", "Varsity Jacket", 70, "varsity"),
   item("outfit-tracksuit", "outfit", "Track Suit", 60, "tracksuit"),
+  item("outfit-skater", "outfit", "Skater Style", 70, "skater"),
+  item("outfit-camo", "outfit", "Camo Gear", 80, "camo", "rare"),
+  item("outfit-knight", "outfit", "Knight Armor", 130, "knight", "epic", 2),
   item("outfit-ninja", "outfit", "Ninja Gi", 90, "ninja", "rare"),
   item("outfit-princess", "outfit", "Royal Dress", 120, "princess", "rare"),
   item("outfit-kimono", "outfit", "Festival Kimono", 140, "kimono", "epic"),
