@@ -86,6 +86,31 @@ export function AvatarStudio() {
         />
 
         <div className="shop">
+          <div className="bodytoggle" role="group" aria-label="Body type">
+            {[
+              { id: "body-girl", label: "👧 Girl" },
+              { id: "body-boy", label: "👦 Boy" },
+            ].map((b) => (
+              <button
+                key={b.id}
+                className={`bodytoggle__btn ${
+                  equipped.bodyType === b.id ? "is-on" : ""
+                }`}
+                onClick={() => {
+                  dispatch({
+                    type: "EQUIP_GEAR",
+                    kidId,
+                    slot: "bodyType",
+                    gearId: b.id,
+                  });
+                  setPulse((p) => p + 1);
+                }}
+              >
+                {b.label}
+              </button>
+            ))}
+          </div>
+
           <MysteryBox
             kidId={kidId}
             balance={balance}
@@ -98,7 +123,7 @@ export function AvatarStudio() {
           />
 
           <nav className="shoptabs" aria-label="Cosmetic categories">
-            {SLOT_META.map((s) => (
+            {SLOT_META.filter((s) => s.slot !== "bodyType").map((s) => (
               <button
                 key={s.slot}
                 className={`shoptab ${slot === s.slot ? "is-active" : ""}`}

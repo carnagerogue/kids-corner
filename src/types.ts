@@ -32,6 +32,7 @@ export type Kid = {
 
 /** The customizable layers of a kid's chibi avatar. */
 export type GearSlot =
+  | "bodyType"
   | "skin"
   | "hair"
   | "hairColor"

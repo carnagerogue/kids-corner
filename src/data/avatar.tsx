@@ -14,6 +14,7 @@ export const STARTER_COINS = 60;
 export const SPIN_COST = 40;
 
 export const SLOT_META: { slot: GearSlot; label: string; emoji: string }[] = [
+  { slot: "bodyType", label: "Body", emoji: "🧍" },
   { slot: "skin", label: "Skin", emoji: "✋" },
   { slot: "hair", label: "Hair", emoji: "💇" },
   { slot: "face", label: "Face", emoji: "😄" },
@@ -219,6 +220,38 @@ function renderHairFront(style: string, c: Hair) {
           {shine}
         </>,
       );
+    case "spiky":
+      return wrap(
+        <>
+          <path
+            d="M66 122 C70 50 110 26 150 26 C190 26 230 50 234 122 L214 92 L206 120 L188 88 L176 120 L160 84 L150 116 L140 84 L124 120 L112 88 L94 120 L86 92 Z"
+            fill={c.base}
+          />
+          {shine}
+        </>,
+      );
+    case "sideswept":
+      return wrap(
+        <>
+          <path
+            d="M68 122 C70 56 110 30 150 30 C190 30 230 56 230 116 L196 104 L150 118 L120 122 L96 106 L82 124 Z"
+            fill={c.base}
+          />
+          {shine}
+        </>,
+      );
+    case "buns":
+      return wrap(
+        <>
+          <circle cx={104} cy={40} r={21} fill={c.base} />
+          <circle cx={196} cy={40} r={21} fill={c.base} />
+          <path
+            d="M72 120 C72 58 112 34 150 34 C188 34 228 58 228 120 L210 112 L202 126 L186 108 L172 124 L158 108 L150 122 L142 108 L128 124 L112 108 L96 126 L88 112 Z"
+            fill={c.base}
+          />
+          {shine}
+        </>,
+      );
     default:
       // pointed swept fringe shared by ponytail / short / twintails / long
       return wrap(
@@ -233,8 +266,8 @@ function renderHairFront(style: string, c: Hair) {
   }
 }
 
-/** Outfit: torso, sleeves, legs, shoes. */
-function renderOutfit(key: string, skin: Tone) {
+/** Outfit: torso, collar, arms; lower body switches on girl/boy. */
+function renderOutfit(key: string, skin: Tone, body: string) {
   const palettes: Record<string, { main: string; trim: string; pants: string; shoe: string; emblem?: string }> = {
     explorer: { main: "#2bb3a3", trim: "#f4a93c", pants: "#3a5a8c", shoe: "#f4f1ea", emblem: "#ffd23f" },
     hoodie: { main: "#7c5cff", trim: "#b9a6ff", pants: "#3a3550", shoe: "#22d3ee" },
@@ -244,17 +277,15 @@ function renderOutfit(key: string, skin: Tone) {
     sporty: { main: "#ef4444", trim: "#fff", pants: "#1f2733", shoe: "#fff", emblem: "#fff" },
     ninja: { main: "#2a2738", trim: "#54a7ff", pants: "#1a1622", shoe: "#2a2738", emblem: "#54a7ff" },
     princess: { main: "#ff8fc6", trim: "#ffe08a", pants: "#ffc2e0", shoe: "#fff", emblem: "#ffe08a" },
+    varsity: { main: "#3a5a8c", trim: "#ffd23f", pants: "#2a2738", shoe: "#fff", emblem: "#ffd23f" },
+    tracksuit: { main: "#22c3a6", trim: "#1f2733", pants: "#1f2733", shoe: "#fff", emblem: "#fff" },
+    kimono: { main: "#7c3a8c", trim: "#ffe08a", pants: "#3a2348", shoe: "#2a2030", emblem: "#ff8fc6" },
+    sunny: { main: "#ffce4a", trim: "#ff8a3d", pants: "#ff8a3d", shoe: "#fff", emblem: "#fff" },
   };
   const p = palettes[key] ?? palettes.explorer;
   const sock = "#fbf7ff";
-  return (
-    <g stroke={LINE} strokeWidth={LW} strokeLinejoin="round" strokeLinecap="round">
-      {/* arms (behind torso) */}
-      <path d="M108 230 q-26 10 -24 40 q1 16 16 20 q12 -3 12 -16 q-2 -28 -4 -44 z" fill={p.main} />
-      <path d="M192 230 q26 10 24 40 q-1 16 -16 20 q-12 -3 -12 -16 q2 -28 4 -44 z" fill={p.main} />
-      {/* hands */}
-      <circle cx={90} cy={288} r={12} fill={skin.base} />
-      <circle cx={210} cy={288} r={12} fill={skin.base} />
+  const girlLower = (
+    <>
       {/* socks + legs */}
       <path d="M132 298 l-3 26 q9 5 17 0 l-1 -26 z" fill={sock} />
       <path d="M155 298 l3 26 q-9 5 -17 0 l-1 -26 z" fill={sock} />
@@ -264,12 +295,39 @@ function renderOutfit(key: string, skin: Tone) {
       {/* pleated skirt */}
       <path d="M108 280 q42 17 84 0 l17 38 q-58 18 -118 0 z" fill={p.pants} />
       <path d="M134 288 l-7 30 M150 291 v30 M166 288 l7 30" stroke={LINE} strokeWidth="2" fill="none" opacity="0.45" />
+    </>
+  );
+  const boyLower = (
+    <>
+      {/* bare lower legs */}
+      <path d="M130 304 l-2 18 q8 4 14 0 l-1 -18 z" fill={skin.base} />
+      <path d="M157 304 l2 18 q-8 4 -14 0 l-1 -18 z" fill={skin.base} />
+      {/* sneakers */}
+      <path d="M122 318 q-6 16 14 16 l18 0 0 -17 q-18 -2 -32 1 z" fill={p.shoe} />
+      <path d="M178 318 q6 16 -14 16 l-18 0 0 -17 q18 -2 32 1 z" fill={p.shoe} />
+      {/* shorts */}
+      <path d="M110 280 q40 16 80 0 l4 28 q-12 7 -28 6 l-2 -16 q-14 4 -28 0 l-2 16 q-16 1 -28 -6 z" fill={p.pants} />
+    </>
+  );
+  return (
+    <g stroke={LINE} strokeWidth={LW} strokeLinejoin="round" strokeLinecap="round">
+      {/* arms (behind torso) */}
+      <path d="M108 230 q-26 10 -24 40 q1 16 16 20 q12 -3 12 -16 q-2 -28 -4 -44 z" fill={p.main} />
+      <path d="M192 230 q26 10 24 40 q-1 16 -16 20 q-12 -3 -12 -16 q2 -28 4 -44 z" fill={p.main} />
+      {/* hands */}
+      <circle cx={90} cy={288} r={12} fill={skin.base} />
+      <circle cx={210} cy={288} r={12} fill={skin.base} />
+      {body === "boy" ? boyLower : girlLower}
       {/* torso */}
       <path d="M104 252 q1 -38 46 -38 q45 0 46 38 l3 30 q-49 18 -98 0 z" fill={p.main} />
       {/* torso shade */}
       <path d="M152 220 q38 6 42 58 q-20 10 -42 10 z" fill="rgba(0,0,0,0.1)" stroke="none" />
-      {/* sailor collar */}
-      <path d="M118 216 q32 -9 64 0 l-10 22 q-22 -7 -44 0 z" fill={p.trim} />
+      {/* collar */}
+      {body === "boy" ? (
+        <path d="M126 214 l24 24 24 -24 -8 -6 -16 14 -16 -14 z" fill={p.trim} />
+      ) : (
+        <path d="M118 216 q32 -9 64 0 l-10 22 q-22 -7 -44 0 z" fill={p.trim} />
+      )}
       {/* neck tie / emblem */}
       <path d="M150 238 l-7 7 7 20 7 -20 z" fill={p.emblem ?? "#ff5a6e"} stroke="none" />
     </g>
@@ -322,6 +380,15 @@ function renderHat(key: string) {
           <circle cx={172} cy={50} r={4} fill="#22d3ee" />
         </g>
       );
+    case "ears":
+      return (
+        <g stroke={LINE} strokeWidth={LW} strokeLinejoin="round">
+          <path d="M120 54 L88 18 L82 60 z" fill="#7a6a5e" />
+          <path d="M180 54 L212 18 L218 60 z" fill="#7a6a5e" />
+          <path d="M111 50 L93 28 L91 54 z" fill="#ffb3d1" stroke="none" />
+          <path d="M189 50 L207 28 L209 54 z" fill="#ffb3d1" stroke="none" />
+        </g>
+      );
     default:
       return null;
   }
@@ -348,14 +415,22 @@ function renderAccessory(key: string, where: "back" | "front") {
   switch (key) {
     case "glasses":
       return (
-        <g fill="none" stroke="#2a2233" strokeWidth="4">
-          <circle cx={122} cy={136} r={20} />
-          <circle cx={178} cy={136} r={20} />
-          <path d="M142 134 h16" strokeLinecap="round" />
+        <g fill="none" stroke={LINE} strokeWidth="4">
+          <circle cx={118} cy={140} r={22} />
+          <circle cx={182} cy={140} r={22} />
+          <path d="M140 138 h20" strokeLinecap="round" />
+        </g>
+      );
+    case "headphones":
+      return (
+        <g stroke={LINE} strokeWidth={LW} strokeLinejoin="round">
+          <path d="M80 116 Q150 36 220 116" fill="none" strokeWidth="9" strokeLinecap="round" />
+          <rect x={68} y={112} width={24} height={34} rx={9} fill="#ff5a8a" />
+          <rect x={208} y={112} width={24} height={34} rx={9} fill="#ff5a8a" />
         </g>
       );
     case "badge":
-      return <g transform="translate(108 270)">{t("⭐", 0, 0, 26)}</g>;
+      return <g transform="translate(104 268)">{t("⭐", 0, 0, 28)}</g>;
     case "backpack":
       return (
         <>
@@ -412,6 +487,9 @@ const item = (
 ): GearItem => ({ id, slot, name, price, value, rarity, ...(levelReq ? { levelReq } : {}) });
 
 export const GEAR: GearItem[] = [
+  // body type (free identity choice)
+  item("body-girl", "bodyType", "Girl", 0, "girl"),
+  item("body-boy", "bodyType", "Boy", 0, "boy"),
   // skin (free — identity, not paywalled)
   ...Object.keys(SKIN_TONES).map((k, i) =>
     item(`skin-${k}`, "skin", titleCase(k), 0, k, "common", i === 0 ? undefined : undefined),
@@ -419,8 +497,11 @@ export const GEAR: GearItem[] = [
   // hair styles
   item("hair-ponytail", "hair", "Ponytail", 0, "ponytail"),
   item("hair-short", "hair", "Short & Tidy", 40, "short"),
+  item("hair-spiky", "hair", "Spiky", 40, "spiky"),
+  item("hair-sideswept", "hair", "Side Swept", 50, "sideswept"),
   item("hair-twintails", "hair", "Twin Tails", 60, "twintails", "rare"),
   item("hair-bob", "hair", "Bob Cut", 50, "bob"),
+  item("hair-buns", "hair", "Double Buns", 70, "buns", "rare"),
   item("hair-puff", "hair", "Curly Puff", 60, "puff", "rare"),
   item("hair-long", "hair", "Long & Wavy", 80, "long", "rare"),
   // hair colors
@@ -438,8 +519,12 @@ export const GEAR: GearItem[] = [
   item("outfit-hoodie", "outfit", "Cozy Hoodie", 60, "hoodie"),
   item("outfit-vest", "outfit", "Ranger Vest", 80, "vest", "rare"),
   item("outfit-sporty", "outfit", "Sporty Kit", 60, "sporty"),
+  item("outfit-sunny", "outfit", "Summer Set", 50, "sunny"),
+  item("outfit-varsity", "outfit", "Varsity Jacket", 70, "varsity"),
+  item("outfit-tracksuit", "outfit", "Track Suit", 60, "tracksuit"),
   item("outfit-ninja", "outfit", "Ninja Gi", 90, "ninja", "rare"),
   item("outfit-princess", "outfit", "Royal Dress", 120, "princess", "rare"),
+  item("outfit-kimono", "outfit", "Festival Kimono", 140, "kimono", "epic"),
   item("outfit-hero", "outfit", "Hero Suit", 160, "hero", "epic", 2),
   item("outfit-space", "outfit", "Astro Suit", 220, "space", "epic", 3),
   // hats
@@ -448,10 +533,12 @@ export const GEAR: GearItem[] = [
   item("hat-beanie", "hat", "Beanie", 40, "beanie"),
   item("hat-flower", "hat", "Flower Wreath", 70, "flower", "rare"),
   item("hat-party", "hat", "Party Cone", 60, "party"),
+  item("hat-ears", "hat", "Cat Ears", 80, "ears", "rare"),
   item("hat-crown", "hat", "Golden Crown", 260, "crown", "legendary", 4),
   // accessories
   item("acc-none", "accessory", "None", 0, ""),
   item("acc-glasses", "accessory", "Round Glasses", 40, "glasses"),
+  item("acc-headphones", "accessory", "Headphones", 60, "headphones"),
   item("acc-backpack", "accessory", "Trail Pack", 50, "backpack"),
   item("acc-badge", "accessory", "Star Badge", 40, "badge"),
   item("acc-cape", "accessory", "Hero Cape", 150, "cape", "epic", 2),
@@ -493,6 +580,7 @@ export const DEFAULT_GEAR: Record<GearSlot, GearItem> = Object.fromEntries(
 
 // Claire's premium default: warm explorer with an auburn ponytail + quest cap.
 const CLAIRE_DEFAULT: AvatarConfig = {
+  bodyType: "body-girl",
   skin: "skin-light",
   hair: "hair-ponytail",
   hairColor: "hc-auburn",
@@ -541,6 +629,7 @@ export function Avatar({
   const eyeId = `eye-${uid}`;
   const bgId = `scn-${uid}`;
 
+  const body = valueOf(config, "bodyType") === "boy" ? "boy" : "girl";
   const skin = skinOf(valueOf(config, "skin"));
   const hair = hairOf(valueOf(config, "hairColor"));
   const hairStyle = valueOf(config, "hair");
@@ -581,7 +670,7 @@ export function Avatar({
       <g className="av-breathe">
         {renderHairBack(hairStyle, hair)}
         {renderAccessory(acc, "back")}
-        {renderOutfit(outfit, skin)}
+        {renderOutfit(outfit, skin, body)}
 
         <g className="av-head">
           {/* neck */}
