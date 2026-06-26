@@ -9,14 +9,17 @@ in the table below before it ships.**
 
 ## Current status: NO third-party binary assets are bundled
 
-As shipped, Kids Corner contains **zero** downloaded/third-party model, texture,
-or image files, and requires **no license**:
+Kids Corner bundles **one** third-party binary: a single, clearly-licensed
+sample character (see the log below). Everything else is original or emoji.
 
 1. **3D character** — the app loads a **real VRoid `.vrm`** from
    `public/assets/avatar/models/` (`src/features/avatar/VRMAvatarViewer.tsx`).
-   None are bundled. **When no model is present the avatar stage shows a polished
-   "Add VRoid model" placeholder card — it never renders a fake/procedural
-   character.** (There is intentionally NO geometry-built avatar.)
+   One license-clear sample (**pixiv's official three-vrm demo model**) ships as
+   the default **`claire-base.vrm`** so the stage shows a real character out of
+   the box; replace it / add `coby-base.vrm`, `hailee-base.vrm` with your own
+   VRoid exports. **When no model is present the stage shows a polished "Add
+   VRoid model" placeholder — it never renders a fake/procedural character.**
+   (There is intentionally NO geometry-built avatar.)
 2. **Shop icons** — each catalog item ships a built-in **emoji + color** so cards
    render with no image files; `iconPath` PNGs are optional upgrades.
 
@@ -33,9 +36,15 @@ placeholder for a model, the emoji for an icon) — never to fake geometry.
 
 ## Asset license log
 
-| Asset file | Slot/Item id | Creator | Source URL | License | Commercial use? | Modify? | Redistribute? | Date added | Added by |
+| Asset file | Slot/Item id | Creator | Source URL | License | Commercial use? | Modify? | Redistribute? | Date checked | Added by |
 |------------|--------------|---------|------------|---------|-----------------|---------|---------------|------------|----------|
-| _(none yet — no models bundled; placeholder shown)_ | | | | | | | | | |
+| `models/claire-base.vrm` | base / default character | pixiv Inc. © 2022 | https://github.com/pixiv/three-vrm — `packages/three-vrm/examples/models/VRM1_Constraint_Twist_Sample.vrm` | [VRM 1.0 License](https://vrm.dev/licenses/1.0/) — verified from the model's embedded `VRMC_vrm.meta` | **Yes** (`commercialUsage: corporation`) | **Yes** (`modification: allowModificationRedistribution`) | **Yes** (`allowRedistribution: true`; `creditNotation: unnecessary`, `avatarPermission: everyone`) | 2026-06-26 | Claude (automated) |
+
+> **Note on `claire-base.vrm`:** it is pixiv's official, widely-used three-vrm
+> sample — a normal, fully-clothed anime character, appropriate as a kid avatar.
+> Its embedded meta sets liberal *permission* flags (e.g. `allowExcessivelySexualUsage`)
+> — those describe what uses the author **permits**, not the model's content. We
+> use it only as a wholesome avatar. Swap in your own VRoid models anytime.
 
 **Every new row must answer all columns.** If you can't fill in the License,
 Commercial, Modify, and Redistribute columns with certainty, **do not add the

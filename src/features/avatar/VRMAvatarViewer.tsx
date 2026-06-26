@@ -224,12 +224,13 @@ function VrmCharacter({
     const spine = humanoid?.getNormalizedBoneNode("spine") ?? null;
 
     // --- Rest pose (re-applied every frame so transitions are clean) -------
-    // Lower the upper arms from the T-pose down to a relaxed rest by the side.
-    // +Z rotation on the LEFT upper arm and -Z on the RIGHT brings both down.
-    if (lUpper) lUpper.rotation.set(0, 0, 1.2);
-    if (rUpper) rUpper.rotation.set(0, 0, -1.2);
-    if (lLower) lLower.rotation.set(0, 0, 0.1);
-    if (rLower) rLower.rotation.set(0, 0, -0.1);
+    // Lower the upper arms from the T-pose down to a relaxed A-pose by the side.
+    // (Verified on a real VRM: -Z on the LEFT upper arm and +Z on the RIGHT
+    // brings them DOWN; the opposite signs raise them — used by the emotes.)
+    if (lUpper) lUpper.rotation.set(0, 0, -1.2);
+    if (rUpper) rUpper.rotation.set(0, 0, 1.2);
+    if (lLower) lLower.rotation.set(0, 0, -0.1);
+    if (rLower) rLower.rotation.set(0, 0, 0.1);
     if (head) head.rotation.set(0, 0, 0);
     if (spine) spine.rotation.set(0, 0, 0);
     // Restore the seated baseline (NOT 0) so foot placement is preserved; emote
@@ -285,12 +286,12 @@ function VrmCharacter({
   });
 
   if (!vrm) return null;
-  // Camera sits on +Z looking toward the origin. After rotateVRM0 every model's
-  // front faces -Z (its back toward +Z), so wrap in a group yawed 180° to turn
-  // the front toward the camera. Applying the yaw HERE (on the parent group)
-  // rather than on vrm.scene.rotation keeps the rotateVRM0 normalization intact.
+  // three-vrm already orients the model to face +Z (toward our +Z camera), and
+  // rotateVRM0 brings legacy VRM0 models into that same convention — so NO extra
+  // yaw is needed. (Verified against a real VRM1 model: adding 180° showed the
+  // character's back.) Wrapper group kept at identity for future transforms.
   return (
-    <group rotation={[0, Math.PI, 0]}>
+    <group rotation={[0, 0, 0]}>
       <primitive object={vrm.scene} />
     </group>
   );
