@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useApp } from "../store/AppContext";
 import { KID_EMOJIS, KID_PALETTE } from "../data/kids";
@@ -1283,12 +1283,18 @@ function ParentMessages() {
 function Announcer() {
   const { state, dispatch } = useApp();
   const [text, setText] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
   const list = activeAnnouncements(state);
 
   const send = (e: React.FormEvent) => {
     e.preventDefault();
     const t = text.trim();
-    if (!t) return;
+    if (!t) {
+      // Always respond to a click: nudge the grown-up to type instead of
+      // sitting there as a dead, disabled-looking button.
+      inputRef.current?.focus();
+      return;
+    }
     dispatch({ type: "SEND_ANNOUNCEMENT", text: t });
     setText("");
   };
@@ -1303,6 +1309,7 @@ function Announcer() {
         </p>
         <form className="settings__row" onSubmit={send}>
           <input
+            ref={inputRef}
             className="settings__input"
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -1310,7 +1317,7 @@ function Announcer() {
             maxLength={280}
             aria-label="Announcement text"
           />
-          <button className="btn btn--primary" type="submit" disabled={!text.trim()}>
+          <button className="btn btn--primary" type="submit">
             📣 Announce
           </button>
         </form>
