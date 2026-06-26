@@ -87,6 +87,9 @@ function VrmCharacter({
   // the rest pose does not clobber the load-time vertical placement). Jump /
   // victory arcs are added ON TOP of this baseline, never instead of it.
   const baseY = useRef(0);
+  // The wrapper group — animated for idle life + emotes (whole-body motion only,
+  // so no per-rig bone posing can look broken on an arbitrary VRM).
+  const groupRef = useRef<THREE.Group>(null);
 
   // ---- Imperative load (loadAsync is not Suspense-friendly) --------------
   useEffect(() => {
@@ -205,7 +208,7 @@ function VrmCharacter({
   // ---- Per-frame: rest pose → active emote, then vrm.update(delta) -------
   useFrame(({ clock }, delta) => {
     if (!vrm) return;
-    const humanoid = vrm.humanoid;
+    const h = vrm.humanoid;
 
     if (emote.key !== lastKey.current) {
       lastKey.current = emote.key;
@@ -215,72 +218,78 @@ function VrmCharacter({
     const e = t - emoteStart.current; // seconds into the current emote
     const playing = e >= 0 && e < 1.6;
     const name: EmoteName = playing ? emote.name : "idle";
+    const g = groupRef.current;
 
-    const rUpper = humanoid?.getNormalizedBoneNode("rightUpperArm") ?? null;
-    const rLower = humanoid?.getNormalizedBoneNode("rightLowerArm") ?? null;
-    const lUpper = humanoid?.getNormalizedBoneNode("leftUpperArm") ?? null;
-    const lLower = humanoid?.getNormalizedBoneNode("leftLowerArm") ?? null;
-    const head = humanoid?.getNormalizedBoneNode("head") ?? null;
-    const spine = humanoid?.getNormalizedBoneNode("spine") ?? null;
+    const rUpper = h?.getNormalizedBoneNode("rightUpperArm") ?? null;
+    const rLower = h?.getNormalizedBoneNode("rightLowerArm") ?? null;
+    const lUpper = h?.getNormalizedBoneNode("leftUpperArm") ?? null;
+    const lLower = h?.getNormalizedBoneNode("leftLowerArm") ?? null;
+    const head = h?.getNormalizedBoneNode("head") ?? null;
+    const spine = h?.getNormalizedBoneNode("spine") ?? null;
 
-    // --- Rest pose (re-applied every frame so transitions are clean) -------
-    // Lower the upper arms from the T-pose down to a relaxed A-pose by the side.
-    // (Verified on a real VRM: -Z on the LEFT upper arm and +Z on the RIGHT
-    // brings them DOWN; the opposite signs raise them — used by the emotes.)
+    // Relaxed arms-down rest pose, tuned for the bundled VRM1 model. Re-applied
+    // every frame as a clean base so emote transitions stay clean. (A model with
+    // a very different rig may want these signs/values adjusted — see the import
+    // guide; whole-body motion + expressions below are rig-independent.)
     if (lUpper) lUpper.rotation.set(0, 0, -1.2);
     if (rUpper) rUpper.rotation.set(0, 0, 1.2);
     if (lLower) lLower.rotation.set(0, 0, -0.1);
     if (rLower) rLower.rotation.set(0, 0, 0.1);
     if (head) head.rotation.set(0, 0, 0);
     if (spine) spine.rotation.set(0, 0, 0);
-    // Restore the seated baseline (NOT 0) so foot placement is preserved; emote
-    // arcs below add their offset on top of this.
-    vrm.scene.position.y = baseY.current;
 
-    // Gentle, always-on breathing + head sway.
-    const breathe = Math.sin(t * 1.6) * 0.03;
+    // Whole-body life (rig-independent): gentle bob + sway + breathing.
+    vrm.scene.position.y = baseY.current + Math.sin(t * 1.6) * 0.012;
+    vrm.scene.position.z = 0;
+    if (g) g.rotation.y = Math.sin(t * 0.45) * 0.05;
+    const breathe = Math.sin(t * 1.6) * 0.02;
     if (spine) spine.rotation.x += breathe;
     if (head) {
-      head.rotation.y += Math.sin(t * 0.8) * 0.08;
+      head.rotation.y += Math.sin(t * 0.8) * 0.06;
       head.rotation.x += breathe * 0.5;
     }
 
-    // --- Active emote -------------------------------------------------------
+    // Occasional blink + soft baseline expression.
+    if (t > blinkNext.current) {
+      blinkValue.current = 1;
+      blinkNext.current = t + 2.4 + Math.random() * 3.5;
+    }
+    blinkValue.current = Math.max(0, blinkValue.current - delta * 8);
+    const em = vrm.expressionManager;
+    em?.setValue("blink", blinkValue.current);
+    let happy = 0.12;
+    let relaxed = 0.3;
+
+    // Emotes: arm gestures (tuned for the bundled model) + rig-independent
+    // scene motion + facial expressions.
     if (name === "wave") {
-      // Raise the right upper arm out + up, bend the elbow, oscillate forearm.
+      happy = 0.85;
       if (rUpper) rUpper.rotation.set(0, 0, -2.5);
       if (rLower) rLower.rotation.set(0, 0, -0.6 + Math.sin(e * 14) * 0.5);
+      if (head) head.rotation.z += 0.1;
     } else if (name === "jump") {
-      // Arc up and slightly back, arms up.
+      happy = 0.95;
       const k = Math.min(e / 0.5, 1);
-      vrm.scene.position.y = baseY.current + Math.sin(k * Math.PI) * 0.45;
-      vrm.scene.position.z = -Math.sin(k * Math.PI) * 0.12;
+      vrm.scene.position.y = baseY.current + Math.sin(k * Math.PI) * 0.4;
+      vrm.scene.position.z = -Math.sin(k * Math.PI) * 0.08;
       if (lUpper) lUpper.rotation.set(0, 0, 2.4);
       if (rUpper) rUpper.rotation.set(0, 0, -2.4);
     } else if (name === "victory") {
-      // Both arms raised in a cheer with a little bounce.
+      happy = 1;
+      vrm.scene.position.y = baseY.current + Math.abs(Math.sin(e * 6)) * 0.07;
       if (lUpper) lUpper.rotation.set(0, 0, 2.6);
       if (rUpper) rUpper.rotation.set(0, 0, -2.6);
       if (lLower) lLower.rotation.set(0, 0, 0.4);
       if (rLower) rLower.rotation.set(0, 0, -0.4);
-      vrm.scene.position.y = baseY.current + Math.abs(Math.sin(e * 6)) * 0.06;
     } else if (name === "think") {
-      // Right hand toward chin (bend arm up), slight head tilt.
+      relaxed = 0.7;
+      happy = 0.05;
       if (rUpper) rUpper.rotation.set(0.1, 0, -0.8);
-      if (rLower) rLower.rotation.set(0, -1.4, -1.4);
+      if (rLower) rLower.rotation.set(0, -1.2, -1.2);
       if (head) head.rotation.z += 0.18;
-    } else {
-      // idle: leave the rest pose + breathing as-is, with the occasional blink.
-      if (t > blinkNext.current) {
-        blinkValue.current = 1;
-        blinkNext.current = t + 2.5 + Math.random() * 3.5;
-      }
-      blinkValue.current = Math.max(0, blinkValue.current - delta * 8);
-      vrm.expressionManager?.setValue("blink", blinkValue.current);
     }
-
-    // Reset z-offset outside of jump so it doesn't drift.
-    if (name !== "jump") vrm.scene.position.z = 0;
+    em?.setValue("happy", happy);
+    em?.setValue("relaxed", relaxed);
 
     vrm.update(delta);
   });
@@ -291,7 +300,7 @@ function VrmCharacter({
   // yaw is needed. (Verified against a real VRM1 model: adding 180° showed the
   // character's back.) Wrapper group kept at identity for future transforms.
   return (
-    <group rotation={[0, 0, 0]}>
+    <group ref={groupRef} rotation={[0, 0, 0]}>
       <primitive object={vrm.scene} />
     </group>
   );
