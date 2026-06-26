@@ -105,6 +105,8 @@ function VrmCharacter({
     pos: THREE.Vector3;
     scale: number;
     top: number;
+    front: number; // model's front (+Z) in the bind pose — glasses sit near it
+    eyeMid: THREE.Vector3 | null; // eye-bone midpoint if the rig has eye bones
   } | null>(null);
 
   // ---- Imperative load (loadAsync is not Suspense-friendly) --------------
@@ -185,11 +187,27 @@ function VrmCharacter({
           // hats up off the head. For the three bundled rigs the cap never bites
           // (their box top sits only ~0.21–0.23 above the head bone = the skull).
           const seatedBox = new THREE.Box3().setFromObject(got.scene);
+          // Eye-bone midpoint (if the rig has eye bones) → exact glasses anchor,
+          // free of the chest/face-depth confound. Seed-san rigs lack eye bones,
+          // so those fall back to a model-front-aware push.
+          const lEye = got.humanoid?.getRawBoneNode("leftEye");
+          const rEye = got.humanoid?.getRawBoneNode("rightEye");
+          let eyeMid: THREE.Vector3 | null = null;
+          if (lEye && rEye) {
+            lEye.updateWorldMatrix(true, false);
+            rEye.updateWorldMatrix(true, false);
+            eyeMid = lEye
+              .getWorldPosition(new THREE.Vector3())
+              .add(rEye.getWorldPosition(new THREE.Vector3()))
+              .multiplyScalar(0.5);
+          }
           headBindRef.current = {
             matrixWorldInv: headRaw.matrixWorld.clone().invert(),
             pos: headWorldPos,
             scale: headRaw.getWorldScale(new THREE.Vector3()).x || 1,
             top: Math.min(seatedBox.max.y, headWorldPos.y + 0.33),
+            front: seatedBox.max.z,
+            eyeMid,
           };
         } else {
           headBindRef.current = null;
@@ -358,13 +376,18 @@ function VrmCharacter({
             hb,
           );
         } else if (slot === "glasses" && hb) {
-          // Glasses centered at eye height, pushed forward to the face front.
-          s = placeBind(
-            obj,
-            parent,
-            new THREE.Vector3(hb.pos.x, hb.top - 0.13, hb.pos.z + 0.07),
-            hb,
-          );
+          // Prefer the exact eye-bone midpoint (just nudged forward to the lens
+          // plane). Rigs without eye bones fall back to eye height + a push
+          // toward the model front so glasses don't sink inside a deeper face
+          // (clamped so a shallow face doesn't float them off).
+          const target = hb.eyeMid
+            ? new THREE.Vector3(hb.eyeMid.x, hb.eyeMid.y, hb.eyeMid.z + 0.03)
+            : new THREE.Vector3(
+                hb.pos.x,
+                hb.top - 0.15,
+                Math.max(hb.pos.z + 0.07, Math.min(hb.front - 0.03, hb.pos.z + 0.2)),
+              );
+          s = placeBind(obj, parent, target, hb);
         } else {
           s = place(obj, parent, p.offset, p.rotation);
         }
