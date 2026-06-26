@@ -241,6 +241,16 @@ export type Message = {
   at: number; // epoch ms
   /** Read by the recipient (`to`). */
   read: boolean;
+  /** Soft-deleted by the sender (kept as a tombstone so removal syncs). */
+  deleted?: boolean;
+};
+
+/** A grown-up broadcast shown to every kid. */
+export type Announcement = {
+  id: string;
+  text: string;
+  at: number; // epoch ms
+  deleted?: boolean;
 };
 
 // --- Persisted state ------------------------------------------------------
@@ -296,6 +306,8 @@ export type AppState = {
   themes: Record<KidId, ThemeId>;
   /** Messages between each kid and the grown-ups. */
   messages: Message[];
+  /** Grown-up broadcasts shown to all kids. */
+  announcements: Announcement[];
   /** App-catalog ids each kid is allowed to see (parent-controlled). */
   appVisibility: Record<KidId, string[]>;
   /** Explore resource ids each kid CANNOT see (default: none hidden). */

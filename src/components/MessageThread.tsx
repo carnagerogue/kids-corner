@@ -76,6 +76,20 @@ export function MessageThread({
               )}
               {m.text && <span className="bubble__text">{m.text}</span>}
               <span className="bubble__time">{fmtTime(m.at)}</span>
+              {!readOnly && m.from === me && (
+                <button
+                  className="bubble__del"
+                  aria-label="Delete this message"
+                  title="Delete message"
+                  onClick={() => {
+                    if (window.confirm("Delete this message for everyone?")) {
+                      dispatch({ type: "DELETE_MESSAGE", id: m.id, by: me });
+                    }
+                  }}
+                >
+                  🗑
+                </button>
+              )}
             </div>
           ))
         )}

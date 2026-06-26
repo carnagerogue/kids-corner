@@ -5,6 +5,7 @@ import { KID_EMOJIS, KID_PALETTE } from "../data/kids";
 import { APP_CATALOG } from "../data/applications";
 import { RESOURCES, RESOURCE_CATEGORIES } from "../data/resources";
 import {
+  activeAnnouncements,
   activityById,
   activityImage,
   approvedSubmissions,
@@ -1196,6 +1197,70 @@ function ParentMessages() {
         })}
       </div>
       <MessageThread me="parent" other={sel} />
+
+      <Announcer />
+    </>
+  );
+}
+
+function Announcer() {
+  const { state, dispatch } = useApp();
+  const [text, setText] = useState("");
+  const list = activeAnnouncements(state);
+
+  const send = (e: React.FormEvent) => {
+    e.preventDefault();
+    const t = text.trim();
+    if (!t) return;
+    dispatch({ type: "SEND_ANNOUNCEMENT", text: t });
+    setText("");
+  };
+
+  return (
+    <>
+      <h3 className="section-title">📣 Announcements</h3>
+      <div className="settings">
+        <p className="settings__hint">
+          Send a note that shows up for <strong>every kid</strong> on their home
+          screen.
+        </p>
+        <form className="settings__row" onSubmit={send}>
+          <input
+            className="settings__input"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="e.g. Grandma visits at 3pm — tidy up first!"
+            maxLength={280}
+            aria-label="Announcement text"
+          />
+          <button className="btn btn--primary" type="submit" disabled={!text.trim()}>
+            📣 Announce
+          </button>
+        </form>
+        {list.length > 0 && (
+          <ul className="annlist">
+            {list.map((a) => (
+              <li key={a.id} className="annlist__row">
+                <span className="annlist__text">{a.text}</span>
+                <span className="annlist__time">
+                  {new Date(a.at).toLocaleDateString([], {
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </span>
+                <button
+                  className="btn btn--reject btn--sm"
+                  onClick={() =>
+                    dispatch({ type: "DELETE_ANNOUNCEMENT", id: a.id })
+                  }
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </>
   );
 }

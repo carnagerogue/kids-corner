@@ -1,6 +1,7 @@
 import type {
   ActivityCategory,
   ActivityIdea,
+  Announcement,
   AppState,
   AvatarConfig,
   ChoreAssignment,
@@ -246,9 +247,18 @@ export function messagesBetween(
 ): Message[] {
   return state.messages
     .filter(
-      (m) => (m.from === a && m.to === b) || (m.from === b && m.to === a),
+      (m) =>
+        !m.deleted &&
+        ((m.from === a && m.to === b) || (m.from === b && m.to === a)),
     )
     .sort((x, y) => x.at - y.at);
+}
+
+/** Grown-up broadcasts shown to all kids, newest first. */
+export function activeAnnouncements(state: AppState): Announcement[] {
+  return (state.announcements ?? [])
+    .filter((a) => !a.deleted)
+    .sort((x, y) => y.at - x.at);
 }
 
 /** Unread messages addressed to `me` (optionally only from a given sender). */
@@ -258,7 +268,7 @@ export function unreadFor(
   from?: ParticipantId,
 ): number {
   return state.messages.reduce((n, m) => {
-    if (m.to !== me || m.read) return n;
+    if (m.deleted || m.to !== me || m.read) return n;
     if (from && m.from !== from) return n;
     return n + 1;
   }, 0);

@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useApp } from "../store/AppContext";
 import { getLevelInfo } from "../data/levels";
 import {
+  activeAnnouncements,
   activityById,
   choreAssignmentsFor,
   coinBalance,
@@ -99,6 +101,7 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
 
   return (
     <div className="view">
+      <AnnouncementBanner />
       <div className="dash">
         <aside className="dash__schedule">
           <MiniCalendar />
@@ -421,6 +424,53 @@ function CrewCard({ kidId, active }: { kidId: KidId; active: boolean }) {
           <span className="crewcard__pending">⏳ {pendingToday} pending</span>
         )}
       </div>
+    </div>
+  );
+}
+
+const ANN_DISMISS_KEY = "kids-corner:annDismissed";
+function readDismissed(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(ANN_DISMISS_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+/** Grown-up broadcasts, shown to the kid until they dismiss each one. */
+function AnnouncementBanner() {
+  const { state } = useApp();
+  const [dismissed, setDismissed] = useState<string[]>(readDismissed);
+  const visible = activeAnnouncements(state)
+    .filter((a) => !dismissed.includes(a.id))
+    .slice(0, 3);
+  if (!visible.length) return null;
+
+  const dismiss = (id: string) => {
+    const next = [...dismissed, id];
+    setDismissed(next);
+    try {
+      localStorage.setItem(ANN_DISMISS_KEY, JSON.stringify(next.slice(-100)));
+    } catch {
+      /* ignore */
+    }
+  };
+
+  return (
+    <div className="announce">
+      {visible.map((a) => (
+        <div key={a.id} className="announce__item">
+          <span className="announce__icon">📣</span>
+          <span className="announce__text">{a.text}</span>
+          <button
+            className="announce__x"
+            aria-label="Dismiss announcement"
+            onClick={() => dismiss(a.id)}
+          >
+            ✕
+          </button>
+        </div>
+      ))}
     </div>
   );
 }

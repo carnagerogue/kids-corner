@@ -8,6 +8,7 @@ import {
 } from "react";
 import type {
   ActivityIdea,
+  Announcement,
   AppState,
   AvatarConfig,
   ChoreAssignment,
@@ -120,7 +121,11 @@ export type Action =
       photo?: string;
     }
   | { type: "MARK_MESSAGES_READ"; me: ParticipantId; other: ParticipantId }
+  | { type: "DELETE_MESSAGE"; id: string; by: ParticipantId }
   | { type: "INGEST_MESSAGES"; messages: Message[] }
+  | { type: "SEND_ANNOUNCEMENT"; text: string }
+  | { type: "DELETE_ANNOUNCEMENT"; id: string }
+  | { type: "INGEST_ANNOUNCEMENTS"; announcements: Announcement[] }
   | { type: "SET_CONFIG"; config: SyncConfig }
   | { type: "INGEST_SUBMISSIONS"; submissions: Submission[] }
   | { type: "INGEST_CHORES"; choreAssignments: ChoreAssignment[] }
@@ -529,15 +534,85 @@ function reducer(state: AppState, action: Action): AppState {
       return changed ? { ...state, messages } : state;
     }
 
+    case "DELETE_MESSAGE": {
+      // Only the sender can delete their own message (soft tombstone).
+      let changed = false;
+      const messages = state.messages.map((m) => {
+        if (m.id === action.id && m.from === action.by && !m.deleted) {
+          changed = true;
+          return { ...m, deleted: true, text: "", photo: "" };
+        }
+        return m;
+      });
+      return changed ? { ...state, messages } : state;
+    }
+
     case "INGEST_MESSAGES": {
-      // Merge in messages from another device (cross-device sync), by id.
-      const have = new Set(state.messages.map((m) => m.id));
-      const add = action.messages.filter((m) => m && m.id && !have.has(m.id));
-      if (!add.length) return state;
-      const merged = [...state.messages, ...add]
+      // Merge messages from another device by id: add new ones and apply
+      // remote deletions (so a delete on one device propagates everywhere).
+      const byId = new Map(state.messages.map((m) => [m.id, m]));
+      let changed = false;
+      for (const r of action.messages) {
+        if (!r || !r.id) continue;
+        const l = byId.get(r.id);
+        if (!l) {
+          byId.set(r.id, r);
+          changed = true;
+        } else if (r.deleted && !l.deleted) {
+          byId.set(r.id, { ...l, deleted: true, text: "", photo: "" });
+          changed = true;
+        }
+      }
+      if (!changed) return state;
+      const merged = [...byId.values()]
         .sort((a, b) => a.at - b.at)
         .slice(-300);
       return { ...state, messages: merged };
+    }
+
+    case "SEND_ANNOUNCEMENT": {
+      const text = action.text.trim();
+      if (!text) return state;
+      const announcement: Announcement = {
+        id: newId(),
+        text: text.slice(0, 280),
+        at: Date.now(),
+      };
+      return {
+        ...state,
+        announcements: [...state.announcements, announcement].slice(-50),
+      };
+    }
+
+    case "DELETE_ANNOUNCEMENT": {
+      let changed = false;
+      const announcements = state.announcements.map((a) => {
+        if (a.id === action.id && !a.deleted) {
+          changed = true;
+          return { ...a, deleted: true, text: "" };
+        }
+        return a;
+      });
+      return changed ? { ...state, announcements } : state;
+    }
+
+    case "INGEST_ANNOUNCEMENTS": {
+      const byId = new Map(state.announcements.map((a) => [a.id, a]));
+      let changed = false;
+      for (const r of action.announcements) {
+        if (!r || !r.id) continue;
+        const l = byId.get(r.id);
+        if (!l) {
+          byId.set(r.id, r);
+          changed = true;
+        } else if (r.deleted && !l.deleted) {
+          byId.set(r.id, { ...l, deleted: true, text: "" });
+          changed = true;
+        }
+      }
+      if (!changed) return state;
+      const merged = [...byId.values()].sort((a, b) => a.at - b.at).slice(-50);
+      return { ...state, announcements: merged };
     }
 
     case "SET_CONFIG": {

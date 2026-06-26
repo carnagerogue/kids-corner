@@ -1269,6 +1269,112 @@ button {
 }
 .reveal__art .avatar { display: block; width: 130px; height: 130px; }
 
+/* --- Announcements --------------------------------------------------------*/
+.announce {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.announce__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(100deg, #fff3d6, #ffe1ec);
+  border: 2px solid #ffce4a;
+  box-shadow: var(--shadow-sm);
+  animation: rise 0.3s ease both;
+}
+.announce__icon {
+  font-size: 1.4rem;
+  flex: none;
+}
+.announce__text {
+  flex: 1;
+  font-weight: 800;
+  color: #7a4a00;
+  line-height: 1.25;
+}
+.announce__x {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(122, 74, 0, 0.12);
+  color: #7a4a00;
+  font-weight: 900;
+  cursor: pointer;
+}
+.announce__x:hover {
+  background: rgba(122, 74, 0, 0.22);
+}
+:root[data-theme="midnight"] .announce__item,
+:root[data-theme="neon"] .announce__item {
+  background: linear-gradient(100deg, #3a2f12, #3a1f33);
+  border-color: #ffce4a;
+}
+:root[data-theme="midnight"] .announce__text,
+:root[data-theme="neon"] .announce__text {
+  color: #ffe08a;
+}
+
+/* parent announcement list */
+.annlist {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.annlist__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-2);
+}
+.annlist__text {
+  flex: 1;
+  font-weight: 700;
+  color: var(--ink);
+}
+.annlist__time {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  flex: none;
+}
+
+/* --- Message delete -------------------------------------------------------*/
+.bubble {
+  position: relative;
+}
+.bubble__del {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  font-size: 0.7rem;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.12s ease;
+}
+.bubble:hover .bubble__del,
+.bubble__del:focus-visible {
+  opacity: 1;
+}
+
 /* --- Daily goal card ------------------------------------------------------*/
 .goalcard {
   display: flex;

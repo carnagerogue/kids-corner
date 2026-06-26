@@ -1,5 +1,6 @@
 import type {
   ActivityIdea,
+  Announcement,
   AppState,
   AvatarConfig,
   ChoreAssignment,
@@ -188,6 +189,7 @@ export function defaultState(): AppState {
     avatar: {},
     themes,
     messages: [],
+    announcements: [],
     appVisibility,
     exploreHidden,
   };
@@ -329,6 +331,14 @@ export function loadState(): AppState {
           .slice(-MAX_MESSAGES)
       : [];
 
+    const announcements = Array.isArray(parsed.announcements)
+      ? (parsed.announcements as Announcement[])
+          .filter(
+            (a) => a && typeof a.id === "string" && typeof a.at === "number",
+          )
+          .slice(-50)
+      : [];
+
     const activeKid =
       typeof parsed.activeKid === "string" && ids.includes(parsed.activeKid)
         ? parsed.activeKid
@@ -370,6 +380,7 @@ export function loadState(): AppState {
       avatar,
       themes,
       messages,
+      announcements,
       appVisibility,
       exploreHidden,
     };

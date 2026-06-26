@@ -4,6 +4,7 @@ import { useApp, type SyncConfig } from "../store/AppContext";
 import { FIREBASE_READY, getDb } from "../firebase";
 import { readSyncCode, SYNC_EVENT } from "../sync";
 import type {
+  Announcement,
   AppState,
   ChoreAssignment,
   Message,
@@ -78,6 +79,10 @@ function pushUpdate(
 const subHash = (s: Submission) =>
   `${s.status}|${s.reviewedAt ?? 0}|${s.note ?? ""}|${s.photo ? 1 : 0}`;
 
+// Re-push a message/announcement when it gets soft-deleted.
+const msgHash = (m: Message) => (m.deleted ? "d" : "");
+const annHash = (a: Announcement) => (a.deleted ? "d" : "");
+
 /** Firebase keys can't contain . # $ / [ ]. */
 const safe = (code: string) => code.replace(/[.#$/[\]]/g, "_");
 
@@ -96,7 +101,8 @@ export function FamilySync() {
   const lastConfig = useRef("");
   const syncedSub = useRef<Map<string, string>>(new Map());
   const syncedChore = useRef<Set<string>>(new Set());
-  const syncedMsg = useRef<Set<string>>(new Set());
+  const syncedMsg = useRef<Map<string, string>>(new Map());
+  const syncedAnn = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     const onCode = () => setCode(readSyncCode());
@@ -117,7 +123,8 @@ export function FamilySync() {
     lastConfig.current = "";
     syncedSub.current = new Map();
     syncedChore.current = new Set();
-    syncedMsg.current = new Set();
+    syncedMsg.current = new Map();
+    syncedAnn.current = new Map();
     const base = `rooms/${safe(code)}`;
     const unsubs = [
       onValue(ref(db, `${base}/config`), (snap) => {
@@ -145,8 +152,16 @@ export function FamilySync() {
       onValue(ref(db, `${base}/messages`), (snap) => {
         const val = (snap.val() as Record<string, Message> | null) ?? {};
         const ms = Object.values(val).filter((m) => m && m.id);
-        ms.forEach((m) => syncedMsg.current.add(m.id));
+        ms.forEach((m) => syncedMsg.current.set(m.id, msgHash(m)));
         if (ms.length) dispatch({ type: "INGEST_MESSAGES", messages: ms });
+      }),
+      onValue(ref(db, `${base}/announcements`), (snap) => {
+        const val = (snap.val() as Record<string, Announcement> | null) ?? {};
+        const as = Object.values(val).filter((a) => a && a.id);
+        as.forEach((a) => syncedAnn.current.set(a.id, annHash(a)));
+        if (as.length) {
+          dispatch({ type: "INGEST_ANNOUNCEMENTS", announcements: as });
+        }
       }),
     ];
     return () => unsubs.forEach((u) => u());
@@ -220,15 +235,16 @@ export function FamilySync() {
     }
   }, [state.choreAssignments, code]);
 
-  // Push new messages.
+  // Push new / soft-deleted messages.
   useEffect(() => {
     if (!FIREBASE_READY || !code) return;
     const db = getDb();
     if (!db) return;
     const updates: Record<string, Message> = {};
     for (const m of state.messages) {
-      if (!syncedMsg.current.has(m.id)) {
-        syncedMsg.current.add(m.id);
+      const h = msgHash(m);
+      if (syncedMsg.current.get(m.id) !== h) {
+        syncedMsg.current.set(m.id, h);
         updates[m.id] = m;
       }
     }
@@ -236,6 +252,24 @@ export function FamilySync() {
       pushUpdate(db, `rooms/${safe(code)}/messages`, updates);
     }
   }, [state.messages, code]);
+
+  // Push new / soft-deleted announcements.
+  useEffect(() => {
+    if (!FIREBASE_READY || !code) return;
+    const db = getDb();
+    if (!db) return;
+    const updates: Record<string, Announcement> = {};
+    for (const a of state.announcements) {
+      const h = annHash(a);
+      if (syncedAnn.current.get(a.id) !== h) {
+        syncedAnn.current.set(a.id, h);
+        updates[a.id] = a;
+      }
+    }
+    if (Object.keys(updates).length) {
+      pushUpdate(db, `rooms/${safe(code)}/announcements`, updates);
+    }
+  }, [state.announcements, code]);
 
   return null;
 }
