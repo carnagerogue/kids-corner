@@ -1152,6 +1152,94 @@ button {
   100% { opacity: 0; transform: scale(1.3); }
 }
 
+/* --- Equip pop (stage) ----------------------------------------------------*/
+.stage__pop {
+  display: inline-block;
+  transform-origin: 50% 100%;
+  animation: stage-pop 0.4s cubic-bezier(0.2, 1.4, 0.5, 1);
+}
+@keyframes stage-pop {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.06, 0.95); }
+  70% { transform: scale(0.98, 1.03); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage__pop { animation: none; }
+}
+
+/* --- Mystery box ----------------------------------------------------------*/
+.mbox {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border-radius: 18px;
+  background: linear-gradient(120deg, #3a1f6e, #241a52);
+  border: 1px solid rgba(255, 194, 61, 0.4);
+}
+.mbox.is-ready { animation: mbox-glow 2.6s ease-in-out infinite; }
+@keyframes mbox-glow {
+  0%, 100% { box-shadow: 0 0 22px -12px rgba(255, 194, 61, 0.55); }
+  50% { box-shadow: 0 0 32px -4px rgba(255, 194, 61, 0.9); }
+}
+.mbox__gift {
+  font-size: 2.6rem;
+  line-height: 1;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+}
+.mbox.is-ready .mbox__gift { animation: mbox-bob 1.9s ease-in-out infinite; }
+@keyframes mbox-bob {
+  0%, 100% { transform: translateY(0) rotate(-5deg); }
+  50% { transform: translateY(-5px) rotate(5deg); }
+}
+.mbox__gift.is-spinning { animation: mbox-shake 0.22s linear infinite; }
+@keyframes mbox-shake {
+  0%, 100% { transform: rotate(-13deg); }
+  50% { transform: rotate(13deg); }
+}
+.mbox__gift:disabled { cursor: default; }
+.mbox__body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.mbox__title { color: #fff; font-family: var(--display); font-size: 1.05rem; }
+.mbox__sub { color: #cdbff0; font-size: 0.8rem; font-weight: 600; }
+.mbox__btn {
+  flex: none;
+  border: none;
+  border-radius: 999px;
+  padding: 9px 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.mbox__btn--free { color: #4a2f00; background: linear-gradient(135deg, #ffe08a, #ffc23d); }
+.mbox__btn--paid { color: #06121f; background: linear-gradient(135deg, #22d3ee, #39b7ff); }
+.mbox__btn:disabled { opacity: 0.5; filter: grayscale(0.4); cursor: default; }
+@media (max-width: 540px) {
+  .mbox { flex-wrap: wrap; }
+}
+
+/* --- Spin reveal (reuses .party overlay) ----------------------------------*/
+.party__kicker {
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.party__card--common { border-top: 6px solid #8b93a7; }
+.party__card--rare { border-top: 6px solid #39b7ff; }
+.party__card--epic { border-top: 6px solid #c264ff; }
+.party__card--legendary { border-top: 6px solid #ffc23d; }
+.reveal__art {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.reveal__art .avatar { display: block; width: 130px; height: 130px; }
+
 /* --- Daily goal card ------------------------------------------------------*/
 .goalcard {
   display: flex;

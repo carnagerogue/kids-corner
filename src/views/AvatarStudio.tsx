@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useApp } from "../store/AppContext";
 import {
+  canSpinFree,
   coinBalance,
   equippedAvatar,
   getKid,
@@ -10,12 +12,37 @@ import {
 import {
   Avatar,
   GEAR,
+  GEAR_BY_ID,
   HAIR_COLORS,
   RARITY_META,
   SLOT_META,
+  SPIN_COST,
 } from "../data/avatar";
 import { getLevelInfo } from "../data/levels";
-import type { AvatarConfig, GearItem, GearSlot } from "../types";
+import { playFanfare } from "../chime";
+import type { AppState, AvatarConfig, GearItem, GearSlot } from "../types";
+
+type Reward = { coins: number; gearId?: string };
+
+/** Weighted mystery-box draw: sometimes a free cosmetic unlock, else coins. */
+function rollReward(state: AppState, kidId: string): Reward {
+  if (Math.random() < 0.3) {
+    const pool = GEAR.filter(
+      (g) => g.price > 0 && !g.levelReq && !ownsGear(state, kidId, g.id),
+    );
+    if (pool.length) {
+      return { coins: 0, gearId: pool[Math.floor(Math.random() * pool.length)].id };
+    }
+  }
+  const r = Math.random();
+  const coins =
+    r < 0.6
+      ? 15 + Math.floor(Math.random() * 26)
+      : r < 0.92
+        ? 50 + Math.floor(Math.random() * 31)
+        : 120 + Math.floor(Math.random() * 61);
+  return { coins };
+}
 
 export function AvatarStudio() {
   const { state, dispatch } = useApp();
@@ -25,19 +52,22 @@ export function AvatarStudio() {
   const level = getLevelInfo(getKidXp(state, kidId)).rank;
   const equipped = equippedAvatar(state, kidId);
   const [slot, setSlot] = useState<GearSlot>("hair");
-  // Transient flourishes: coin burst on buy, glow pulse on equip.
   const [burst, setBurst] = useState(0);
+  const [pulse, setPulse] = useState(0);
   const [flash, setFlash] = useState("");
+  const [reveal, setReveal] = useState<Reward | null>(null);
 
   const items = GEAR.filter((g) => g.slot === slot);
 
   const buy = (g: GearItem) => {
     dispatch({ type: "BUY_GEAR", kidId, gearId: g.id });
     setBurst((b) => b + 1);
+    setPulse((p) => p + 1);
     setFlash(g.id);
   };
   const equip = (g: GearItem) => {
     dispatch({ type: "EQUIP_GEAR", kidId, slot: g.slot, gearId: g.id });
+    setPulse((p) => p + 1);
     setFlash(g.id);
   };
 
@@ -52,9 +82,21 @@ export function AvatarStudio() {
           rankTitle={level.title}
           rankEmoji={level.emoji}
           burst={burst}
+          pulse={pulse}
         />
 
         <div className="shop">
+          <MysteryBox
+            kidId={kidId}
+            balance={balance}
+            free={canSpinFree(state, kidId)}
+            onReveal={(r) => {
+              playFanfare();
+              setBurst((b) => b + 1);
+              setReveal(r);
+            }}
+          />
+
           <nav className="shoptabs" aria-label="Cosmetic categories">
             {SLOT_META.map((s) => (
               <button
@@ -95,6 +137,14 @@ export function AvatarStudio() {
           </div>
         </div>
       </div>
+
+      {reveal && (
+        <SpinReveal
+          reward={reveal}
+          equipped={equipped}
+          onClose={() => setReveal(null)}
+        />
+      )}
     </div>
   );
 }
@@ -107,6 +157,7 @@ function AvatarStage({
   rankTitle,
   rankEmoji,
   burst,
+  pulse,
 }: {
   config: AvatarConfig;
   name: string;
@@ -115,6 +166,7 @@ function AvatarStage({
   rankTitle: string;
   rankEmoji: string;
   burst: number;
+  pulse: number;
 }) {
   return (
     <div className="stage">
@@ -131,13 +183,15 @@ function AvatarStage({
             <i key={i} style={{ ["--i" as string]: i }} />
           ))}
         </span>
-        <Avatar
-          config={config}
-          size={300}
-          animated
-          showScene
-          className="stage__avatar"
-        />
+        <span className="stage__pop" key={pulse}>
+          <Avatar
+            config={config}
+            size={300}
+            animated
+            showScene
+            className="stage__avatar"
+          />
+        </span>
         <span className="stage__platform" aria-hidden="true" />
         {burst > 0 && (
           <span key={burst} className="coinburst" aria-hidden="true">
@@ -152,6 +206,137 @@ function AvatarStage({
 
       <strong className="stage__name">{name}</strong>
     </div>
+  );
+}
+
+function MysteryBox({
+  kidId,
+  balance,
+  free,
+  onReveal,
+}: {
+  kidId: string;
+  balance: number;
+  free: boolean;
+  onReveal: (r: Reward) => void;
+}) {
+  const { state, dispatch } = useApp();
+  const [spinning, setSpinning] = useState(false);
+  const canPaid = balance >= SPIN_COST;
+
+  const spin = (isFree: boolean) => {
+    if (spinning) return;
+    if (isFree ? !free : !canPaid) return;
+    setSpinning(true);
+    window.setTimeout(() => {
+      const reward = rollReward(state, kidId);
+      dispatch({
+        type: "APPLY_SPIN",
+        kidId,
+        coins: reward.coins,
+        gearId: reward.gearId,
+        free: isFree,
+      });
+      setSpinning(false);
+      onReveal(reward);
+    }, 850);
+  };
+
+  return (
+    <div className={`mbox ${free ? "is-ready" : ""}`}>
+      <button
+        className={`mbox__gift ${spinning ? "is-spinning" : ""}`}
+        aria-label="Open mystery box"
+        onClick={() => spin(free)}
+        disabled={spinning || (!free && !canPaid)}
+      >
+        🎁
+      </button>
+      <div className="mbox__body">
+        <strong className="mbox__title">Daily Mystery Box</strong>
+        <span className="mbox__sub">
+          {spinning
+            ? "Opening…"
+            : free
+              ? "A free surprise is waiting — coins or a new cosmetic!"
+              : "Free box opened. Come back tomorrow for another!"}
+        </span>
+      </div>
+      {free ? (
+        <button
+          className="mbox__btn mbox__btn--free"
+          disabled={spinning}
+          onClick={() => spin(true)}
+        >
+          Open free box
+        </button>
+      ) : (
+        <button
+          className="mbox__btn mbox__btn--paid"
+          disabled={spinning || !canPaid}
+          title={canPaid ? "" : "Not enough coins"}
+          onClick={() => spin(false)}
+        >
+          Spin again · 🪙 {SPIN_COST}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function SpinReveal({
+  reward,
+  equipped,
+  onClose,
+}: {
+  reward: Reward;
+  equipped: AvatarConfig;
+  onClose: () => void;
+}) {
+  const gear = reward.gearId ? GEAR_BY_ID[reward.gearId] : null;
+  const rarity = gear?.rarity ?? "legendary";
+  const slotLabel =
+    gear && SLOT_META.find((s) => s.slot === gear.slot)?.label;
+
+  return createPortal(
+    <div className="party" role="alertdialog" onClick={onClose}>
+      <span className="coinburst coinburst--center" aria-hidden="true">
+        {Array.from({ length: 14 }, (_, i) => (
+          <i key={i} style={{ ["--i" as string]: i }}>
+            {gear ? "✨" : "🪙"}
+          </i>
+        ))}
+      </span>
+      <div className={`party__card party__card--${gear ? rarity : "goal"}`}>
+        <span className="party__kicker">Mystery Box</span>
+        {gear ? (
+          <>
+            <div className="reveal__art">
+              <Avatar
+                config={{ ...equipped, [gear.slot]: gear.id }}
+                size={130}
+                showScene
+              />
+            </div>
+            <strong className="party__title">New {slotLabel}!</strong>
+            <span
+              className="party__sub"
+              style={{ color: RARITY_META[rarity].color }}
+            >
+              {gear.name} · {RARITY_META[rarity].label}
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="party__emoji">🪙</span>
+            <strong className="party__title">+{reward.coins} coins!</strong>
+            <span className="party__sub">Lucky spin!</span>
+          </>
+        )}
+        <button className="btn btn--primary btn--big party__btn">Awesome!</button>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -208,9 +393,7 @@ function CosmeticCard({
         <button
           className="cosmo__btn cosmo__btn--buy"
           disabled={!canAfford}
-          title={
-            canAfford ? `Buy for ${item.price} coins` : "Not enough coins yet"
-          }
+          title={canAfford ? `Buy for ${item.price} coins` : "Not enough coins yet"}
           onClick={onBuy}
         >
           🪙 {item.price}
@@ -265,9 +448,7 @@ function HairColorRow({
               onClick={act}
             >
               {isOn && <span className="swatch__check">✓</span>}
-              {!owned && !locked && (
-                <span className="swatch__price">{g.price}</span>
-              )}
+              {!owned && !locked && <span className="swatch__price">{g.price}</span>}
               {locked && <span className="swatch__lock">🔒</span>}
             </button>
           );

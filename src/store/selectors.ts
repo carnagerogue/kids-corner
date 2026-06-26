@@ -171,9 +171,17 @@ export function getKidXp(state: AppState, kidId: KidId): number {
 
 // --- Avatar coins & gear --------------------------------------------------
 
-/** Coins earned over all time: a starter grant + 1 per XP from approved work. */
+/** Coins earned over all time: starter grant + XP from approved work + spin
+ * bonuses. */
 export function coinsEarned(state: AppState, kidId: KidId): number {
-  return STARTER_COINS + getKidXp(state, kidId);
+  return (
+    STARTER_COINS + getKidXp(state, kidId) + (state.coinsBonus?.[kidId] ?? 0)
+  );
+}
+
+/** Is the kid's free daily mystery-box spin available? */
+export function canSpinFree(state: AppState, kidId: KidId): boolean {
+  return (state.lastSpin?.[kidId] ?? "") !== todayKey();
 }
 
 /** Spendable coin balance (earned minus what's been spent in the shop). */

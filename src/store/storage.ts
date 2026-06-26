@@ -182,6 +182,8 @@ export function defaultState(): AppState {
     customActivities: [],
     activityImages: {},
     coinsSpent: {},
+    coinsBonus: {},
+    lastSpin: {},
     ownedGear: {},
     avatar: {},
     themes,
@@ -247,6 +249,8 @@ export function loadState(): AppState {
     const appVisibility: Record<KidId, string[]> = {};
     const exploreHidden: Record<KidId, string[]> = {};
     const coinsSpent: Record<KidId, number> = {};
+    const coinsBonus: Record<KidId, number> = {};
+    const lastSpin: Record<KidId, string> = {};
     const ownedGear: Record<KidId, string[]> = {};
     const avatar: Record<KidId, AvatarConfig> = {};
     for (const id of ids) {
@@ -288,6 +292,14 @@ export function loadState(): AppState {
         id
       ];
       coinsSpent[id] = typeof spent === "number" && spent >= 0 ? spent : 0;
+
+      const bonus = (parsed.coinsBonus as Record<string, unknown> | undefined)?.[
+        id
+      ];
+      coinsBonus[id] = typeof bonus === "number" && bonus >= 0 ? bonus : 0;
+
+      const ls = (parsed.lastSpin as Record<string, unknown> | undefined)?.[id];
+      lastSpin[id] = typeof ls === "string" ? ls : "";
 
       const owned = (parsed.ownedGear as Record<string, unknown> | undefined)?.[id];
       ownedGear[id] = Array.isArray(owned)
@@ -352,6 +364,8 @@ export function loadState(): AppState {
           ? (parsed.activityImages as Record<string, string>)
           : {},
       coinsSpent,
+      coinsBonus,
+      lastSpin,
       ownedGear,
       avatar,
       themes,

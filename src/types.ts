@@ -281,6 +281,10 @@ export type AppState = {
   activityImages: Record<string, string>;
   /** Coins each kid has spent in the avatar shop (earned coins track XP). */
   coinsSpent: Record<KidId, number>;
+  /** Bonus coins won from mystery-box spins (added to earned). */
+  coinsBonus: Record<KidId, number>;
+  /** Date (YYYY-MM-DD) of each kid's last free daily spin. */
+  lastSpin: Record<KidId, string>;
   /** Gear item ids each kid has unlocked (free defaults are always owned). */
   ownedGear: Record<KidId, string[]>;
   /** Each kid's currently equipped avatar gear, per slot. */

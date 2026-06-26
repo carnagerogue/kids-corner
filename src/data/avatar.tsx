@@ -10,6 +10,9 @@ import type { AvatarConfig, GearItem, GearSlot, Rarity } from "../types";
 
 export const STARTER_COINS = 60;
 
+/** Coin cost of an extra mystery-box spin (the first each day is free). */
+export const SPIN_COST = 40;
+
 export const SLOT_META: { slot: GearSlot; label: string; emoji: string }[] = [
   { slot: "skin", label: "Skin", emoji: "✋" },
   { slot: "hair", label: "Hair", emoji: "💇" },
@@ -43,6 +46,8 @@ export const HAIR_COLORS: Record<string, Hair> = {
   blue: { base: "#54a7ff", light: "#8ac6ff", dark: "#2f7fd6" },
   mint: { base: "#54d6ad", light: "#8defc9", dark: "#2fae89" },
   lavender: { base: "#b794f0", light: "#d4bcfa", dark: "#9163d6" },
+  red: { base: "#e34a3a", light: "#ff7563", dark: "#b73323" },
+  silver: { base: "#cfd6e6", light: "#eef2fa", dark: "#a7b0c6" },
 };
 
 const skinOf = (id: string): Tone => SKIN_TONES[id] ?? SKIN_TONES.light;
@@ -57,6 +62,8 @@ const SCENES: Record<string, { stops: string[]; particles: string }> = {
   beach: { stops: ["#ffd9a0", "#9fe6ff"], particles: "sun" },
   forest: { stops: ["#9fe0a6", "#3f9d6b"], particles: "leaf" },
   neon: { stops: ["#3a0f5e", "#0a1340"], particles: "spark" },
+  candy: { stops: ["#ffd0ec", "#c9b6ff"], particles: "spark" },
+  aurora: { stops: ["#103a52", "#1b1048"], particles: "star" },
 };
 
 // =========================================================================
@@ -222,6 +229,9 @@ function renderOutfit(key: string, skin: Tone) {
     vest: { main: "#e2b04a", trim: "#7a4a22", pants: "#5a7d3a", shoe: "#6b4a2e" },
     hero: { main: "#ff4d6d", trim: "#ffd23f", pants: "#2a2350", shoe: "#ffd23f", emblem: "#fff" },
     space: { main: "#cfd6e6", trim: "#54a7ff", pants: "#aab4cc", shoe: "#3a4768", emblem: "#22d3ee" },
+    sporty: { main: "#ef4444", trim: "#fff", pants: "#1f2733", shoe: "#fff", emblem: "#fff" },
+    ninja: { main: "#2a2738", trim: "#54a7ff", pants: "#1a1622", shoe: "#2a2738", emblem: "#54a7ff" },
+    princess: { main: "#ff8fc6", trim: "#ffe08a", pants: "#ffc2e0", shoe: "#fff", emblem: "#ffe08a" },
   };
   const p = palettes[key] ?? palettes.explorer;
   return (
@@ -366,6 +376,10 @@ function renderPet(key: string) {
       return <g className="av-pet">{t("🐶", 256, 296, 46)}</g>;
     case "fox":
       return <g className="av-pet">{t("🦊", 256, 296, 46)}</g>;
+    case "owl":
+      return <g className="av-pet">{t("🦉", 256, 296, 46)}</g>;
+    case "bunny":
+      return <g className="av-pet">{t("🐰", 256, 296, 46)}</g>;
     case "dragon":
       return <g className="av-pet">{t("🐉", 254, 294, 50)}</g>;
     default:
@@ -413,6 +427,9 @@ export const GEAR: GearItem[] = [
   item("outfit-explorer", "outfit", "Explorer Kit", 0, "explorer"),
   item("outfit-hoodie", "outfit", "Cozy Hoodie", 60, "hoodie"),
   item("outfit-vest", "outfit", "Ranger Vest", 80, "vest", "rare"),
+  item("outfit-sporty", "outfit", "Sporty Kit", 60, "sporty"),
+  item("outfit-ninja", "outfit", "Ninja Gi", 90, "ninja", "rare"),
+  item("outfit-princess", "outfit", "Royal Dress", 120, "princess", "rare"),
   item("outfit-hero", "outfit", "Hero Suit", 160, "hero", "epic", 2),
   item("outfit-space", "outfit", "Astro Suit", 220, "space", "epic", 3),
   // hats
@@ -435,6 +452,8 @@ export const GEAR: GearItem[] = [
   item("pet-cat", "pet", "Kitten", 70, "cat"),
   item("pet-pup", "pet", "Puppy", 70, "pup"),
   item("pet-fox", "pet", "Fox Cub", 110, "fox", "rare"),
+  item("pet-owl", "pet", "Wise Owl", 110, "owl", "rare"),
+  item("pet-bunny", "pet", "Bunny", 80, "bunny"),
   item("pet-dragon", "pet", "Dragonling", 260, "dragon", "legendary", 4),
   // scenes
   item("scene-command", "scene", "Command Deck", 0, "command"),
@@ -443,6 +462,8 @@ export const GEAR: GearItem[] = [
   item("scene-forest", "scene", "Whispering Woods", 50, "forest"),
   item("scene-space", "scene", "Deep Space", 70, "space", "rare"),
   item("scene-neon", "scene", "Neon City", 90, "neon", "rare"),
+  item("scene-candy", "scene", "Candy Clouds", 60, "candy"),
+  item("scene-aurora", "scene", "Aurora", 90, "aurora", "epic"),
 ];
 
 function titleCase(s: string): string {

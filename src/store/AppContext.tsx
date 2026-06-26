@@ -35,6 +35,8 @@ export type SyncConfig = {
   customActivities: ActivityIdea[];
   activityImages: Record<string, string>;
   coinsSpent: Record<string, number>;
+  coinsBonus: Record<string, number>;
+  lastSpin: Record<string, string>;
   ownedGear: Record<string, string[]>;
   avatar: Record<string, AvatarConfig>;
   parentPin: string;
@@ -49,9 +51,15 @@ import {
   todayKey,
 } from "./storage";
 import { FAMILY_PLAN_ID, defaultSchedules } from "../data/schedule";
-import { coinBalance, computeStats, getKidXp, ownsGear } from "./selectors";
+import {
+  canSpinFree,
+  coinBalance,
+  computeStats,
+  getKidXp,
+  ownsGear,
+} from "./selectors";
 import { BADGES } from "../data/badges";
-import { GEAR_BY_ID } from "../data/avatar";
+import { GEAR_BY_ID, SPIN_COST } from "../data/avatar";
 import { getLevelInfo } from "../data/levels";
 import { makeKid } from "../data/kids";
 import { DEFAULT_NEW_KID_APPS } from "../data/applications";
@@ -96,6 +104,13 @@ export type Action =
   | { type: "SET_ACTIVITY_IMAGE"; activityId: string; image: string | null }
   | { type: "BUY_GEAR"; kidId: KidId; gearId: string }
   | { type: "EQUIP_GEAR"; kidId: KidId; slot: GearSlot; gearId: string }
+  | {
+      type: "APPLY_SPIN";
+      kidId: KidId;
+      coins: number;
+      gearId?: string;
+      free: boolean;
+    }
   | { type: "SET_THEME"; kidId: KidId; theme: ThemeId }
   | {
       type: "SEND_MESSAGE";
@@ -451,6 +466,35 @@ function reducer(state: AppState, action: Action): AppState {
       };
     }
 
+    case "APPLY_SPIN": {
+      const kid = action.kidId;
+      // Validate the spin is actually allowed (free once/day, else affordable).
+      if (action.free) {
+        if (!canSpinFree(state, kid)) return state;
+      } else if (coinBalance(state, kid) < SPIN_COST) {
+        return state;
+      }
+      const owned = state.ownedGear[kid] ?? [];
+      const newOwned =
+        action.gearId && !owned.includes(action.gearId)
+          ? [...owned, action.gearId]
+          : owned;
+      return {
+        ...state,
+        coinsBonus: {
+          ...state.coinsBonus,
+          [kid]: (state.coinsBonus[kid] ?? 0) + Math.max(0, action.coins),
+        },
+        coinsSpent: action.free
+          ? state.coinsSpent
+          : { ...state.coinsSpent, [kid]: (state.coinsSpent[kid] ?? 0) + SPIN_COST },
+        lastSpin: action.free
+          ? { ...state.lastSpin, [kid]: todayKey() }
+          : state.lastSpin,
+        ownedGear: { ...state.ownedGear, [kid]: newOwned },
+      };
+    }
+
     case "SET_THEME":
       return {
         ...state,
@@ -532,6 +576,8 @@ function reducer(state: AppState, action: Action): AppState {
       const appVisibility: Record<string, string[]> = {};
       const exploreHidden: Record<string, string[]> = {};
       const coinsSpent: Record<string, number> = {};
+      const coinsBonus: Record<string, number> = {};
+      const lastSpin: Record<string, string> = {};
       const ownedGear: Record<string, string[]> = {};
       const avatar: Record<string, AvatarConfig> = {};
       for (const k of kidProfiles) {
@@ -541,6 +587,8 @@ function reducer(state: AppState, action: Action): AppState {
         appVisibility[k.id] = pick(cfg.appVisibility, state.appVisibility, k.id, []);
         exploreHidden[k.id] = pick(cfg.exploreHidden, state.exploreHidden, k.id, []);
         coinsSpent[k.id] = pick(cfg.coinsSpent, state.coinsSpent, k.id, 0);
+        coinsBonus[k.id] = pick(cfg.coinsBonus, state.coinsBonus, k.id, 0);
+        lastSpin[k.id] = pick(cfg.lastSpin, state.lastSpin, k.id, "");
         ownedGear[k.id] = pick(cfg.ownedGear, state.ownedGear, k.id, []);
         avatar[k.id] = pick(cfg.avatar, state.avatar, k.id, {});
       }
@@ -591,6 +639,8 @@ function reducer(state: AppState, action: Action): AppState {
             ? cfg.activityImages
             : state.activityImages,
         coinsSpent,
+        coinsBonus,
+        lastSpin,
         ownedGear,
         avatar,
         parentPin: cfg.parentPin || state.parentPin,
@@ -673,6 +723,8 @@ function reducer(state: AppState, action: Action): AppState {
         appVisibility: { ...state.appVisibility, [id]: [...DEFAULT_NEW_KID_APPS] },
         exploreHidden: { ...state.exploreHidden, [id]: [] },
         coinsSpent: { ...state.coinsSpent, [id]: 0 },
+        coinsBonus: { ...state.coinsBonus, [id]: 0 },
+        lastSpin: { ...state.lastSpin, [id]: "" },
         ownedGear: { ...state.ownedGear, [id]: [] },
         avatar: { ...state.avatar, [id]: {} },
       };
@@ -695,6 +747,8 @@ function reducer(state: AppState, action: Action): AppState {
         appVisibility: omitKey(state.appVisibility, action.kidId),
         exploreHidden: omitKey(state.exploreHidden, action.kidId),
         coinsSpent: omitKey(state.coinsSpent, action.kidId),
+        coinsBonus: omitKey(state.coinsBonus, action.kidId),
+        lastSpin: omitKey(state.lastSpin, action.kidId),
         ownedGear: omitKey(state.ownedGear, action.kidId),
         avatar: omitKey(state.avatar, action.kidId),
         submissions: state.submissions.filter((s) => s.kidId !== action.kidId),
