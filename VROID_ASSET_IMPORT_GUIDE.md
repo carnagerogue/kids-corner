@@ -15,9 +15,8 @@ to add an item — the system is **manifest-driven**.
 
 ```
 public/assets/avatar/
-  models/        boy-base-01.vrm, girl-base-01.vrm, neutral-base-01.vrm   ← VRM characters
-  hair/          *.glb / *.gltf    (only if not part of the base VRM)
-  eyes/          *.png / *.glb     (textures or meshes)
+  models/        claire-base.vrm, coby-base.vrm, hailee-base.vrm   ← VRM characters (per learner)
+  accessories/   *.glb / *.gltf  (hats/glasses/backpacks/handhelds/pets that attach to the VRM)
   outfits/       *.glb / *.gltf
   hats/          *.glb / *.gltf
   glasses/       *.glb / *.gltf
@@ -26,15 +25,23 @@ public/assets/avatar/
   pets/          *.glb / *.gltf
   auras/         *.glb / *.gltf  (or particle configs)
   rooms/         *.glb / *.gltf  (scene backdrops)
-  animations/    *.glb / *.fbx→glb  (or VRMA animation clips)
+  hair/ eyes/ animations/        (optional extras)
   icons/         *.png            (shop card thumbnails, ~256×256, transparent)
   avatar-manifest.json            ← the catalog (edit this to add items)
 ```
 
-- **`.vrm`** → full characters (from VRoid Studio). Go in `models/`.
-- **`.glb` / `.gltf`** → accessories, pets, props, rooms. Prefer **`.glb`**
-  (single binary file, easiest to host).
-- **`.png`** → shop icons. Optional — without one, the card shows the item's emoji.
+### The character model (`models/`) — **this is what activates the 3D avatar**
+- Name each file **`<kidId>-base.vrm`** — `claire-base.vrm`, `coby-base.vrm`,
+  `hailee-base.vrm` (a child's id is shown in the grown-up area). The viewer loads
+  the per-learner file first, then falls back to a body-type model
+  (`girl-base-01.vrm` / `boy-base-01.vrm` / `neutral-base-01.vrm`) if present.
+- **Until a model exists, the avatar stage shows a polished "Add VRoid model"
+  placeholder — never a fake/procedural body.** The shop, coins, XP, and
+  customization keep working the whole time.
+- `.glb` / `.gltf` → accessories/props that **attach to the loaded VRM** (or stand
+  beside it, for pets). Prefer **`.glb`**. A missing accessory file is simply
+  skipped — it is never replaced with primitive geometry.
+- `.png` → shop icons. Optional — without one, the card shows the item's emoji.
 
 Files in `public/` are copied to the site root at build time. On GitHub Pages the
 site is served from `/kids-corner/`, so an asset at

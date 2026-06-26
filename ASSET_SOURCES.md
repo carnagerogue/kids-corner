@@ -10,19 +10,21 @@ in the table below before it ships.**
 ## Current status: NO third-party binary assets are bundled
 
 As shipped, Kids Corner contains **zero** downloaded/third-party model, texture,
-or image files. The entire avatar is rendered two ways, both 100% original to
-this project and requiring **no license**:
+or image files, and requires **no license**:
 
-1. **2D avatar** — hand-authored inline SVG (`src/data/avatar.tsx`). Original work.
-2. **3D avatar** — a **procedural placeholder character** built at runtime from
-   Three.js primitives (`src/features/avatar/AvatarViewer.tsx`). No mesh files,
-   no textures — just geometry + colors generated in code. Original work.
+1. **3D character** — the app loads a **real VRoid `.vrm`** from
+   `public/assets/avatar/models/` (`src/features/avatar/VRMAvatarViewer.tsx`).
+   None are bundled. **When no model is present the avatar stage shows a polished
+   "Add VRoid model" placeholder card — it never renders a fake/procedural
+   character.** (There is intentionally NO geometry-built avatar.)
+2. **Shop icons** — each catalog item ships a built-in **emoji + color** so cards
+   render with no image files; `iconPath` PNGs are optional upgrades.
 
 The `assetPath` / `iconPath` fields in `avatar-manifest.json` point at the
-**folders where real assets will go**. Until a real file exists at that path, the
-loader silently falls back to the procedural character + emoji icons. This means
-the app is fully functional and license-clean today, and **auto-upgrades** the
-moment you drop in properly-licensed assets.
+**folders where real assets will go** (`.vrm` characters in `models/`, `.glb`
+accessories in `accessories/` & the per-slot folders). The app auto-upgrades the
+moment you drop in properly-licensed assets; missing ones degrade gracefully (the
+placeholder for a model, the emoji for an icon) — never to fake geometry.
 
 > Because of this, the license table below starts **empty**. You fill it in as
 > you add assets. See `VROID_ASSET_IMPORT_GUIDE.md` for the step-by-step.
@@ -33,7 +35,7 @@ moment you drop in properly-licensed assets.
 
 | Asset file | Slot/Item id | Creator | Source URL | License | Commercial use? | Modify? | Redistribute? | Date added | Added by |
 |------------|--------------|---------|------------|---------|-----------------|---------|---------------|------------|----------|
-| _(none yet — procedural only)_ | | | | | | | | | |
+| _(none yet — no models bundled; placeholder shown)_ | | | | | | | | | |
 
 **Every new row must answer all columns.** If you can't fill in the License,
 Commercial, Modify, and Redistribute columns with certainty, **do not add the

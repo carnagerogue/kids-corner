@@ -1,46 +1,21 @@
 // ---------------------------------------------------------------------------
-// AvatarStage — the polished character panel.
+// AvatarStage — the character panel.
 //
-// Progressive enhancement:
-//   • WebGL available  → lazy-load the 3D viewer (procedural chibi now, real VRM
-//     when an asset is added). Heavy 3D libs load only here, on demand.
-//   • No WebGL / load error → gracefully fall back to the proven 2D avatar.
-// Learners can also toggle "Classic 2D" anytime (remembered per device).
+// Asset-first: it renders AvatarViewer, which shows a REAL VRoid .vrm if one
+// exists for the learner, or a polished "Add VRoid model" placeholder otherwise.
+// There is NO procedural/geometry character and no 2D fallback body here.
+// Emote buttons appear only when a real 3D model is on stage.
 // ---------------------------------------------------------------------------
-import {
-  Component,
-  Suspense,
-  lazy,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 import { useApp } from "../../store/AppContext";
-import { equippedAvatar } from "../../store/selectors";
-import { Avatar } from "../../data/avatar";
+import { getKid } from "../../store/selectors";
 import type { KidId } from "../../types";
 import { currentLoadout } from "./AvatarEconomy";
-import { webglAvailable, type EmoteName } from "./webgl";
+import { AvatarViewer, type StageStatus } from "./AvatarViewer";
+import type { EmoteName } from "./webgl";
 
-const AvatarViewer = lazy(() => import("./AvatarViewer"));
-
-const MODE_KEY = "kids-corner:avatar:stageMode";
-
-/** Catches any 3D render/runtime error and shows the 2D fallback instead. */
-class StageErrorBoundary extends Component<
-  { fallback: ReactNode; children: ReactNode },
-  { failed: boolean }
-> {
-  state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  render() {
-    return this.state.failed ? this.props.fallback : this.props.children;
-  }
-}
+const GUIDE_URL =
+  "https://github.com/carnagerogue/kids-corner/blob/main/VROID_ASSET_IMPORT_GUIDE.md";
 
 const EMOTES: { name: EmoteName; label: string; emoji: string }[] = [
   { name: "wave", label: "Wave", emoji: "👋" },
@@ -60,15 +35,10 @@ export function AvatarStage({
   showControls?: boolean;
 }) {
   const { state } = useApp();
+  const kid = getKid(state, kidId);
   const loadout = currentLoadout(state, kidId);
-  const config2d = equippedAvatar(state, kidId);
 
-  const canWebgl = useMemo(() => webglAvailable(), []);
-  const [mode, setMode] = useState<"3d" | "2d">(() => {
-    const saved = localStorage.getItem(MODE_KEY);
-    if (saved === "2d" || saved === "3d") return canWebgl ? saved : "2d";
-    return canWebgl ? "3d" : "2d";
-  });
+  const [status, setStatus] = useState<StageStatus>("probing");
   const [emote, setEmote] = useState<{ name: EmoteName; key: number }>({
     name: "idle",
     key: 0,
@@ -83,78 +53,35 @@ export function AvatarStage({
     }
   }, [celebrate]);
 
-  const setStageMode = (m: "3d" | "2d") => {
-    setMode(m);
-    try {
-      localStorage.setItem(MODE_KEY, m);
-    } catch {
-      /* ignore */
-    }
-  };
-
-  const fallback2d = (
-    <div className="stage__twod">
-      <Avatar config={config2d} size={240} animated showScene />
-    </div>
-  );
-
   return (
     <div className="avstage">
       <div className="avstage__canvas">
-        {mode === "3d" && canWebgl ? (
-          <StageErrorBoundary fallback={fallback2d}>
-            <Suspense fallback={<StageSkeleton />}>
-              <AvatarViewer loadout={loadout} emote={emote} />
-            </Suspense>
-          </StageErrorBoundary>
-        ) : (
-          fallback2d
-        )}
+        <AvatarViewer
+          kidId={kidId}
+          firstName={kid.firstName}
+          loadout={loadout}
+          emote={emote}
+          onStatus={setStatus}
+          onGuide={() => window.open(GUIDE_URL, "_blank", "noopener")}
+        />
       </div>
 
-      {showControls && (
+      {showControls && status === "ready" && (
         <div className="avstage__controls">
-          {mode === "3d" && canWebgl && (
-            <div className="avstage__emotes">
-              {EMOTES.map((e) => (
-                <button
-                  key={e.name}
-                  className="emotebtn"
-                  title={e.label}
-                  onClick={() => setEmote((p) => ({ name: e.name, key: p.key + 1 }))}
-                >
-                  <span aria-hidden>{e.emoji}</span>
-                </button>
-              ))}
-            </div>
-          )}
-          {canWebgl && (
-            <div className="avstage__toggle" role="tablist" aria-label="Avatar view">
+          <div className="avstage__emotes">
+            {EMOTES.map((e) => (
               <button
-                className={`segbtn ${mode === "3d" ? "is-active" : ""}`}
-                onClick={() => setStageMode("3d")}
+                key={e.name}
+                className="emotebtn"
+                title={e.label}
+                onClick={() => setEmote((p) => ({ name: e.name, key: p.key + 1 }))}
               >
-                ✨ 3D
+                <span aria-hidden>{e.emoji}</span>
               </button>
-              <button
-                className={`segbtn ${mode === "2d" ? "is-active" : ""}`}
-                onClick={() => setStageMode("2d")}
-              >
-                🖼️ Classic
-              </button>
-            </div>
-          )}
+            ))}
+          </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function StageSkeleton() {
-  return (
-    <div className="stage__skeleton">
-      <div className="stage__skeleton-orb" />
-      <p>Loading your character…</p>
     </div>
   );
 }
