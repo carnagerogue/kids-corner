@@ -22,8 +22,9 @@ export type LoadedAvatar = {
   vrm: VRM;
   /** Normalized scene: feet on y=0, ~1.6 units tall, centered, facing -Z. */
   object: THREE.Object3D;
-  /** Advance idle animation + spring bones. Call every frame. */
-  update: (dt: number) => void;
+  /** Advance idle animation + a procedural walk + spring bones. Pass whether the
+   * avatar is moving this frame so the walk cycle eases in/out. */
+  update: (dt: number, moving: boolean) => void;
   dispose: () => void;
 };
 
@@ -84,12 +85,45 @@ export async function loadAvatar(url: string): Promise<LoadedAvatar> {
     mixer.clipAction(createVRMAnimationClip(idle, vrm)).play();
   }
 
+  // Procedural walk: drive the normalized humanoid limb bones additively on top
+  // of the idle pose, eased in/out by `moving`. Works on any VRM rig because the
+  // normalized humanoid bones are standardized. (No walk .vrma needed.)
+  const hum = vrm.humanoid;
+  const bone = (n: Parameters<typeof hum.getNormalizedBoneNode>[0]) =>
+    hum.getNormalizedBoneNode(n);
+  const lUpLeg = bone("leftUpperLeg");
+  const rUpLeg = bone("rightUpperLeg");
+  const lLoLeg = bone("leftLowerLeg");
+  const rLoLeg = bone("rightLowerLeg");
+  const lUpArm = bone("leftUpperArm");
+  const rUpArm = bone("rightUpperArm");
+  const chest = bone("spine") || bone("chest");
+  let phase = 0;
+  let blend = 0;
+
   return {
     vrm,
     object: vrm.scene,
-    update: (dt: number) => {
-      mixer?.update(dt);
-      vrm.update(dt);
+    update: (dt: number, moving: boolean) => {
+      mixer?.update(dt); // idle pose first
+      blend += ((moving ? 1 : 0) - blend) * Math.min(1, dt * 9);
+      if (moving) phase += dt * 8.5; // step cadence
+      if (blend > 0.002) {
+        const s = Math.sin(phase);
+        const w = blend;
+        // Thighs swing fore/aft, opposite legs.
+        if (lUpLeg) lUpLeg.rotation.x += s * 0.6 * w;
+        if (rUpLeg) rUpLeg.rotation.x += -s * 0.6 * w;
+        // Knees bend on the leg swinging back (never hyperextend forward).
+        if (lLoLeg) lLoLeg.rotation.x += -Math.max(0, s) * 0.95 * w;
+        if (rLoLeg) rLoLeg.rotation.x += -Math.max(0, -s) * 0.95 * w;
+        // Arms swing opposite their same-side leg.
+        if (lUpArm) lUpArm.rotation.x += -s * 0.35 * w;
+        if (rUpArm) rUpArm.rotation.x += s * 0.35 * w;
+        // Lean forward a touch while moving.
+        if (chest) chest.rotation.x += 0.08 * w;
+      }
+      vrm.update(dt); // bake normalized → raw + spring bones
     },
     dispose: () => {
       mixer?.stopAllAction();

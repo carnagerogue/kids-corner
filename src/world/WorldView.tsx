@@ -177,12 +177,12 @@ function WorldAvatar({
     dh = Math.atan2(Math.sin(dh), Math.cos(dh));
     g.rotation.y += dh * k;
     if (p.moving) {
-      bob.current += dt * 11;
-      g.position.y = Math.abs(Math.sin(bob.current)) * 0.07;
+      bob.current += dt * 9;
+      g.position.y = Math.abs(Math.sin(bob.current)) * 0.05;
     } else {
       g.position.y += (0 - g.position.y) * Math.min(1, dt * 8);
     }
-    loaded?.update(dt);
+    loaded?.update(dt, p.moving);
   });
 
   return (
