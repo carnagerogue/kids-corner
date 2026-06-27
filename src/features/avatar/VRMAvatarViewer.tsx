@@ -481,17 +481,24 @@ function VrmCharacter({
     loadout.aura,
   ]);
 
-  // ---- Recolor: tint the model's skin / hair / eye materials -------------
+  // ---- Recolor: tint skin / hair / eye / clothing materials --------------
   // Geometry can't swap on a fixed VRM, but COLORS can: VRoid + most rigs name
-  // their materials (…_SKIN / _HAIR / EyeIris…, or body / hair / eye), so we
-  // recolor those by name. We remember each material's original color and either
-  // apply the chosen tint or restore the default. (Tint multiplies the base
-  // texture, so it shifts the existing color rather than fully repainting it —
-  // great for skin tones, a softer shift for vivid hair colors.)
+  // their materials (…_SKIN / _HAIR / EyeIris / _CLOTH, or body / hair / eye /
+  // wear / huku), so we recolor those by name. Each material's original color is
+  // remembered so a pick applies a tint and clearing restores the default. Skin
+  // + CLOTHES multiply over the texture (white clothes tint to a vivid theme
+  // colour); hair + eyes use a grayscale repaint for fully vivid colour. NOTE:
+  // this changes the clothing COLOUR only — the garment SHAPE is baked mesh and
+  // changes only by loading a per-outfit model (see AvatarViewer).
   useEffect(() => {
     if (!vrm) return;
     const pick = (slot: keyof Loadout3D) => itemById(loadout[slot])?.color;
-    const want = { eye: pick("eyeColor"), hair: pick("hairColor"), skin: pick("skinTone") };
+    const want = {
+      eye: pick("eyeColor"),
+      hair: pick("hairColor"),
+      skin: pick("skinTone"),
+      cloth: pick("outfit"), // recolor the worn clothes to the outfit's theme
+    };
     vrm.scene.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
@@ -504,13 +511,20 @@ function VrmCharacter({
         };
         if (!mat?.color) continue;
         const name = (mat.name || "").toLowerCase();
+        // Order matters — a material matches the FIRST category. eye/hair/skin
+        // before cloth so e.g. "body" stays skin; clothing materials are named
+        // _CLOTH / wear / huku (服) / tops / bottom / dress / etc.
         const cat: keyof typeof want | null = /iris|^eye$/.test(name)
           ? "eye"
           : /hair/.test(name)
             ? "hair"
             : /skin|body/.test(name)
               ? "skin"
-              : null;
+              : /cloth|wear|huku|tops|bottom|shirt|skirt|dress|jacket|coat|hood|pant|suit/.test(
+                    name,
+                  )
+                ? "cloth"
+                : null;
         if (!cat) continue;
         if (!origColorsRef.current.has(mat)) {
           origColorsRef.current.set(mat, mat.color.clone());
@@ -523,7 +537,7 @@ function VrmCharacter({
         // crucially the eye's dark pupil (a plain multiply muddies vivid colors;
         // dropping the texture entirely would erase the pupil). SKIN keeps its
         // texture and tints over it for natural shading.
-        const useGray = cat === "hair" || cat === "eye";
+        const useGray = cat === "hair" || cat === "eye" || cat === "cloth";
         if (cat === "eye" && mat.emissive && !origEmissiveRef.current.has(mat)) {
           origEmissiveRef.current.set(mat, mat.emissive.clone());
         }
@@ -533,8 +547,11 @@ function VrmCharacter({
             let gray = grayMapsRef.current.get(mat);
             if (gray === undefined) {
               const om = origMapsRef.current.get(mat) ?? null;
-              // Eyes brighten harder (lower gamma) so the small iris reads bold.
-              gray = om ? grayscaleColorMap(om, cat === "eye" ? 0.4 : 0.6) : null;
+              // Eyes + clothes brighten harder (lower gamma) so a small iris and
+              // dark fabric still take the colour boldly.
+              gray = om
+                ? grayscaleColorMap(om, cat === "eye" || cat === "cloth" ? 0.4 : 0.6)
+                : null;
               grayMapsRef.current.set(mat, gray); // cache (null = no/failed map)
             }
             if (gray && mat.map !== gray) {
@@ -562,7 +579,7 @@ function VrmCharacter({
         }
       }
     });
-  }, [vrm, loadout.skinTone, loadout.hairColor, loadout.eyeColor]);
+  }, [vrm, loadout.skinTone, loadout.hairColor, loadout.eyeColor, loadout.outfit]);
 
   // ---- Per-frame: rest pose → active emote, then vrm.update(delta) -------
   useFrame(({ clock }, delta) => {
