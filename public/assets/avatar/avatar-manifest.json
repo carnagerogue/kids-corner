@@ -30,7 +30,7 @@
     },
     {
       "key": "outfit",
-      "label": "Outfit",
+      "label": "Color Theme",
       "free": false
     },
     {
@@ -664,91 +664,85 @@
     },
     {
       "id": "starter-hoodie",
-      "name": "Starter Hoodie",
+      "name": "Ocean Blue",
       "slot": "outfit",
       "rarity": "common",
       "price": 0,
       "unlockType": "starter",
       "value": "hoodie",
       "color": "#4f86c6",
-      "emoji": "🧥",
+      "emoji": "🔵",
       "assetPath": "/assets/avatar/outfits/starter-hoodie.glb",
-      "iconPath": "/assets/avatar/icons/starter-hoodie.png",
-      "description": "Your first Kids Corner outfit."
+      "description": "A cool ocean-blue colour theme for your clothes."
     },
     {
       "id": "explorer-vest",
-      "name": "Explorer Vest",
+      "name": "Desert Tan",
       "slot": "outfit",
       "rarity": "uncommon",
       "price": 150,
       "unlockType": "shop",
       "value": "vest",
       "color": "#caa45d",
-      "emoji": "🦺",
+      "emoji": "🟤",
       "assetPath": "/assets/avatar/outfits/explorer-vest.glb",
-      "iconPath": "/assets/avatar/icons/explorer-vest.png",
-      "description": "Pockets for every adventure."
+      "description": "A warm sandy-tan colour theme for your clothes."
     },
     {
       "id": "soccer-kit",
-      "name": "Soccer Kit",
+      "name": "Grass Green",
       "slot": "outfit",
       "rarity": "uncommon",
       "price": 200,
       "unlockType": "shop",
       "value": "soccer",
       "color": "#2fae6b",
-      "emoji": "⚽",
+      "emoji": "🟢",
       "assetPath": "/assets/avatar/outfits/soccer-kit.glb",
-      "iconPath": "/assets/avatar/icons/soccer-kit.png",
-      "description": "Score the winning goal."
+      "description": "A fresh grass-green colour theme for your clothes."
     },
     {
       "id": "artist-smock",
-      "name": "Artist Smock",
+      "name": "Bubblegum Pink",
       "slot": "outfit",
       "rarity": "uncommon",
       "price": 180,
       "unlockType": "shop",
       "value": "smock",
       "color": "#e86fb0",
-      "emoji": "🎨",
+      "emoji": "🩷",
       "assetPath": "/assets/avatar/outfits/artist-smock.glb",
-      "iconPath": "/assets/avatar/icons/artist-smock.png",
-      "description": "Get a little paint on it."
+      "description": "A bright bubblegum-pink colour theme for your clothes."
     },
     {
       "id": "cozy-pajamas",
-      "name": "Cozy Pajamas",
+      "name": "Lavender",
       "slot": "outfit",
       "rarity": "uncommon",
       "price": 120,
       "unlockType": "shop",
       "value": "pajamas",
       "color": "#8b9dff",
-      "emoji": "🌙",
+      "emoji": "🪻",
       "assetPath": "/assets/avatar/outfits/cozy-pajamas.glb",
-      "iconPath": "/assets/avatar/icons/cozy-pajamas.png",
-      "description": "Comfy mode: on."
+      "description": "A soft lavender colour theme for your clothes."
     },
     {
       "id": "space-suit",
-      "name": "Space Suit",
+      "name": "Snow White",
       "slot": "outfit",
       "rarity": "rare",
       "price": 450,
       "unlockType": "shop",
       "value": "space",
       "color": "#dfe6f2",
-      "emoji": "🚀",
+      "emoji": "⚪",
       "assetPath": "/assets/avatar/outfits/space-suit.glb",
-      "iconPath": "/assets/avatar/icons/space-suit.png",
-      "description": "Ready for liftoff."
+      "description": "A clean snow-white colour theme for your clothes."
     },
     {
       "id": "super-cape-suit",
-      "name": "Super Hero Suit",
+      "name": "Hero Red",
       "slot": "outfit",
       "rarity": "epic",
       "price": 800,
@@ -756,14 +750,13 @@
       "levelReq": 4,
       "value": "hero",
       "color": "#e03c5a",
-      "emoji": "🦸",
+      "emoji": "🔴",
       "assetPath": "/assets/avatar/outfits/super-cape-suit.glb",
-      "iconPath": "/assets/avatar/icons/super-cape-suit.png",
-      "description": "Save the summer!"
+      "description": "A bold hero-red colour theme for your clothes."
     },
     {
       "id": "galaxy-guardian",
-      "name": "Galaxy Guardian",
+      "name": "Galaxy Purple",
       "slot": "outfit",
       "rarity": "legendary",
       "price": 2200,
@@ -771,14 +764,13 @@
       "levelReq": 6,
       "value": "galaxy",
       "color": "#7b2ff7",
-      "emoji": "🌌",
+      "emoji": "🟣",
       "assetPath": "/assets/avatar/outfits/galaxy-guardian.glb",
-      "iconPath": "/assets/avatar/icons/galaxy-guardian.png",
-      "description": "The rarest suit in the galaxy."
+      "description": "A deep galaxy-purple colour theme for your clothes."
     },
     {
       "id": "summer-champion-outfit",
-      "name": "Summer Champion Outfit",
+      "name": "Sunshine Gold",
       "slot": "outfit",
       "rarity": "legendary",
       "price": 0,
@@ -789,10 +781,9 @@
       },
       "value": "champion",
       "color": "#ffb300",
-      "emoji": "🏆",
+      "emoji": "🟡",
       "assetPath": "/assets/avatar/outfits/summer-champion-outfit.glb",
-      "iconPath": "/assets/avatar/icons/summer-champion-outfit.png",
-      "description": "Earned by a 7-day streak. A true Summer Champion!"
+      "description": "A sunny golden colour theme for your clothes."
     },
     {
       "id": "sneakers",

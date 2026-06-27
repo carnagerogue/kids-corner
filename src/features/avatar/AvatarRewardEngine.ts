@@ -24,7 +24,7 @@ export const REWARD_RULES: {
   { id: "mission", emoji: "🎯", label: "Complete a mission", xp: 40, coins: 25 },
   { id: "fullday", emoji: "🌟", label: "Finish your whole day", xp: 100, coins: 75 },
   { id: "streak3", emoji: "🔥", label: "3-day streak", xp: 0, coins: 100, note: "Bonus coins!" },
-  { id: "streak7", emoji: "🎁", label: "7-day streak", xp: 0, coins: 0, note: "Mystery box + Champion outfit!" },
+  { id: "streak7", emoji: "🎁", label: "7-day streak", xp: 0, coins: 0, note: "Mystery box + gold colour theme!" },
   { id: "trophy", emoji: "🏆", label: "Earn a trophy", xp: 0, coins: 0, note: "Unlocks a special cosmetic" },
 ];
 

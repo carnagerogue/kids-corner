@@ -41,7 +41,7 @@ export const SLOT_TAB_META: Record<Avatar3DSlot, { label: string; emoji: string 
   hairStyle: { label: "Hair", emoji: "💇" },
   hairColor: { label: "Hair Color", emoji: "🌈" },
   eyeColor: { label: "Eyes", emoji: "👁️" },
-  outfit: { label: "Outfit", emoji: "👕" },
+  outfit: { label: "Color Theme", emoji: "🎨" },
   shoes: { label: "Shoes", emoji: "👟" },
   hat: { label: "Hat", emoji: "🧢" },
   glasses: { label: "Glasses", emoji: "👓" },
@@ -77,7 +77,7 @@ export type ShopSection = {
 };
 
 export const SHOP_SECTIONS: ShopSection[] = [
-  { id: "outfits", label: "Outfits", emoji: "👕", match: (i) => i.slot === "outfit" },
+  { id: "outfits", label: "Color Themes", emoji: "🎨", match: (i) => i.slot === "outfit" },
   { id: "pets", label: "Pets", emoji: "🐾", match: (i) => i.slot === "pet" },
   { id: "hats", label: "Hats", emoji: "🧢", match: (i) => i.slot === "hat" },
   { id: "glasses", label: "Glasses", emoji: "👓", match: (i) => i.slot === "glasses" },
