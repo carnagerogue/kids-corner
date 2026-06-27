@@ -55,6 +55,11 @@ placeholder for a model, the emoji for an icon) — never to fake geometry.
 | `glasses/round-glasses.glb` | glasses / `round-glasses` (Round Glasses) — Aviator model | Poly by Google | https://poly.pizza/m/0Wsi-ygmiIX | **CC-BY 3.0** | Yes | Yes | Yes — ⚠️ **credit required** (credited in-app + here) | 2026-06-26 | Claude (automated) |
 | `glasses/cool-shades.glb` | glasses / `cool-shades` (Cool Shades) | iPoly3D (Glasses Pack) | https://poly.pizza/bundle/Glasses-Pack-gPz05eJm9w | **CC0 1.0** (public domain) | Yes | Yes | Yes (no attribution required) | 2026-06-26 | Claude (automated) |
 | `backpacks/school-bag.glb` | backpack / `school-bag` (School Bag) | Quaternius | https://poly.pizza (Quaternius pack) | **CC0 1.0** (public domain) | Yes | Yes | Yes (no attribution required) | 2026-06-26 | Claude (automated) |
+| `pets/kitten.glb` | pet / `kitten` — "Cat" | Quaternius | https://static.poly.pizza/7ccb71fe-dabb-4a6f-a98a-8992bb5e6bc7.glb | **CC0 1.0** | Yes | Yes | Yes (no attribution required) | 2026-06-26 | Claude (automated) |
+| `pets/puppy.glb` | pet / `puppy` — "Pug" | Quaternius | https://static.poly.pizza/094335c0-632a-45f5-8583-27d5cab53b54.glb | **CC0 1.0** | Yes | Yes | Yes (no attribution required) | 2026-06-26 | Claude (automated) |
+| `pets/rocket-pet.glb` | pet / `rocket-pet` — "Rocket ship" | Poly by Google | https://static.poly.pizza/726c095e-4c19-4891-bb14-2b73594a37ca.glb | **CC-BY 3.0** | Yes | Yes | Yes — ⚠️ **credit required** (credited in-app + here) | 2026-06-26 | Claude (automated) |
+| `handhelds/story-book.glb` | handheld / `story-book` — "Open Book" | Quaternius | https://static.poly.pizza/caca50d9-dc62-46d1-a3ac-939219bfef9d.glb | **CC0 1.0** | Yes | Yes | Yes (no attribution required) | 2026-06-26 | Claude (automated) |
+| `handhelds/magic-wand.glb` | handheld / `magic-wand` — "Magic Wand" | Jarlan Perez | https://static.poly.pizza/c7eaca11-5c00-4190-b8b8-a974182eddb8.glb | **CC-BY 3.0** | Yes | Yes | Yes — ⚠️ **credit required** (credited in-app + here) | 2026-06-26 | Claude (automated) |
 
 > **Note on `claire-base.vrm`:** it is pixiv's official, widely-used three-vrm
 > sample — a normal, fully-clothed anime character, appropriate as a kid avatar.
