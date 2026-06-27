@@ -56,6 +56,47 @@ export type VRMAvatarViewerProps = {
   onError: () => void;
 };
 
+// Build a grayscale (luminance) copy of a color texture, brightened so a tint
+// multiplied over it reads vividly while dark detail (an eye's pupil, hair
+// shadow) stays dark. Returns null if the image can't be read (e.g. not yet
+// decoded / cross-origin tainted) — caller then falls back to a flat tint.
+function grayscaleColorMap(src: THREE.Texture): THREE.Texture | null {
+  const img = src.image as
+    | HTMLImageElement
+    | ImageBitmap
+    | HTMLCanvasElement
+    | undefined;
+  if (!img || !("width" in img) || !img.width || !img.height) return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  try {
+    ctx.drawImage(img as CanvasImageSource, 0, 0);
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const px = data.data;
+    for (let i = 0; i < px.length; i += 4) {
+      const lum = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+      // gamma <1 lifts mid/iris tones (vivid) but keeps the darkest (pupil) dark
+      const v = 255 * Math.pow(lum / 255, 0.6);
+      px[i] = px[i + 1] = px[i + 2] = v; // keep alpha at px[i+3]
+    }
+    ctx.putImageData(data, 0, 0);
+  } catch {
+    return null;
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.flipY = src.flipY;
+  tex.colorSpace = src.colorSpace;
+  tex.wrapS = src.wrapS;
+  tex.wrapT = src.wrapT;
+  tex.repeat.copy(src.repeat);
+  tex.offset.copy(src.offset);
+  tex.needsUpdate = true;
+  return tex;
+}
+
 // ---------------------------------------------------------------------------
 // VRM character — load, optimize, face camera, frame, animate, dispose.
 // ---------------------------------------------------------------------------
@@ -113,6 +154,10 @@ function VrmCharacter({
   // swapped-out model's materials are GC'd.
   const origColorsRef = useRef(new WeakMap<THREE.Material, THREE.Color>());
   const origMapsRef = useRef(new WeakMap<THREE.Material, THREE.Texture | null>());
+  // Cached grayscale (luminance) version of a hair/eye material's base texture,
+  // so a chosen color shows vividly (color × luminance) while the texture's
+  // light/dark detail — hair strands, the eye's pupil — is preserved.
+  const grayMapsRef = useRef(new WeakMap<THREE.Material, THREE.Texture | null>());
 
   // ---- Imperative load (loadAsync is not Suspense-friendly) --------------
   useEffect(() => {
@@ -465,22 +510,30 @@ function VrmCharacter({
           origMapsRef.current.set(mat, mat.map ?? null);
         }
         const tint = want[cat];
-        // HAIR drops its base texture when a color is chosen so the picked color
-        // shows VIVIDLY (the dark hair texture would otherwise multiply pink →
-        // auburn); MToon's toon shading still gives the flat color dimension.
-        // SKIN + EYES keep their texture and just tint: skin keeps natural
-        // shading, and an eye's pupil/iris detail is baked into its texture —
-        // dropping it would leave a blank colored eye with no pupil.
-        const vivid = cat === "hair";
+        // HAIR + EYES recolor vividly by swapping their base texture for a
+        // grayscale (luminance) copy and tinting that: color × luminance shows
+        // the picked color fully while keeping detail — hair strands, and
+        // crucially the eye's dark pupil (a plain multiply muddies vivid colors;
+        // dropping the texture entirely would erase the pupil). SKIN keeps its
+        // texture and tints over it for natural shading.
+        const useGray = cat === "hair" || cat === "eye";
         if (tint) {
           mat.color.set(tint);
-          if (vivid && mat.map !== null) {
-            mat.map = null;
-            mat.needsUpdate = true;
+          if (useGray) {
+            let gray = grayMapsRef.current.get(mat);
+            if (gray === undefined) {
+              const om = origMapsRef.current.get(mat) ?? null;
+              gray = om ? grayscaleColorMap(om) : null;
+              grayMapsRef.current.set(mat, gray); // cache (null = no/failed map)
+            }
+            if (gray && mat.map !== gray) {
+              mat.map = gray;
+              mat.needsUpdate = true;
+            }
           }
         } else {
           mat.color.copy(origColorsRef.current.get(mat)!);
-          if (vivid) {
+          if (useGray) {
             const om = origMapsRef.current.get(mat) ?? null;
             if (mat.map !== om) {
               mat.map = om;
