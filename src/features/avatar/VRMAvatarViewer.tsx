@@ -108,10 +108,11 @@ function VrmCharacter({
     front: number; // model's front (+Z) in the bind pose — glasses sit near it
     eyeMid: THREE.Vector3 | null; // eye-bone midpoint if the rig has eye bones
   } | null>(null);
-  // Original material colors, so skin/hair/eye recolor can be restored to the
-  // model's defaults. WeakMap → entries vanish when a swapped-out model's
-  // materials are GC'd.
+  // Original material colors + base textures, so skin/hair/eye recolor can be
+  // restored to the model's defaults. WeakMaps → entries vanish when a
+  // swapped-out model's materials are GC'd.
   const origColorsRef = useRef(new WeakMap<THREE.Material, THREE.Color>());
+  const origMapsRef = useRef(new WeakMap<THREE.Material, THREE.Texture | null>());
 
   // ---- Imperative load (loadAsync is not Suspense-friendly) --------------
   useEffect(() => {
@@ -448,7 +449,7 @@ function VrmCharacter({
       if (!mesh.isMesh) return;
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       for (const m of mats) {
-        const mat = m as THREE.Material & { color?: THREE.Color };
+        const mat = m as THREE.Material & { color?: THREE.Color; map?: THREE.Texture | null };
         if (!mat?.color) continue;
         const name = (mat.name || "").toLowerCase();
         const cat: keyof typeof want | null = /iris|^eye$/.test(name)
@@ -461,10 +462,32 @@ function VrmCharacter({
         if (!cat) continue;
         if (!origColorsRef.current.has(mat)) {
           origColorsRef.current.set(mat, mat.color.clone());
+          origMapsRef.current.set(mat, mat.map ?? null);
         }
         const tint = want[cat];
-        if (tint) mat.color.set(tint);
-        else mat.color.copy(origColorsRef.current.get(mat)!);
+        // HAIR drops its base texture when a color is chosen so the picked color
+        // shows VIVIDLY (the dark hair texture would otherwise multiply pink →
+        // auburn); MToon's toon shading still gives the flat color dimension.
+        // SKIN + EYES keep their texture and just tint: skin keeps natural
+        // shading, and an eye's pupil/iris detail is baked into its texture —
+        // dropping it would leave a blank colored eye with no pupil.
+        const vivid = cat === "hair";
+        if (tint) {
+          mat.color.set(tint);
+          if (vivid && mat.map !== null) {
+            mat.map = null;
+            mat.needsUpdate = true;
+          }
+        } else {
+          mat.color.copy(origColorsRef.current.get(mat)!);
+          if (vivid) {
+            const om = origMapsRef.current.get(mat) ?? null;
+            if (mat.map !== om) {
+              mat.map = om;
+              mat.needsUpdate = true;
+            }
+          }
+        }
       }
     });
   }, [vrm, loadout.skinTone, loadout.hairColor, loadout.eyeColor]);
