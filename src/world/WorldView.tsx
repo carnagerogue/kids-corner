@@ -253,23 +253,26 @@ function WorldScene() {
   return (
     <>
       <color attach="background" args={["#bfe6ff"]} />
-      <fog attach="fog" args={["#cfeefc", 30, 52]} />
+      {/* Fade the wide flat ground into the sky so the town feels nestled. */}
+      <fog attach="fog" args={["#bfe6ff", 16, 30]} />
       <ambientLight intensity={0.55} />
       <hemisphereLight args={["#ffffff", "#9fd6a0", 1.1]} />
       <directionalLight position={[8, 14, 6]} intensity={1.5} color="#fff6e8" />
       <directionalLight position={[-5, 4, -3]} intensity={0.45} color="#bcd9ff" />
-      {/* Our procedural ground — hidden when a preloaded map brings its own. */}
+      {/* Solid green ground (also used under a preloaded map whose own ground
+          we hide). Sits just below y=0 so building bases don't z-fight. */}
       {!WORLD_MAP?.hasGround && (
-        <>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-            <circleGeometry args={[30, 64]} />
-            <meshStandardMaterial color="#74bd62" roughness={1} />
-          </mesh>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-            <circleGeometry args={[7, 48]} />
-            <meshStandardMaterial color="#d8c79a" roughness={1} />
-          </mesh>
-        </>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
+          <circleGeometry args={[44, 64]} />
+          <meshStandardMaterial color="#83c267" roughness={1} />
+        </mesh>
+      )}
+      {/* Tan plaza disc only for the hand-placed village (not a real map). */}
+      {!WORLD_MAP && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+          <circleGeometry args={[7, 48]} />
+          <meshStandardMaterial color="#d8c79a" roughness={1} />
+        </mesh>
       )}
       {!WORLD_MAP &&
         WORLD_PROPS.length === 0 &&
@@ -295,7 +298,16 @@ type WorldMapDef = {
 // Set the return to a WorldMapDef to load a single pre-built map GLB instead of
 // the hand-placed prop village. (A function so TS keeps the union type.)
 function getWorldMap(): WorldMapDef | null {
-  return null;
+  // "Happy Town" — a walkable low-poly town (CC-BY, credited in the HUD).
+  return {
+    url: "/assets/world/map-happy-town.glb",
+    scale: 1.5, // up-scaled so streets/gaps are wide enough to walk + see
+    y: 0,
+    // Buildings/trees cluster near centre; spawn just outside it looking in.
+    spawn: { x: 7, z: 7 },
+    bound: 13,
+    hasGround: false, // we hide the map's void-white ground and draw our own
+  };
 }
 const WORLD_MAP = getWorldMap();
 const ROAM = WORLD_MAP ? WORLD_MAP.bound : BOUND;
@@ -309,9 +321,27 @@ function PreloadedMap({ map }: { map: WorldMapDef }) {
       .loadAsync(resolveAssetUrl(map.url))
       .then((g) => {
         if (!alive) return;
+        g.scene.updateWorldMatrix(true, true);
+        // The widest-footprint mesh is the big ground plane — it's near-white
+        // and reads as sky/void, so repaint it flat grass-green (vertex colors
+        // off) so the town sits on a green field.
+        let ground: THREE.Mesh | null = null;
+        let groundArea = 0;
         g.scene.traverse((o) => {
           o.frustumCulled = false;
+          const m = o as THREE.Mesh;
+          if (!m.isMesh) return;
+          const b = new THREE.Box3().setFromObject(m);
+          const area = (b.max.x - b.min.x) * (b.max.z - b.min.z);
+          if (area > groundArea) {
+            groundArea = area;
+            ground = m;
+          }
         });
+        // The map's own ground plane is a near-white disc/ring that reads as
+        // void — hide it and let our solid green ground (WorldScene) show under
+        // the town instead.
+        if (ground) (ground as THREE.Mesh).visible = false;
         setScene(g.scene);
       })
       .catch(() => {});
@@ -512,10 +542,16 @@ function Rig({
       }
       tgt.set(s.x, 1.2, s.z);
       if (!inited.current) {
-        // Establish a nice third-person orbit distance once.
+        // Establish a nice third-person orbit distance once, BEHIND the avatar's
+        // facing so it looks where the avatar looks (and forward walks ahead).
         inited.current = true;
         c.target.copy(tgt);
-        camera.position.set(s.x, tgt.y + 9, s.z + 5.5);
+        const back = 5;
+        camera.position.set(
+          s.x - Math.sin(s.heading) * back,
+          tgt.y + 10, // higher = looks down over the trees
+          s.z - Math.cos(s.heading) * back,
+        );
       } else {
         c.target.lerp(tgt, Math.min(1, dt * 10));
       }
@@ -558,10 +594,10 @@ function Rig({
       dampingFactor={0.12}
       rotateSpeed={0.9}
       zoomSpeed={1.1}
-      minDistance={4.5}
-      maxDistance={15}
-      minPolarAngle={0.3}
-      maxPolarAngle={Math.PI / 2.5}
+      minDistance={5}
+      maxDistance={20}
+      minPolarAngle={0.25}
+      maxPolarAngle={Math.PI / 2.7}
     />
   );
 }
@@ -574,11 +610,14 @@ export default function WorldView() {
   const loadout = currentLoadout(state, kidId);
   const canWebgl = useMemo(() => webglAvailable(), []);
 
-  const self = useRef<Pose>({
-    ...(WORLD_MAP ? WORLD_MAP.spawn : spawnFor(kidId)),
-    heading: 0,
-    moving: false,
-  });
+  const self = useRef<Pose>(
+    (() => {
+      const sp = WORLD_MAP ? WORLD_MAP.spawn : spawnFor(kidId);
+      // On a map, start facing the town centre (≈ origin).
+      const heading = WORLD_MAP ? Math.atan2(-sp.x, -sp.z) : 0;
+      return { ...sp, heading, moving: false };
+    })(),
+  );
   const propsRef = useRef<THREE.Group>(null);
   const [selfUrl, setSelfUrl] = useState<string | null | undefined>(undefined);
   const [players, setPlayers] = useState<PlayerState[]>([]);
@@ -694,6 +733,11 @@ export default function WorldView() {
           <strong>Move</strong> WASD/arrows · <strong>drag</strong> to look ·{" "}
           <strong>scroll</strong> to zoom · {players.length} here
         </div>
+        {WORLD_MAP && (
+          <div className="world__credit">
+            Map: “Happy Town” by Alex Safayan &amp; Alex Pasquarella · CC-BY
+          </div>
+        )}
         <div className="world__chat">
           <input
             className="world__chatinput"

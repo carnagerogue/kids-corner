@@ -110,20 +110,23 @@ export async function loadAvatar(url: string): Promise<LoadedAvatar> {
       if (moving) phase += dt * 8.5; // step cadence
       if (blend > 0.002) {
         const s = Math.sin(phase);
+        const c = Math.cos(phase);
         const w = blend;
         // Thighs swing fore/aft, opposite legs.
-        if (lUpLeg) lUpLeg.rotation.x += s * 0.55 * w;
-        if (rUpLeg) rUpLeg.rotation.x += -s * 0.55 * w;
-        // Knees flex BACKWARD (toward the hamstring) as each leg swings to the
-        // rear and lifts — never forward. Left leg is rearward when s<0.
-        const KNEE = -1.05; // sign = flexion direction (tuned to bend backward)
-        if (lLoLeg) lLoLeg.rotation.x += Math.max(0, -s) * KNEE * w;
-        if (rLoLeg) rLoLeg.rotation.x += Math.max(0, s) * KNEE * w;
+        if (lUpLeg) lUpLeg.rotation.x += s * 0.5 * w;
+        if (rUpLeg) rUpLeg.rotation.x += -s * 0.5 * w;
+        // Each knee flexes (lifting the foot off the floor) during ITS OWN
+        // forward swing — as the leg passes under the body moving forward — then
+        // straightens for the step. Left leg swings forward when cos>0. Backward
+        // flexion (KNEE<0), so the foot rises, never a forward hyperextension.
+        const KNEE = -0.95;
+        if (lLoLeg) lLoLeg.rotation.x += Math.max(0, c) * KNEE * w;
+        if (rLoLeg) rLoLeg.rotation.x += Math.max(0, -c) * KNEE * w;
         // Arms swing opposite their same-side leg.
-        if (lUpArm) lUpArm.rotation.x += -s * 0.35 * w;
-        if (rUpArm) rUpArm.rotation.x += s * 0.35 * w;
+        if (lUpArm) lUpArm.rotation.x += -s * 0.32 * w;
+        if (rUpArm) rUpArm.rotation.x += s * 0.32 * w;
         // Lean forward a touch while moving.
-        if (chest) chest.rotation.x += 0.08 * w;
+        if (chest) chest.rotation.x += 0.07 * w;
       }
       vrm.update(dt); // bake normalized → raw + spring bones
     },
