@@ -26,6 +26,42 @@ Name each file `<kidId>-base.vrm`. The default learners use these ids:
 body-type model if present — `girl-base-01.vrm`, `boy-base-01.vrm`,
 `neutral-base-01.vrm` — otherwise the placeholder.)
 
+## Per-outfit "look" models (swappable outfits / hair / body)
+
+Outfits, body type, hair **style** and shoes are *baked into the mesh* of a VRM
+— a single model has exactly one of each, so they can't be swapped at runtime
+like a hat. To make an outfit actually change the character, add a **separate
+full model per look**, named `<kidId>-<outfit>.vrm`. When a learner equips that
+outfit, the app loads the matching model (and re-attaches their hat/glasses/pet
+on top). **If the file doesn't exist, equipping the outfit just keeps the base
+model — nothing breaks.** So you only make the looks you want.
+
+Outfit → filename (drop these in this folder):
+
+| Shop outfit | File (per kid) |
+|-------------|----------------|
+| Starter Hoodie | `<kidId>-hoodie.vrm` |
+| Explorer Vest | `<kidId>-vest.vrm` |
+| Soccer Kit | `<kidId>-soccer.vrm` |
+| Artist Smock | `<kidId>-smock.vrm` |
+| Cozy Pajamas | `<kidId>-pajamas.vrm` |
+| Space Suit | `<kidId>-space.vrm` |
+| Super Hero Suit | `<kidId>-hero.vrm` |
+| Galaxy Guardian | `<kidId>-galaxy.vrm` |
+| Summer Champion Outfit | `<kidId>-champion.vrm` |
+
+e.g. `claire-soccer.vrm` = Claire's character wearing the soccer kit. Each look
+model bakes in whatever hair/body/shoes you want for that look (those slots
+can't move independently of the model). Workflow:
+
+1. In **VRoid Studio**, open/make the kid's character.
+2. Dress them in the outfit (and adjust hair/body if you like).
+3. **Export → VRM**, name it `<kidId>-<outfit>.vrm` from the table above.
+4. Drop it here. Equip that outfit in-app → the new look loads automatically.
+
+> Heads-up: each model is ~10 MB, so a model per outfit per kid adds up fast.
+> Make only the looks you care about — the rest fall back to the base model.
+
 ## How to get a model (free + license-safe)
 
 1. Install **VRoid Studio** (free): https://vroid.com/en/studio
