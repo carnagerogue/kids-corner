@@ -112,11 +112,13 @@ export async function loadAvatar(url: string): Promise<LoadedAvatar> {
         const s = Math.sin(phase);
         const w = blend;
         // Thighs swing fore/aft, opposite legs.
-        if (lUpLeg) lUpLeg.rotation.x += s * 0.6 * w;
-        if (rUpLeg) rUpLeg.rotation.x += -s * 0.6 * w;
-        // Knees bend on the leg swinging back (never hyperextend forward).
-        if (lLoLeg) lLoLeg.rotation.x += -Math.max(0, s) * 0.95 * w;
-        if (rLoLeg) rLoLeg.rotation.x += -Math.max(0, -s) * 0.95 * w;
+        if (lUpLeg) lUpLeg.rotation.x += s * 0.55 * w;
+        if (rUpLeg) rUpLeg.rotation.x += -s * 0.55 * w;
+        // Knees flex BACKWARD (toward the hamstring) as each leg swings to the
+        // rear and lifts — never forward. Left leg is rearward when s<0.
+        const KNEE = -1.05; // sign = flexion direction (tuned to bend backward)
+        if (lLoLeg) lLoLeg.rotation.x += Math.max(0, -s) * KNEE * w;
+        if (rLoLeg) rLoLeg.rotation.x += Math.max(0, s) * KNEE * w;
         // Arms swing opposite their same-side leg.
         if (lUpArm) lUpArm.rotation.x += -s * 0.35 * w;
         if (rUpArm) rUpArm.rotation.x += s * 0.35 * w;
