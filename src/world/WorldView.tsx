@@ -7,8 +7,10 @@
 // ---------------------------------------------------------------------------
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Html } from "@react-three/drei";
+import { Html, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { resolveAssetUrl } from "../features/avatar/AvatarManifest";
 import { useApp } from "../store/AppContext";
 import { getKid } from "../store/selectors";
 import { currentLoadout } from "../features/avatar/AvatarEconomy";
@@ -24,7 +26,7 @@ import {
   type PlayerState,
 } from "./worldSync";
 
-const BOUND = 16; // play area half-extent
+const BOUND = 8; // play-area half-extent (props ring the outside)
 const SPEED = 3.6;
 
 /** Live, mutable pose shared between the controller and the local avatar. */
@@ -58,11 +60,163 @@ function spawnFor(kidId: string): { x: number; z: number } {
   let h = 0;
   for (let i = 0; i < kidId.length; i++) h = (h * 31 + kidId.charCodeAt(i)) | 0;
   const a = ((h % 360) * Math.PI) / 180;
-  return { x: Math.cos(a) * 3.5, z: Math.sin(a) * 3.5 };
+  return { x: Math.cos(a) * 1.5, z: Math.sin(a) * 1.5 };
 }
 
 const clamp = (v: number, lo: number, hi: number) =>
   v < lo ? lo : v > hi ? hi : v;
+
+// --- CC0 prop loading (trees, houses, rocks…) ----------------------------
+// Each GLB is loaded once, normalized so its tallest side = `height` with feet
+// on y=0, then cloned cheaply for every placement.
+const propCache = new Map<string, Promise<THREE.Object3D>>();
+function loadProp(url: string): Promise<THREE.Object3D> {
+  let p = propCache.get(url);
+  if (!p) {
+    p = new GLTFLoader().loadAsync(url).then((g) => {
+      const root = g.scene;
+      root.updateWorldMatrix(true, true);
+      const box = new THREE.Box3().setFromObject(root);
+      const size = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z) || 1;
+      root.scale.setScalar(1 / maxDim); // normalize tallest dim to 1 unit
+      root.updateWorldMatrix(true, true);
+      const b2 = new THREE.Box3().setFromObject(root);
+      root.position.x -= (b2.min.x + b2.max.x) / 2;
+      root.position.z -= (b2.min.z + b2.max.z) / 2;
+      root.position.y -= b2.min.y; // feet on ground
+      root.traverse((o) => {
+        o.frustumCulled = false;
+      });
+      // Wrap so PropField's position/scale on the clone don't clobber this
+      // normalization (the wrapper is what gets transformed per instance).
+      const wrap = new THREE.Group();
+      wrap.add(root);
+      return wrap;
+    });
+    propCache.set(url, p);
+  }
+  return p;
+}
+
+/** One CC0 model placed many times. `height` = world height of the tallest
+ * dimension; `items` = [x, z, rotationY, scaleMultiplier] per instance. */
+function PropField({
+  url,
+  height,
+  items,
+}: {
+  url: string;
+  height: number;
+  items: [number, number, number, number][];
+}) {
+  const [proto, setProto] = useState<THREE.Object3D | null>(null);
+  useEffect(() => {
+    let alive = true;
+    loadProp(resolveAssetUrl(url))
+      .then((o) => alive && setProto(o))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [url]);
+  const clones = useMemo(
+    () => (proto ? items.map(() => proto.clone(true)) : []),
+    [proto, items],
+  );
+  if (!proto) return null;
+  return (
+    <>
+      {clones.map((c, i) => (
+        <primitive
+          key={i}
+          object={c}
+          position={[items[i][0], 0, items[i][1]]}
+          rotation={[0, items[i][2], 0]}
+          scale={height * items[i][3]}
+        />
+      ))}
+    </>
+  );
+}
+
+// Deterministic placement (no Math.random — stable across renders).
+function scatter(
+  n: number,
+  rMin: number,
+  rMax: number,
+  seed = 1,
+): [number, number, number, number][] {
+  return Array.from({ length: n }, (_, i) => {
+    const t = (i * 2654435761 * seed) >>> 0;
+    const a = ((t % 1000) / 1000) * Math.PI * 2;
+    const r = rMin + (((t >> 10) % 1000) / 1000) * (rMax - rMin);
+    const rot = ((t >> 4) % 628) / 100;
+    const s = 0.75 + (((t >> 7) % 50) / 100);
+    return [Math.cos(a) * r, Math.sin(a) * r, rot, s];
+  });
+}
+
+// The village green — CC0 low-poly props (Kenney + Quaternius) placed around a
+// central plaza. `height` = world size of the model's largest dimension.
+type PropDef = { url: string; height: number; items: [number, number, number, number][] };
+const WORLD_PROPS: PropDef[] = [
+  // Landmarks
+  { url: "/assets/world/well.glb", height: 2.2, items: [[0, 9, 0, 1]] },
+  { url: "/assets/world/windmill.glb", height: 7.5, items: [[-14, -11, 0.6, 1]] },
+  {
+    url: "/assets/world/house.glb",
+    height: 3,
+    items: [
+      [12, -3, -2.1, 1],
+      [-12, -4, 2.1, 1.05],
+      [7, -13, -0.5, 1],
+      [-8, -13, 0.5, 0.95],
+    ],
+  },
+  {
+    url: "/assets/world/stall.glb",
+    height: 2.4,
+    items: [
+      [5, 4.5, 3.3, 1],
+      [-6, 4.5, 2.9, 1],
+    ],
+  },
+  { url: "/assets/world/tent.glb", height: 2, items: [[13, 6, -2.4, 1]] },
+  { url: "/assets/world/campfire.glb", height: 0.8, items: [[-3.5, -4, 0, 1]] },
+  {
+    url: "/assets/world/bench.glb",
+    height: 1.4,
+    items: [
+      [3.4, -1, 0, 1],
+      [-3.4, -1, Math.PI, 1],
+    ],
+  },
+  {
+    url: "/assets/world/streetlight.glb",
+    height: 3.6,
+    items: [
+      [6, -6, 0, 1],
+      [-6, -6, 0, 1],
+      [6, 6, 0, 1],
+      [-6, 6, 0, 1],
+    ],
+  },
+  { url: "/assets/world/signpost.glb", height: 1.6, items: [[2.6, 6, 0.5, 1]] },
+  // Trees + nature — tall things ring the OUTSIDE (radius 9-22) so the central
+  // play area stays open; only low ground detail sits close in.
+  { url: "/assets/world/pine.glb", height: 4.2, items: scatter(10, 12, 23, 3) },
+  { url: "/assets/world/tree.glb", height: 3.2, items: scatter(10, 11, 22, 7) },
+  { url: "/assets/world/palm.glb", height: 4.6, items: scatter(3, 14, 22, 11) },
+  { url: "/assets/world/bush.glb", height: 1.1, items: scatter(10, 10, 21, 13) },
+  { url: "/assets/world/flowerbush.glb", height: 1.3, items: scatter(7, 10, 20, 17) },
+  { url: "/assets/world/flowers.glb", height: 0.5, items: scatter(14, 5, 19, 19) },
+  { url: "/assets/world/grass.glb", height: 0.7, items: scatter(16, 5, 20, 23) },
+  { url: "/assets/world/rock.glb", height: 0.6, items: scatter(8, 6, 19, 29) },
+  { url: "/assets/world/rock-large.glb", height: 1.7, items: scatter(3, 11, 18, 31) },
+  { url: "/assets/world/mushroom.glb", height: 0.5, items: scatter(6, 6, 17, 37) },
+  { url: "/assets/world/log.glb", height: 1.3, items: scatter(3, 10, 17, 41) },
+];
 
 // --- Scenery -------------------------------------------------------------
 function Tree({ position }: { position: [number, number, number] }) {
@@ -99,13 +253,14 @@ function WorldScene() {
   return (
     <>
       <color attach="background" args={["#bfe6ff"]} />
-      <fog attach="fog" args={["#cfeefc", 26, 46]} />
-      <hemisphereLight args={["#ffffff", "#9fd6a0", 1.0]} />
-      <directionalLight position={[6, 10, 4]} intensity={1.3} color="#fff6e8" />
-      <directionalLight position={[-5, 4, -3]} intensity={0.4} color="#bcd9ff" />
+      <fog attach="fog" args={["#cfeefc", 30, 52]} />
+      <ambientLight intensity={0.55} />
+      <hemisphereLight args={["#ffffff", "#9fd6a0", 1.1]} />
+      <directionalLight position={[8, 14, 6]} intensity={1.5} color="#fff6e8" />
+      <directionalLight position={[-5, 4, -3]} intensity={0.45} color="#bcd9ff" />
       {/* grassy ground */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-        <circleGeometry args={[24, 64]} />
+        <circleGeometry args={[30, 64]} />
         <meshStandardMaterial color="#74bd62" roughness={1} />
       </mesh>
       {/* a soft plaza disc in the middle */}
@@ -113,10 +268,24 @@ function WorldScene() {
         <circleGeometry args={[7, 48]} />
         <meshStandardMaterial color="#d8c79a" roughness={1} />
       </mesh>
-      {trees.map((p, i) => (
-        <Tree key={i} position={p} />
-      ))}
+      {WORLD_PROPS.length === 0 &&
+        trees.map((p, i) => <Tree key={i} position={p} />)}
     </>
+  );
+}
+
+/** All the village props in one group so the camera can raycast against them. */
+function VillageProps({
+  groupRef,
+}: {
+  groupRef: React.RefObject<THREE.Group>;
+}) {
+  return (
+    <group ref={groupRef}>
+      {WORLD_PROPS.map((p, i) => (
+        <PropField key={i} url={p.url} height={p.height} items={p.items} />
+      ))}
+    </group>
   );
 }
 
@@ -204,9 +373,22 @@ function WorldAvatar({
 }
 
 // --- Camera + local input -----------------------------------------------
-function Rig({ self }: { self: React.MutableRefObject<Pose> }) {
+function Rig({
+  self,
+  propsRef,
+}: {
+  self: React.MutableRefObject<Pose>;
+  propsRef: React.RefObject<THREE.Group>;
+}) {
   const keys = useRef<Set<string>>(new Set());
+  const controls = useRef<React.ElementRef<typeof OrbitControls>>(null);
   const { camera } = useThree();
+  const fwd = useMemo(() => new THREE.Vector3(), []);
+  const move = useMemo(() => new THREE.Vector3(), []);
+  const tgt = useMemo(() => new THREE.Vector3(), []);
+  const dirv = useMemo(() => new THREE.Vector3(), []);
+  const ray = useMemo(() => new THREE.Raycaster(), []);
+  const inited = useRef(false);
 
   useEffect(() => {
     const isTyping = () => {
@@ -234,33 +416,82 @@ function Rig({ self }: { self: React.MutableRefObject<Pose> }) {
   }, []);
 
   useFrame((_, dt) => {
-    let dx = 0;
-    let dz = 0;
-    if (keys.current.has("up")) dz -= 1;
-    if (keys.current.has("down")) dz += 1;
-    if (keys.current.has("left")) dx -= 1;
-    if (keys.current.has("right")) dx += 1;
-    const moving = dx !== 0 || dz !== 0;
     const s = self.current;
+    // Movement is CAMERA-RELATIVE (MMORPG style): forward = away from camera.
+    camera.getWorldDirection(fwd);
+    fwd.y = 0;
+    fwd.normalize();
+    // right = forward rotated -90° about Y
+    const rx = -fwd.z;
+    const rz = fwd.x;
+    move.set(0, 0, 0);
+    if (keys.current.has("up")) move.add(fwd);
+    if (keys.current.has("down")) move.sub(fwd);
+    if (keys.current.has("right")) move.add(new THREE.Vector3(rx, 0, rz));
+    if (keys.current.has("left")) move.add(new THREE.Vector3(-rx, 0, -rz));
+    const moving = move.lengthSq() > 1e-6;
     if (moving) {
-      const len = Math.hypot(dx, dz);
-      dx /= len;
-      dz /= len;
-      s.x = clamp(s.x + dx * SPEED * dt, -BOUND, BOUND);
-      s.z = clamp(s.z + dz * SPEED * dt, -BOUND, BOUND);
-      s.heading = Math.atan2(-dx, -dz);
+      move.normalize();
+      s.x = clamp(s.x + move.x * SPEED * dt, -BOUND, BOUND);
+      s.z = clamp(s.z + move.z * SPEED * dt, -BOUND, BOUND);
+      // Face the way we move (VRM forward is +Z in this pipeline).
+      s.heading = Math.atan2(move.x, move.z);
       updateSelf({ x: s.x, z: s.z, heading: s.heading, moving: true });
     } else if (s.moving) {
       updateSelf({ x: s.x, z: s.z, heading: s.heading, moving: false }, true);
     }
     s.moving = moving;
 
-    // Fixed-angle third-person follow.
-    const desired = new THREE.Vector3(s.x, 5.2, s.z + 8.5);
-    camera.position.lerp(desired, Math.min(1, dt * 4));
-    camera.lookAt(s.x, 1.1, s.z);
+    // Orbit camera follows the character: keep the orbit target on them, so the
+    // user's drag-to-rotate + scroll-to-zoom stay relative to the avatar.
+    const c = controls.current;
+    if (c) {
+      tgt.set(s.x, 1.2, s.z);
+      if (!inited.current) {
+        // Establish a nice third-person orbit distance once.
+        inited.current = true;
+        c.target.copy(tgt);
+        camera.position.set(s.x, tgt.y + 9, s.z + 5.5);
+      } else {
+        c.target.lerp(tgt, Math.min(1, dt * 10));
+      }
+      c.update();
+
+      // Camera collision: if a prop sits between the avatar and the camera,
+      // pull the camera in to that point so the view is never blocked.
+      if (propsRef.current) {
+        dirv.copy(camera.position).sub(c.target);
+        const dist = dirv.length();
+        if (dist > 0.01) {
+          dirv.normalize();
+          ray.set(c.target, dirv);
+          ray.far = dist;
+          const hits = ray.intersectObject(propsRef.current, true);
+          if (hits.length && hits[0].distance < dist - 0.1) {
+            camera.position
+              .copy(c.target)
+              .addScaledVector(dirv, Math.max(4, hits[0].distance - 0.4));
+          }
+        }
+      }
+    }
   });
-  return null;
+
+  return (
+    <OrbitControls
+      ref={controls}
+      makeDefault
+      enablePan={false}
+      enableDamping
+      dampingFactor={0.12}
+      rotateSpeed={0.9}
+      zoomSpeed={1.1}
+      minDistance={4.5}
+      maxDistance={15}
+      minPolarAngle={0.3}
+      maxPolarAngle={Math.PI / 2.5}
+    />
+  );
 }
 
 // --- Main view -----------------------------------------------------------
@@ -272,6 +503,7 @@ export default function WorldView() {
   const canWebgl = useMemo(() => webglAvailable(), []);
 
   const self = useRef<Pose>({ ...spawnFor(kidId), heading: 0, moving: false });
+  const propsRef = useRef<THREE.Group>(null);
   const [selfUrl, setSelfUrl] = useState<string | null | undefined>(undefined);
   const [players, setPlayers] = useState<PlayerState[]>([]);
   const [chatText, setChatText] = useState("");
@@ -346,9 +578,15 @@ export default function WorldView() {
 
   return (
     <div className="world">
-      <Canvas shadows={false} dpr={[1, 1.6]} camera={{ position: [0, 5.2, 9], fov: 45 }}>
+      <Canvas
+        shadows={false}
+        dpr={[1, 1.6]}
+        gl={{ antialias: true, toneMapping: THREE.NoToneMapping }}
+        camera={{ position: [0, 9.5, 5.5], fov: 45 }}
+      >
         <WorldScene />
-        <Rig self={self} />
+        <VillageProps groupRef={propsRef} />
+        <Rig self={self} propsRef={propsRef} />
         {selfUrl && (
           <WorldAvatar
             url={selfUrl}
@@ -377,7 +615,8 @@ export default function WorldView() {
 
       <div className="world__hud">
         <div className="world__hint">
-          <strong>Move:</strong> W A S D / arrows · {players.length} here
+          <strong>Move</strong> WASD/arrows · <strong>drag</strong> to look ·{" "}
+          <strong>scroll</strong> to zoom · {players.length} here
         </div>
         <div className="world__chat">
           <input
