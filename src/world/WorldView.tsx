@@ -268,7 +268,7 @@ function WorldScene() {
         </mesh>
       )}
       {/* Tan plaza disc only for the hand-placed village (not a real map). */}
-      {!WORLD_MAP && (
+      {!WORLD_MAP && !SUBURB && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
           <circleGeometry args={[7, 48]} />
           <meshStandardMaterial color="#d8c79a" roughness={1} />
@@ -298,19 +298,12 @@ type WorldMapDef = {
 // Set the return to a WorldMapDef to load a single pre-built map GLB instead of
 // the hand-placed prop village. (A function so TS keeps the union type.)
 function getWorldMap(): WorldMapDef | null {
-  // "Happy Town" — a walkable low-poly town (CC-BY, credited in the HUD).
-  return {
-    url: "/assets/world/map-happy-town.glb",
-    scale: 1.5, // up-scaled so streets/gaps are wide enough to walk + see
-    y: 0,
-    // Buildings/trees cluster near centre; spawn just outside it looking in.
-    spawn: { x: 7, z: 7 },
-    bound: 13,
-    hasGround: false, // we hide the map's void-white ground and draw our own
-  };
+  return null; // (Happy Town map kept in repo; suburb grid is the active world)
 }
 const WORLD_MAP = getWorldMap();
-const ROAM = WORLD_MAP ? WORLD_MAP.bound : BOUND;
+// Cozy-suburb grid town assembled from the CC0 road kit + house/tree props.
+const SUBURB = true;
+const ROAM = WORLD_MAP ? WORLD_MAP.bound : SUBURB ? 20 : BOUND;
 
 /** Loads + adds a single pre-built map GLB. */
 function PreloadedMap({ map }: { map: WorldMapDef }) {
@@ -355,13 +348,165 @@ function PreloadedMap({ map }: { map: WorldMapDef }) {
   );
 }
 
-/** The world geometry the camera raycasts against — either a preloaded map GLB
- * or the hand-placed prop village. */
+// --- Suburb: a grid town assembled from a CC0 road kit + house/tree props ----
+const TILE = 8; // world size of one road tile (≈5 avatar-widths, a 2-lane road)
+const GRID = 5; // 5×5 cells → 40×40-unit neighbourhood
+
+/** Normalize a cloned prototype: centered on x/z, base on y=0, sized either to a
+ * footprint (max of x/z) or a height (y). Returns a wrapper to transform. */
+function fit(
+  proto: THREE.Object3D | undefined,
+  opts: { footprint?: number; height?: number },
+): THREE.Object3D | null {
+  if (!proto) return null;
+  const o = proto.clone(true);
+  o.position.set(0, 0, 0);
+  o.rotation.set(0, 0, 0);
+  o.scale.set(1, 1, 1);
+  o.updateWorldMatrix(true, true);
+  let b = new THREE.Box3().setFromObject(o);
+  const sx = b.max.x - b.min.x;
+  const sy = b.max.y - b.min.y || 1;
+  const sz = b.max.z - b.min.z;
+  const s = opts.height
+    ? opts.height / sy
+    : (opts.footprint ?? 1) / (Math.max(sx, sz) || 1);
+  o.scale.setScalar(s);
+  o.updateWorldMatrix(true, true);
+  b = new THREE.Box3().setFromObject(o);
+  o.position.x -= (b.min.x + b.max.x) / 2;
+  o.position.z -= (b.min.z + b.max.z) / 2;
+  o.position.y -= b.min.y;
+  o.traverse((c) => (c.frustumCulled = false));
+  const wrap = new THREE.Group();
+  wrap.add(o);
+  return wrap;
+}
+
+type Placed = {
+  obj: THREE.Object3D;
+  x: number;
+  z: number;
+  rot: number;
+};
+
+function SuburbTown({ groupRef }: { groupRef: React.RefObject<THREE.Group> }) {
+  const [src, setSrc] = useState<{
+    road: (n: string) => THREE.Object3D | undefined;
+    house: THREE.Object3D;
+    tree: THREE.Object3D;
+    bench: THREE.Object3D;
+    flowers: THREE.Object3D;
+  } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    const L = (u: string) => new GLTFLoader().loadAsync(resolveAssetUrl(u));
+    Promise.all([
+      L("/assets/world/road-kit.glb"),
+      L("/assets/world/house-modern.glb"),
+      L("/assets/world/tree.glb"),
+      L("/assets/world/bench.glb"),
+      L("/assets/world/flowers.glb"),
+    ])
+      .then(([rk, hs, tr, bn, fl]) => {
+        if (!alive) return;
+        const named = new Map<string, THREE.Object3D>();
+        rk.scene.traverse((o) => {
+          // Map by NODE name (the tile pieces are named nodes, not meshes).
+          if (o.name && !named.has(o.name)) named.set(o.name, o);
+        });
+        setSrc({
+          road: (n) => named.get(n),
+          house: hs.scene,
+          tree: tr.scene,
+          bench: bn.scene,
+          flowers: fl.scene,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const placed = useMemo<Placed[]>(() => {
+    if (!src) return [];
+    const out: Placed[] = [];
+    const off = ((GRID - 1) / 2) * TILE; // recenter grid on origin
+    const cellX = (c: number) => c * TILE - off;
+    const cellZ = (r: number) => r * TILE - off;
+    const isRoadC = (c: number) => c === 1 || c === 3;
+    const isRoadR = (r: number) => r === 1 || r === 3;
+
+    for (let c = 0; c < GRID; c++) {
+      for (let r = 0; r < GRID; r++) {
+        const x = cellX(c);
+        const z = cellZ(r);
+        if (isRoadC(c) && isRoadR(r)) {
+          const t = fit(src.road("road_crossroad"), { footprint: TILE });
+          if (t) out.push({ obj: t, x, z, rot: 0 });
+        } else if (isRoadC(c) || isRoadR(r)) {
+          const t = fit(src.road("road_square"), { footprint: TILE });
+          if (t) out.push({ obj: t, x, z, rot: isRoadR(r) ? Math.PI / 2 : 0 });
+        } else {
+          // Building lot: green lawn (the ground shows through) + a house facing
+          // the town centre, a tree, and a flower bed.
+          const h = fit(src.house, { height: 5 });
+          if (h)
+            out.push({
+              obj: h,
+              x,
+              z,
+              rot: Math.atan2(-x, -z), // face origin/town centre
+            });
+          const tr2 = fit(src.tree, { height: 4.5 });
+          if (tr2)
+            out.push({ obj: tr2, x: x + 2.6, z: z + 2.6, rot: 0 });
+          const fl = fit(src.flowers, { height: 0.6 });
+          if (fl) out.push({ obj: fl, x: x - 2.4, z: z + 2.4, rot: 0 });
+        }
+      }
+    }
+    // Lamp posts + benches at the four crossroads' corners.
+    for (const [c, r] of [
+      [1, 1],
+      [3, 1],
+      [1, 3],
+      [3, 3],
+    ]) {
+      const x = cellX(c);
+      const z = cellZ(r);
+      const lamp = fit(src.road("light_square"), { height: 4.5 });
+      if (lamp) out.push({ obj: lamp, x: x + 3.6, z: z + 3.6, rot: 0 });
+      const bench = fit(src.bench, { footprint: 1.8 });
+      if (bench) out.push({ obj: bench, x: x - 3.4, z: z + 3.6, rot: 0 });
+    }
+    return out;
+  }, [src]);
+
+  return (
+    <group ref={groupRef}>
+      {placed.map((p, i) => (
+        <primitive
+          key={i}
+          object={p.obj}
+          position={[p.x, 0, p.z]}
+          rotation={[0, p.rot, 0]}
+        />
+      ))}
+    </group>
+  );
+}
+
+/** The world geometry the camera raycasts against — suburb grid town, a
+ * preloaded map GLB, or the hand-placed prop village. */
 function VillageProps({
   groupRef,
 }: {
   groupRef: React.RefObject<THREE.Group>;
 }) {
+  if (SUBURB) return <SuburbTown groupRef={groupRef} />;
   return (
     <group ref={groupRef}>
       {WORLD_MAP ? (
@@ -612,9 +757,13 @@ export default function WorldView() {
 
   const self = useRef<Pose>(
     (() => {
-      const sp = WORLD_MAP ? WORLD_MAP.spawn : spawnFor(kidId);
-      // On a map, start facing the town centre (≈ origin).
-      const heading = WORLD_MAP ? Math.atan2(-sp.x, -sp.z) : 0;
+      const sp = WORLD_MAP
+        ? WORLD_MAP.spawn
+        : SUBURB
+          ? { x: 0, z: 8 } // on the south street, looking up the block
+          : spawnFor(kidId);
+      // On a map/suburb, start facing the town centre (≈ origin).
+      const heading = WORLD_MAP || SUBURB ? Math.atan2(-sp.x, -sp.z) : 0;
       return { ...sp, heading, moving: false };
     })(),
   );
