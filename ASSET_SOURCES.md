@@ -48,6 +48,12 @@ placeholder for a model, the emoji for an icon) — never to fake geometry.
 |------------|--------------|---------|------------|---------|-----------------|---------|---------------|------------|----------|
 | `models/claire-base.vrm` | base / default character (Claire) | pixiv Inc. © 2022 | https://github.com/pixiv/three-vrm — `packages/three-vrm/examples/models/VRM1_Constraint_Twist_Sample.vrm` | [VRM 1.0 License](https://vrm.dev/licenses/1.0/) — verified from the model's embedded `VRMC_vrm.meta` | **Yes** (`commercialUsage: corporation`) | **Yes** (`modification: allowModificationRedistribution`) | **Yes** (`allowRedistribution: true`; `creditNotation: unnecessary`, `avatarPermission: everyone`) | 2026-06-26 | Claude (automated) |
 | `models/coby-base.vrm`, `hailee-base.vrm` (same file) | base / default character (Coby, Hailee) | VirtualCast, Inc. ("Seed-san") | https://github.com/vrm-c/vrm-specification — `samples/Seed-san/vrm/Seed-san.vrm` | [VRM 1.0 License](https://vrm.dev/licenses/1.0/) — verified from embedded `VRMC_vrm.meta` | **Yes** (`commercialUsage: corporation`) | **Yes** (`modification: allowModificationRedistribution`) | **Yes** (`allowRedistribution: true`; `avatarPermission: everyone`) — ⚠️ **credit required** (`creditNotation: required`; credited in-app + here) | 2026-06-26 | Claude (automated) |
+| `models/chubby-cat.vrm` | base / `fun-chubby-cat` (Chubby Cat) | ToxSam (Polygonal Mind) | [Open Source Avatars](https://github.com/ToxSam/open-source-avatars) — `toxsam` collection ("Chubby Tubby Cat") | **CC0 1.0** — verified from embedded `VRM.meta` (`licenseName: CC0`, `allowedUserName: Everyone`) | Yes | Yes | **Yes** (CC0, no attribution required; credited anyway) | 2026-06-26 | Claude (automated) |
+| `models/happy-worm.vrm` | base / `fun-happy-worm` (Happy Worm) | ToxSam (Polygonal Mind) | [Open Source Avatars](https://github.com/ToxSam/open-source-avatars) — `toxsam` collection ("The Worm") | **CC0 1.0** — verified from embedded `VRM.meta` (`licenseName: CC0`, `allowedUserName: Everyone`) | Yes | Yes | **Yes** (CC0; credited anyway) | 2026-06-26 | Claude (automated) |
+| `models/froggy.vrm` | base / `fun-froggy` (Froggy) | Polygonal Mind | [Open Source Avatars](https://github.com/ToxSam/open-source-avatars) — `100avatars-r1` ("Froggy") | **CC0 1.0** — verified from embedded `VRM.meta` (`licenseName: CC0`, `allowedUserName: Everyone`) | Yes | Yes | **Yes** (CC0; credited anyway) | 2026-06-26 | Claude (automated) |
+| `models/snowman.vrm` | base / `fun-snowman` (Snowman) | Polygonal Mind | [Open Source Avatars](https://github.com/ToxSam/open-source-avatars) — `100avatars-r1` ("Snowy") | **CC0 1.0** — verified from embedded `VRM.meta` (`licenseName: CC0`, `allowedUserName: Everyone`) | Yes | Yes | **Yes** (CC0; credited anyway) | 2026-06-26 | Claude (automated) |
+| `models/hotdog.vrm` | base / `fun-hotdog` (Hot Dog) | Polygonal Mind | [Open Source Avatars](https://github.com/ToxSam/open-source-avatars) — `100avatars-r1` ("Hotdog") | **CC0 1.0** — verified from embedded `VRM.meta` (`licenseName: CC0`, `allowedUserName: Everyone`) | Yes | Yes | **Yes** (CC0; credited anyway) | 2026-06-26 | Claude (automated) |
+| `models/candy-cane.vrm` | base / `fun-candy-cane` (Candy Cane) | Polygonal Mind | [Open Source Avatars](https://github.com/ToxSam/open-source-avatars) — `100avatars-r1` ("CandyCane") | **CC0 1.0** — verified from embedded `VRM.meta` (`licenseName: CC0`, `allowedUserName: Everyone`) | Yes | Yes | **Yes** (CC0; credited anyway) | 2026-06-26 | Claude (automated) |
 | `animations/idle_loop.vrma` | idle animation (all learners) | moeru-ai / airi contributors | https://github.com/moeru-ai/airi — `packages/stage-ui-three/src/assets/vrm/animations/idle_loop.vrma` | **MIT** (repo license; redistribution + modification permitted with notice) | Yes | Yes | Yes (notice preserved; credited in-app + here) | 2026-06-26 | Claude (automated) |
 | `hats/crown.glb` | hat / `crown` (Royal Crown) | Quaternius | https://poly.pizza/m/i0PZVuVlYv | **CC0 1.0** (public domain) | Yes | Yes | Yes (no attribution required) | 2026-06-26 | Claude (automated) |
 | `hats/ball-cap.glb` | hat / `ball-cap` (Ball Cap) | Jarlan Perez | https://poly.pizza/m/2uKEHjO_QL0 | **CC-BY 3.0** | Yes | Yes | Yes — ⚠️ **credit required** (credited in-app + here) | 2026-06-26 | Claude (automated) |
@@ -66,6 +72,15 @@ placeholder for a model, the emoji for an icon) — never to fake geometry.
 > Its embedded meta sets liberal *permission* flags (e.g. `allowExcessivelySexualUsage`)
 > — those describe what uses the author **permits**, not the model's content. We
 > use it only as a wholesome avatar. Swap in your own VRoid models anytime.
+
+> **Rejected — "Xmas Chibis" (Open Source Avatars):** the registry labels this
+> collection CC0 and the chibis are adorable + kid-safe, **but each file's own
+> embedded `VRM.meta` says `licenseName: Redistribution_Prohibited` and
+> `allowedUserName: ExplicitlyLicensedPerson`** (author "VIPE"). The same curator
+> marked their other collections `CC0 / Everyone` in-file, so this restriction
+> looks deliberate. Per our rule that **embedded VRM meta is authoritative**, we
+> do **not** bundle them. Only files whose embedded meta is genuinely `CC0 /
+> Everyone` (the six "fun" characters above) were added.
 
 **Every new row must answer all columns.** If you can't fill in the License,
 Commercial, Modify, and Redistribute columns with certainty, **do not add the
