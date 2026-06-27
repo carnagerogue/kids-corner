@@ -16,7 +16,7 @@
 // caller (AvatarStage) swaps in a 2D placeholder.
 // ---------------------------------------------------------------------------
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -32,7 +32,7 @@ import {
   type VRMAnimation,
 } from "@pixiv/three-vrm-animation";
 import type { Loadout3D } from "../../types";
-import { itemById, resolveAssetUrl } from "./AvatarManifest";
+import { itemById, resolveAssetUrl, useAvatarManifest } from "./AvatarManifest";
 import {
   ACCESSORY_PLACEMENT,
   buildAccessory,
@@ -684,6 +684,48 @@ function VrmCharacter({
 // shadow, gently-clamped orbit. No network HDRI (plain lights only).
 // ---------------------------------------------------------------------------
 
+/** Sets the 3D scene background to a 360° environment: a single equirectangular
+ * image, or 6 cube faces ([px,nx,py,ny,pz,nz]). Shows `fallbackColor` instantly
+ * while the image loads (and if it fails), so the stage is never blank. */
+function SceneBackground({
+  env,
+  fallbackColor,
+}: {
+  env: string | string[];
+  fallbackColor: string;
+}) {
+  const scene = useThree((s) => s.scene);
+  useEffect(() => {
+    let disposed = false;
+    let loaded: THREE.Texture | THREE.CubeTexture | null = null;
+    // Instant themed colour so there's no blank flash before the image arrives.
+    scene.background = new THREE.Color(fallbackColor);
+    const apply = (tex: THREE.Texture | THREE.CubeTexture) => {
+      if (disposed) {
+        tex.dispose();
+        return;
+      }
+      tex.colorSpace = THREE.SRGBColorSpace;
+      if (!Array.isArray(env)) {
+        (tex as THREE.Texture).mapping = THREE.EquirectangularReflectionMapping;
+      }
+      loaded = tex;
+      scene.background = tex;
+    };
+    if (Array.isArray(env)) {
+      new THREE.CubeTextureLoader().load(env, apply, undefined, () => {});
+    } else {
+      new THREE.TextureLoader().load(env, apply, undefined, () => {});
+    }
+    return () => {
+      disposed = true;
+      scene.background = null;
+      loaded?.dispose();
+    };
+  }, [env, fallbackColor, scene]);
+  return null;
+}
+
 export default function VRMAvatarViewer({
   modelUrl,
   loadout,
@@ -696,20 +738,32 @@ export default function VRMAvatarViewer({
   const handleError = useMemo(() => () => onErrorRef.current(), []);
 
   const [targetY, setTargetY] = useState(0.9);
+  // Subscribe to the catalog so the backdrop recomputes once the public
+  // manifest (which carries each room's `env`) finishes loading/merging.
+  const manifest = useAvatarManifest();
 
   // Themed stage colors from the equipped Room. The room's accent is lightened
   // toward white so the backdrop reads as a bright, themed space (space, jungle,
   // underwater…) without darkening the character. No room → the default cozy.
   const stage = useMemo(() => {
-    const room = itemById(loadout.room)?.color;
-    if (!room) return { bg: "#eef2fb", fog: "#eef2fb" };
+    const item = itemById(loadout.room);
+    // A 360° environment (equirect URL or 6 cube faces) wins when present.
+    const env = item?.env
+      ? Array.isArray(item.env)
+        ? item.env.map((u) => resolveAssetUrl(u))
+        : resolveAssetUrl(item.env)
+      : null;
+    const room = item?.color;
+    if (!room) return { bg: "#eef2fb", fog: "#eef2fb", env };
     const w = new THREE.Color("#ffffff");
     const c = new THREE.Color(room);
     return {
       bg: "#" + c.clone().lerp(w, 0.62).getHexString(),
       fog: "#" + c.clone().lerp(w, 0.4).getHexString(),
+      env,
     };
-  }, [loadout.room]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadout.room, manifest]);
 
   return (
     <Canvas
@@ -719,9 +773,16 @@ export default function VRMAvatarViewer({
       gl={{ antialias: true, powerPreference: "high-performance" }}
       style={{ touchAction: "pan-y" }}
     >
-      {/* Bright, themed backdrop (stage, not character). */}
-      <color attach="background" args={[stage.bg]} />
-      <fog attach="fog" args={[stage.fog, 7, 14]} />
+      {/* Backdrop (stage, not character): a real 360° environment when the
+          room provides one, else a bright themed color + fog. */}
+      {stage.env ? (
+        <SceneBackground env={stage.env} fallbackColor={stage.bg} />
+      ) : (
+        <>
+          <color attach="background" args={[stage.bg]} />
+          <fog attach="fog" args={[stage.fog, 7, 14]} />
+        </>
+      )}
 
       {/* Soft 3-point-ish lighting: ambient base + key + fill + cool rim. */}
       <hemisphereLight args={["#ffffff", "#c9d4ec", 0.9]} />

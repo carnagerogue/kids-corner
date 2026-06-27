@@ -53,6 +53,10 @@ export type AvatarItem = {
   assetPath?: string;
   /** Where a real icon PNG will live (may 404 → emoji fallback). */
   iconPath?: string;
+  /** Only on `room` items: a 360° environment for the 3D stage backdrop.
+   * A single equirectangular image URL, or 6 cube-face URLs in three.js order
+   * [px, nx, py, ny, pz, nz] = [right, left, top, bottom, front, back]. */
+  env?: string | string[];
   description?: string;
 };
 

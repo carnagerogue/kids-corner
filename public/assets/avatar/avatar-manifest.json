@@ -1337,7 +1337,15 @@
       "emoji": "🪐",
       "assetPath": "/assets/avatar/rooms/space-bedroom.glb",
       "iconPath": "/assets/avatar/icons/space-bedroom.png",
-      "description": "Sleep under the stars."
+      "description": "Sleep under the stars.",
+      "env": [
+        "/assets/avatar/env/space-right.webp",
+        "/assets/avatar/env/space-left.webp",
+        "/assets/avatar/env/space-top.webp",
+        "/assets/avatar/env/space-bot.webp",
+        "/assets/avatar/env/space-front.webp",
+        "/assets/avatar/env/space-back.webp"
+      ]
     },
     {
       "id": "cozy-loft",
@@ -1351,7 +1359,8 @@
       "emoji": "🛋️",
       "assetPath": "/assets/avatar/rooms/cozy-loft.glb",
       "iconPath": "/assets/avatar/icons/cozy-loft.png",
-      "description": "Warm, soft, and snug."
+      "description": "Warm, soft, and snug.",
+      "env": "/assets/avatar/env/room-cozy.webp"
     },
     {
       "id": "jungle-base",
@@ -1365,7 +1374,8 @@
       "emoji": "🌴",
       "assetPath": "/assets/avatar/rooms/jungle-base.glb",
       "iconPath": "/assets/avatar/icons/jungle-base.png",
-      "description": "Adventure HQ."
+      "description": "Adventure HQ.",
+      "env": "/assets/avatar/env/room-jungle.webp"
     },
     {
       "id": "underwater-lab",
@@ -1379,7 +1389,8 @@
       "emoji": "🐠",
       "assetPath": "/assets/avatar/rooms/underwater-lab.glb",
       "iconPath": "/assets/avatar/icons/underwater-lab.png",
-      "description": "Deep-sea discoveries."
+      "description": "Deep-sea discoveries.",
+      "env": "/assets/avatar/env/room-underwater.webp"
     },
     {
       "id": "castle-tower",
@@ -1394,7 +1405,8 @@
       "emoji": "🏰",
       "assetPath": "/assets/avatar/rooms/castle-tower.glb",
       "iconPath": "/assets/avatar/icons/castle-tower.png",
-      "description": "Rule from the top."
+      "description": "Rule from the top.",
+      "env": "/assets/avatar/env/room-castle.webp"
     },
     {
       "id": "idle-happy",
