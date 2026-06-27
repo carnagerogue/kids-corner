@@ -6,8 +6,50 @@ to add an item — the system is **manifest-driven**.
 
 > **TL;DR:** drop a file in the right folder → add one entry to
 > `public/assets/avatar/avatar-manifest.json` → it shows up in the shop. If the
-> file is missing or fails to load, the app falls back to the built-in procedural
-> character, so nothing ever breaks.
+> file is missing or fails to load, the app falls back to the learner's base
+> model (or the polished "Add VRoid model" placeholder), so nothing ever breaks.
+
+---
+
+## 0. Where to actually GET hair, outfits & accessories
+
+There is **no drop-in library of VRM hair/clothes** anywhere (incl. GitHub):
+hair and clothing are mesh-fitted to one character's body, so they can't be loose
+reusable files. There are **two kinds of asset, with two different sources:**
+
+### A. Hair, outfits, body & shoes → bake them into a "look model" (VRoid Studio)
+You dress a character in **VRoid Studio** and export the whole look as a `.vrm`;
+the app swaps to it when that outfit is equipped (naming + fallback details in
+[`models/README_ADD_VROID_MODELS_HERE.md`](public/assets/avatar/models/README_ADD_VROID_MODELS_HERE.md)).
+Where to get items to dress with:
+
+- **VRoid Studio's built-in presets** — free hair/clothes ship with the app. Fastest start, zero licensing worry.
+- **BOOTH** — https://booth.pm — the main marketplace for VRoid items. Search tips:
+  - Prefix queries with `vroid`: `vroid hair`, `vroid dress`, `vroid outfit`, `vroid hoodie`, `vroid shoes`.
+  - Sort/filter to **Free (¥0)** — there are thousands of free items.
+  - VRoid Studio v2's swappable-clothing format is **XWear** (`.xwear`) — also search `xwear`.
+- **VRoid Hub** — https://hub.vroid.com — downloadable full models (some free); usable as a base or directly as a look model.
+
+**Workflow:** open the kid in VRoid Studio → import the BOOTH/XWear item (or use a
+preset) → dress & adjust → **Export → VRM** → name it `<kidId>-<outfit>.vrm`
+(e.g. `claire-soccer.vrm`) → drop in `public/assets/avatar/models/` → equip that
+outfit in-app and it loads.
+
+### B. Attachable accessories (hats, glasses, backpacks, handhelds, pets) → standalone GLBs
+These ride a bone (not the body mesh), so they **do** exist as loose, reusable files:
+
+- **Poly Pizza** — https://poly.pizza — CC0 / CC-BY, direct `.glb` download (what we already use).
+- **Quaternius** — https://quaternius.com — CC0 packs.
+- **Kenney** — https://kenney.nl — CC0 packs.
+
+Drop the `.glb` in the matching `public/assets/avatar/<slot>/` folder and point the
+item's `assetPath` at it (§2). Head items auto-fit; props auto-scale to the rig.
+
+### Licensing + kid-safe — non-negotiable (full checklist in §3 / §6)
+- Open the item's **own** license/terms (BOOTH terms are often Japanese — translate). It must allow **app use** + **modification**.
+- We never let kids export the model, which sidesteps the redistribution question — keep it that way.
+- Kid-safe only: no mature/violent/weapon/scary content, no copyrighted character look-alikes. **Don't** import a copyrighted anime/game character into VRoid and export it — that is *not* license-clean.
+- Prefer **CC0**; log every asset in `ASSET_SOURCES.md`; add a credit if attribution is required.
 
 ---
 
