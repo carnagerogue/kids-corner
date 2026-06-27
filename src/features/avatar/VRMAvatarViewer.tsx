@@ -60,7 +60,7 @@ export type VRMAvatarViewerProps = {
 // multiplied over it reads vividly while dark detail (an eye's pupil, hair
 // shadow) stays dark. Returns null if the image can't be read (e.g. not yet
 // decoded / cross-origin tainted) — caller then falls back to a flat tint.
-function grayscaleColorMap(src: THREE.Texture): THREE.Texture | null {
+function grayscaleColorMap(src: THREE.Texture, gamma: number): THREE.Texture | null {
   const img = src.image as
     | HTMLImageElement
     | ImageBitmap
@@ -78,8 +78,9 @@ function grayscaleColorMap(src: THREE.Texture): THREE.Texture | null {
     const px = data.data;
     for (let i = 0; i < px.length; i += 4) {
       const lum = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
-      // gamma <1 lifts mid/iris tones (vivid) but keeps the darkest (pupil) dark
-      const v = 255 * Math.pow(lum / 255, 0.6);
+      // gamma <1 lifts tones so a tint reads vividly; lower gamma = brighter
+      // (used for eyes so the small iris shows the colour strongly).
+      const v = 255 * Math.pow(lum / 255, gamma);
       px[i] = px[i + 1] = px[i + 2] = v; // keep alpha at px[i+3]
     }
     ctx.putImageData(data, 0, 0);
@@ -158,6 +159,8 @@ function VrmCharacter({
   // so a chosen color shows vividly (color × luminance) while the texture's
   // light/dark detail — hair strands, the eye's pupil — is preserved.
   const grayMapsRef = useRef(new WeakMap<THREE.Material, THREE.Texture | null>());
+  // Original emissive per material, so the eye "glow" boost can be restored.
+  const origEmissiveRef = useRef(new WeakMap<THREE.Material, THREE.Color>());
 
   // ---- Imperative load (loadAsync is not Suspense-friendly) --------------
   useEffect(() => {
@@ -494,7 +497,11 @@ function VrmCharacter({
       if (!mesh.isMesh) return;
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       for (const m of mats) {
-        const mat = m as THREE.Material & { color?: THREE.Color; map?: THREE.Texture | null };
+        const mat = m as THREE.Material & {
+          color?: THREE.Color;
+          map?: THREE.Texture | null;
+          emissive?: THREE.Color;
+        };
         if (!mat?.color) continue;
         const name = (mat.name || "").toLowerCase();
         const cat: keyof typeof want | null = /iris|^eye$/.test(name)
@@ -517,19 +524,27 @@ function VrmCharacter({
         // dropping the texture entirely would erase the pupil). SKIN keeps its
         // texture and tints over it for natural shading.
         const useGray = cat === "hair" || cat === "eye";
+        if (cat === "eye" && mat.emissive && !origEmissiveRef.current.has(mat)) {
+          origEmissiveRef.current.set(mat, mat.emissive.clone());
+        }
         if (tint) {
           mat.color.set(tint);
           if (useGray) {
             let gray = grayMapsRef.current.get(mat);
             if (gray === undefined) {
               const om = origMapsRef.current.get(mat) ?? null;
-              gray = om ? grayscaleColorMap(om) : null;
+              // Eyes brighten harder (lower gamma) so the small iris reads bold.
+              gray = om ? grayscaleColorMap(om, cat === "eye" ? 0.4 : 0.6) : null;
               grayMapsRef.current.set(mat, gray); // cache (null = no/failed map)
             }
             if (gray && mat.map !== gray) {
               mat.map = gray;
               mat.needsUpdate = true;
             }
+          }
+          // Eyes also get a gentle self-glow in the chosen colour so it pops.
+          if (cat === "eye" && mat.emissive) {
+            mat.emissive.set(tint).multiplyScalar(0.45);
           }
         } else {
           mat.color.copy(origColorsRef.current.get(mat)!);
@@ -539,6 +554,10 @@ function VrmCharacter({
               mat.map = om;
               mat.needsUpdate = true;
             }
+          }
+          if (cat === "eye" && mat.emissive) {
+            const oe = origEmissiveRef.current.get(mat);
+            if (oe) mat.emissive.copy(oe);
           }
         }
       }
