@@ -386,13 +386,17 @@ function VrmCharacter({
           // plane). Rigs without eye bones fall back to eye height + a push
           // toward the model front so glasses don't sink inside a deeper face
           // (clamped so a shallow face doesn't float them off).
+          // Eye-bone rigs: exact. Otherwise estimate the FACE front from head
+          // depth (≈ half the head's vertical size in front of the head bone) —
+          // the whole-model front overshoots past the face (chest/hair), making
+          // glasses stick out. Cap at the model front as a safety net.
+          const faceZ = Math.min(
+            hb.pos.z + THREE.MathUtils.clamp((hb.top - hb.pos.y) * 0.33, 0.07, 0.105),
+            hb.front - 0.04,
+          );
           const target = hb.eyeMid
             ? new THREE.Vector3(hb.eyeMid.x, hb.eyeMid.y, hb.eyeMid.z + 0.03)
-            : new THREE.Vector3(
-                hb.pos.x,
-                hb.top - 0.15,
-                Math.max(hb.pos.z + 0.07, Math.min(hb.front - 0.03, hb.pos.z + 0.2)),
-              );
+            : new THREE.Vector3(hb.pos.x, hb.top - 0.15, faceZ);
           s = placeBind(obj, parent, target, hb);
         } else {
           s = place(obj, parent, p.offset, p.rotation);
