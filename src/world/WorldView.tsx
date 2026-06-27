@@ -356,7 +356,7 @@ const GRID = 5; // 5×5 cells → 40×40-unit neighbourhood
  * footprint (max of x/z) or a height (y). Returns a wrapper to transform. */
 function fit(
   proto: THREE.Object3D | undefined,
-  opts: { footprint?: number; height?: number },
+  opts: { footprint?: number; height?: number; flat?: boolean },
 ): THREE.Object3D | null {
   if (!proto) return null;
   const o = proto.clone(true);
@@ -368,10 +368,17 @@ function fit(
   const sx = b.max.x - b.min.x;
   const sy = b.max.y - b.min.y || 1;
   const sz = b.max.z - b.min.z;
-  const s = opts.height
-    ? opts.height / sy
-    : (opts.footprint ?? 1) / (Math.max(sx, sz) || 1);
-  o.scale.setScalar(s);
+  if (opts.flat) {
+    // Road tiles: stretch to the footprint on X/Z but keep their NATIVE thinness
+    // on Y so they lie flush with the ground (no thick raised/sunken slab).
+    const sxz = (opts.footprint ?? 1) / (Math.max(sx, sz) || 1);
+    o.scale.set(sxz, 1, sxz);
+  } else {
+    const s = opts.height
+      ? opts.height / sy
+      : (opts.footprint ?? 1) / (Math.max(sx, sz) || 1);
+    o.scale.setScalar(s);
+  }
   o.updateWorldMatrix(true, true);
   b = new THREE.Box3().setFromObject(o);
   o.position.x -= (b.min.x + b.max.x) / 2;
@@ -444,10 +451,10 @@ function SuburbTown({ groupRef }: { groupRef: React.RefObject<THREE.Group> }) {
         const x = cellX(c);
         const z = cellZ(r);
         if (isRoadC(c) && isRoadR(r)) {
-          const t = fit(src.road("road_crossroad"), { footprint: TILE });
+          const t = fit(src.road("road_crossroad"), { footprint: TILE, flat: true });
           if (t) out.push({ obj: t, x, z, rot: 0 });
         } else if (isRoadC(c) || isRoadR(r)) {
-          const t = fit(src.road("road_square"), { footprint: TILE });
+          const t = fit(src.road("road_square"), { footprint: TILE, flat: true });
           if (t) out.push({ obj: t, x, z, rot: isRoadR(r) ? Math.PI / 2 : 0 });
         } else {
           // Building lot: green lawn (the ground shows through) + a house facing
