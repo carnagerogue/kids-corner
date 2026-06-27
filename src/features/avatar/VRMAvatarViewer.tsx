@@ -60,7 +60,11 @@ export type VRMAvatarViewerProps = {
 // multiplied over it reads vividly while dark detail (an eye's pupil, hair
 // shadow) stays dark. Returns null if the image can't be read (e.g. not yet
 // decoded / cross-origin tainted) — caller then falls back to a flat tint.
-function grayscaleColorMap(src: THREE.Texture, gamma: number): THREE.Texture | null {
+function grayscaleColorMap(
+  src: THREE.Texture,
+  gamma: number,
+  lift = 0,
+): THREE.Texture | null {
   const img = src.image as
     | HTMLImageElement
     | ImageBitmap
@@ -80,7 +84,11 @@ function grayscaleColorMap(src: THREE.Texture, gamma: number): THREE.Texture | n
       const lum = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
       // gamma <1 lifts tones so a tint reads vividly; lower gamma = brighter
       // (used for eyes so the small iris shows the colour strongly).
-      const v = 255 * Math.pow(lum / 255, gamma);
+      // gamma lifts mid-tones; `lift` then remaps into [lift,1] so even a near
+      // black fabric still shows a clear mid-tone of the tint (dark clothes were
+      // staying dark — e.g. navy shorts barely shifted toward the picked colour).
+      const norm = Math.pow(lum / 255, gamma);
+      const v = 255 * (lift + (1 - lift) * norm);
       px[i] = px[i + 1] = px[i + 2] = v; // keep alpha at px[i+3]
     }
     ctx.putImageData(data, 0, 0);
@@ -549,8 +557,14 @@ function VrmCharacter({
               const om = origMapsRef.current.get(mat) ?? null;
               // Eyes + clothes brighten harder (lower gamma) so a small iris and
               // dark fabric still take the colour boldly.
+              // Cloth gets a brightness floor so dark garments (shorts, shoes)
+              // still take the colour boldly; eyes/hair keep full contrast.
               gray = om
-                ? grayscaleColorMap(om, cat === "eye" || cat === "cloth" ? 0.4 : 0.6)
+                ? grayscaleColorMap(
+                    om,
+                    cat === "eye" || cat === "cloth" ? 0.4 : 0.6,
+                    cat === "cloth" ? 0.5 : 0,
+                  )
                 : null;
               grayMapsRef.current.set(mat, gray); // cache (null = no/failed map)
             }

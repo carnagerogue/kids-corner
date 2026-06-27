@@ -22,18 +22,26 @@ Name each file `<kidId>-base.vrm`. The default learners use these ids:
 - `hailee-base.vrm`
 
 (For children you add later, the id is shown in the grown-up area; use
-`<that-id>-base.vrm`. If a learner has no per-kid file, the app falls back to a
-body-type model if present — `girl-base-01.vrm`, `boy-base-01.vrm`,
-`neutral-base-01.vrm` — otherwise the placeholder.)
+`<that-id>-base.vrm`. Model resolution order, highest priority first:
+`<kidId>-<outfit>.vrm` → the chosen **Body** character's model (the Boy/Girl/fun
+characters' `assetPath`, e.g. `claire-base.vrm`, `chubby-cat.vrm`) →
+`<kidId>-base.vrm` → otherwise the placeholder.)
 
 ## Per-outfit "look" models (swappable outfits / hair / body)
 
 Outfits, body type, hair **style** and shoes are *baked into the mesh* of a VRM
 — a single model has exactly one of each, so they can't be swapped at runtime
-like a hat. To make an outfit actually change the character, add a **separate
-full model per look**, named `<kidId>-<outfit>.vrm`. When a learner equips that
+like a hat.
+
+**What happens without a look-model:** equipping an outfit now **boldly recolors
+the whole worn outfit** (top + bottom + shoes) to that outfit's theme colour — so
+every outfit is a clearly different *colour theme* out of the box. What it can't
+do is change the garment *shape* (a T-shirt can't become a vest or a hoodie).
+
+To make an outfit change the actual **garment shape**, add a **separate full
+model per look**, named `<kidId>-<outfit>.vrm`. When a learner equips that
 outfit, the app loads the matching model (and re-attaches their hat/glasses/pet
-on top). **If the file doesn't exist, equipping the outfit just keeps the base
+on top). **If the file doesn't exist, equipping the outfit just recolors the base
 model — nothing breaks.** So you only make the looks you want.
 
 Outfit → filename (drop these in this folder):
