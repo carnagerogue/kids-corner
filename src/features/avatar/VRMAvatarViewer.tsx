@@ -726,6 +726,269 @@ function SceneBackground({
   return null;
 }
 
+/** A cheap two-stop vertical gradient set as the scene background (sky). */
+function gradientTexture(top: string, bottom: string): THREE.Texture {
+  const c = document.createElement("canvas");
+  c.width = 8;
+  c.height = 256;
+  const ctx = c.getContext("2d")!;
+  const g = ctx.createLinearGradient(0, 0, 0, 256);
+  g.addColorStop(0, top);
+  g.addColorStop(1, bottom);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 8, 256);
+  const t = new THREE.CanvasTexture(c);
+  t.mapping = THREE.EquirectangularReflectionMapping;
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+function GradientSky({ top, bottom }: { top: string; bottom: string }) {
+  const scene = useThree((s) => s.scene);
+  useEffect(() => {
+    const t = gradientTexture(top, bottom);
+    scene.background = t;
+    return () => {
+      scene.background = null;
+      t.dispose();
+    };
+  }, [top, bottom, scene]);
+  return null;
+}
+
+/** The disc the character stands on, tinted per theme. */
+function GroundDisc({ color }: { color: string }) {
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+      <circleGeometry args={[3.2, 64]} />
+      <meshStandardMaterial color={color} roughness={1} metalness={0} />
+    </mesh>
+  );
+}
+
+/** Low-poly stylized tree (trunk + 3 leafy blobs). */
+function Tree({
+  position,
+  scale = 1,
+  tint = 0,
+}: {
+  position: [number, number, number];
+  scale?: number;
+  tint?: number;
+}) {
+  const greens = ["#3f9b4f", "#54b85f", "#6cc96f"];
+  return (
+    <group position={position} scale={scale}>
+      <mesh position={[0, 0.45, 0]} castShadow>
+        <cylinderGeometry args={[0.09, 0.14, 0.9, 7]} />
+        <meshStandardMaterial color="#7a5230" roughness={1} />
+      </mesh>
+      {[0, 1, 2].map((i) => (
+        <mesh key={i} position={[0, 0.95 + i * 0.3, 0]} castShadow>
+          <icosahedronGeometry args={[0.46 - i * 0.09, 0]} />
+          <meshStandardMaterial
+            color={greens[(i + tint) % 3]}
+            roughness={1}
+            flatShading
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/** A glowing planet (optionally ringed) for the space scene. */
+function Planet({
+  position,
+  radius,
+  color,
+  ring = false,
+}: {
+  position: [number, number, number];
+  radius: number;
+  color: string;
+  ring?: boolean;
+}) {
+  return (
+    <group position={position}>
+      <mesh>
+        <sphereGeometry args={[radius, 28, 28]} />
+        <meshStandardMaterial
+          color={color}
+          roughness={0.6}
+          emissive={color}
+          emissiveIntensity={0.3}
+        />
+      </mesh>
+      {ring && (
+        <mesh rotation={[Math.PI / 2.4, 0.3, 0]}>
+          <torusGeometry args={[radius * 1.8, radius * 0.1, 12, 60]} />
+          <meshStandardMaterial
+            color="#e8d6a0"
+            emissive="#e8d6a0"
+            emissiveIntensity={0.25}
+            roughness={0.7}
+          />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+/** Rising bubbles for the underwater scene (gentle float). */
+function Bubbles() {
+  const ref = useRef<THREE.Group>(null);
+  const seeds = useMemo(
+    () =>
+      Array.from({ length: 14 }, (_, i) => ({
+        x: ((i * 37) % 70) / 10 - 3.5,
+        z: -1 - ((i * 53) % 30) / 10,
+        r: 0.05 + ((i * 17) % 10) / 100,
+        off: (i % 10) / 10,
+      })),
+    [],
+  );
+  useFrame((s) => {
+    const g = ref.current;
+    if (!g) return;
+    g.children.forEach((m, i) => {
+      const y = ((s.clock.elapsedTime * 0.4 + seeds[i].off) % 1) * 3;
+      m.position.y = y;
+      (m as THREE.Mesh).scale.setScalar(1 - y / 4);
+    });
+  });
+  return (
+    <group ref={ref}>
+      {seeds.map((b, i) => (
+        <mesh key={i} position={[b.x, 0, b.z]}>
+          <sphereGeometry args={[b.r, 10, 10]} />
+          <meshStandardMaterial
+            color="#bfeaff"
+            transparent
+            opacity={0.5}
+            roughness={0.2}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/** A ring of stone merlons + two towers for the castle scene. */
+function Castle() {
+  const merlons = Array.from({ length: 14 }, (_, i) => {
+    const a = (i / 14) * Math.PI * 2;
+    return [Math.cos(a) * 3.1, 0.25, Math.sin(a) * 3.1] as [
+      number,
+      number,
+      number,
+    ];
+  }).filter(([, , z]) => z < 1.6); // keep the front open
+  return (
+    <group>
+      {merlons.map((p, i) => (
+        <mesh key={i} position={p} castShadow>
+          <boxGeometry args={[0.45, 0.5, 0.3]} />
+          <meshStandardMaterial color="#9aa0ad" roughness={1} flatShading />
+        </mesh>
+      ))}
+      {[
+        [-2.7, -2.6],
+        [2.7, -2.6],
+      ].map(([x, z], i) => (
+        <group key={i} position={[x, 0, z]}>
+          <mesh position={[0, 1.1, 0]} castShadow>
+            <cylinderGeometry args={[0.5, 0.55, 2.2, 10]} />
+            <meshStandardMaterial color="#8b919e" roughness={1} />
+          </mesh>
+          <mesh position={[0, 2.5, 0]} castShadow>
+            <coneGeometry args={[0.62, 0.8, 10]} />
+            <meshStandardMaterial color="#b3556b" roughness={1} flatShading />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+/** Renders the themed 3D environment for the equipped room. */
+function RoomScene({
+  value,
+  env,
+  fallbackBg,
+}: {
+  value: string | null;
+  env: string | string[] | null;
+  fallbackBg: string;
+}) {
+  switch (value) {
+    case "space":
+      return (
+        <>
+          {env ? (
+            <SceneBackground env={env} fallbackColor="#05040f" />
+          ) : (
+            <GradientSky top="#10103a" bottom="#02010a" />
+          )}
+          <Planet position={[-2.7, 2.5, -4.5]} radius={0.55} color="#e08a3c" ring />
+          <Planet position={[2.7, 3.1, -5.5]} radius={0.42} color="#5b8def" />
+          <Planet position={[1.8, 1.4, -3.2]} radius={0.22} color="#cfcfe6" />
+          <GroundDisc color="#2a2a44" />
+        </>
+      );
+    case "jungle":
+      return (
+        <>
+          <GradientSky top="#8fd3ff" bottom="#d6f0c2" />
+          {(
+            [
+              [-3.2, -1.4, 1.1, 0],
+              [3.3, -1.7, 0.95, 1],
+              [-2.5, -3.1, 1.2, 2],
+              [2.7, -3.3, 1.05, 0],
+              [-3.9, 0.3, 0.9, 1],
+              [3.9, 0.2, 1.0, 2],
+              [0.2, -4.0, 1.25, 1],
+            ] as [number, number, number, number][]
+          ).map(([x, z, s, t], i) => (
+            <Tree key={i} position={[x, 0, z]} scale={s} tint={t} />
+          ))}
+          <GroundDisc color="#69b15a" />
+        </>
+      );
+    case "underwater":
+      return (
+        <>
+          <GradientSky top="#3aa0d6" bottom="#08365f" />
+          <Bubbles />
+          <GroundDisc color="#1d6f9e" />
+        </>
+      );
+    case "castle":
+      return (
+        <>
+          <GradientSky top="#ffd6a0" bottom="#b56a8f" />
+          <Castle />
+          <GroundDisc color="#8e93a0" />
+        </>
+      );
+    case "cozy":
+      return (
+        <>
+          <GradientSky top="#ffe7c9" bottom="#dcab85" />
+          <GroundDisc color="#caa477" />
+        </>
+      );
+    default:
+      return (
+        <>
+          <color attach="background" args={[fallbackBg]} />
+          <GroundDisc color="#dfe6f5" />
+        </>
+      );
+  }
+}
+
 export default function VRMAvatarViewer({
   modelUrl,
   loadout,
@@ -753,14 +1016,16 @@ export default function VRMAvatarViewer({
         ? item.env.map((u) => resolveAssetUrl(u))
         : resolveAssetUrl(item.env)
       : null;
+    const value = item?.value ?? null; // space | jungle | underwater | castle | cozy
     const room = item?.color;
-    if (!room) return { bg: "#eef2fb", fog: "#eef2fb", env };
+    if (!room) return { bg: "#eef2fb", fog: "#eef2fb", env, value };
     const w = new THREE.Color("#ffffff");
     const c = new THREE.Color(room);
     return {
       bg: "#" + c.clone().lerp(w, 0.62).getHexString(),
       fog: "#" + c.clone().lerp(w, 0.4).getHexString(),
       env,
+      value,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadout.room, manifest]);
@@ -773,16 +1038,8 @@ export default function VRMAvatarViewer({
       gl={{ antialias: true, powerPreference: "high-performance" }}
       style={{ touchAction: "pan-y" }}
     >
-      {/* Backdrop (stage, not character): a real 360° environment when the
-          room provides one, else a bright themed color + fog. */}
-      {stage.env ? (
-        <SceneBackground env={stage.env} fallbackColor={stage.bg} />
-      ) : (
-        <>
-          <color attach="background" args={[stage.bg]} />
-          <fog attach="fog" args={[stage.fog, 7, 14]} />
-        </>
-      )}
+      {/* Themed 3D environment for the equipped room (sky + props + ground). */}
+      <RoomScene value={stage.value} env={stage.env} fallbackBg={stage.bg} />
 
       {/* Soft 3-point-ish lighting: ambient base + key + fill + cool rim. */}
       <hemisphereLight args={["#ffffff", "#c9d4ec", 0.9]} />
@@ -807,11 +1064,7 @@ export default function VRMAvatarViewer({
         onReady={setTargetY}
       />
 
-      {/* Soft ground + grounded contact shadow (stage). */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-        <circleGeometry args={[3, 64]} />
-        <meshStandardMaterial color="#dfe6f5" roughness={1} metalness={0} />
-      </mesh>
+      {/* Grounded contact shadow (the themed ground disc is in RoomScene). */}
       <ContactShadows
         position={[0, 0.01, 0]}
         opacity={0.45}

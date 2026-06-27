@@ -73,8 +73,8 @@ export function AvatarStudio() {
             Froggy, Snowman, Hot Dog, Candy Cane, Happy Worm) via Open Source
             Avatars — Polygonal Mind &amp; ToxSam (CC0). Dress Girl / Princess /
             School Girl / School Boy are © VRoid Project (pixiv), released CC0.
-            Room backdrops from Screaming Brain Studios &amp; SpaceScape skyboxes
-            (CC0). Replace with your own VRoid models anytime.
+            Space backdrop from a SpaceScape CC0 skybox; other rooms are
+            procedural 3D scenes. Replace with your own VRoid models anytime.
           </p>
         </div>
 
