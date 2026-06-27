@@ -20,7 +20,7 @@ export function AvatarCustomizer({
   const econ = useAvatarEconomy(kidId);
   const manifest = useAvatarManifest();
   const { isFavorite, toggleFavorite } = useFavorites(kidId);
-  const [slot, setSlot] = useState<Avatar3DSlot>("outfit");
+  const [slot, setSlot] = useState<Avatar3DSlot>("base");
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
 

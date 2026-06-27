@@ -45,9 +45,12 @@ function modelCandidates(kidId: KidId, loadout: Loadout3D): string[] {
   if (outfit) {
     urls.push(resolveAssetUrl(`/assets/avatar/models/${kidId}-${outfit}.vrm`));
   }
-  urls.push(resolveAssetUrl(`/assets/avatar/models/${kidId}-base.vrm`));
-  const baseAsset = itemById(loadout.base)?.assetPath; // body-type fallback model
+  // The chosen body (Boy/Girl, or any base model) takes priority over the
+  // per-learner default, so picking a character actually changes the model.
+  const baseAsset = itemById(loadout.base)?.assetPath;
   if (baseAsset) urls.push(resolveAssetUrl(baseAsset));
+  // Per-learner default model (used until they pick a body).
+  urls.push(resolveAssetUrl(`/assets/avatar/models/${kidId}-base.vrm`));
   return urls;
 }
 

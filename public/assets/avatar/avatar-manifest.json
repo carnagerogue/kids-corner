@@ -82,7 +82,7 @@
   "items": [
     {
       "id": "girl-base-01",
-      "name": "Nova (Girl)",
+      "name": "Girl",
       "slot": "base",
       "rarity": "common",
       "price": 0,
@@ -90,13 +90,14 @@
       "bodyType": "girl",
       "color": "#ffd9c0",
       "emoji": "👧",
-      "assetPath": "/assets/avatar/models/girl-base-01.vrm",
+      "assetPath": "/assets/avatar/models/claire-base.vrm",
       "iconPath": "/assets/avatar/icons/girl-base-01.png",
-      "description": "A bright, ready-for-anything explorer."
+      "description": "Girl character (long hair).",
+      "value": "girl"
     },
     {
       "id": "boy-base-01",
-      "name": "Rex (Boy)",
+      "name": "Boy",
       "slot": "base",
       "rarity": "common",
       "price": 0,
@@ -104,23 +105,10 @@
       "bodyType": "boy",
       "color": "#ffd9c0",
       "emoji": "👦",
-      "assetPath": "/assets/avatar/models/boy-base-01.vrm",
+      "assetPath": "/assets/avatar/models/coby-base.vrm",
       "iconPath": "/assets/avatar/icons/boy-base-01.png",
-      "description": "A bold summer adventurer."
-    },
-    {
-      "id": "neutral-base-01",
-      "name": "Sky (Neutral)",
-      "slot": "base",
-      "rarity": "common",
-      "price": 0,
-      "unlockType": "starter",
-      "bodyType": "neutral",
-      "color": "#ffd9c0",
-      "emoji": "🧒",
-      "assetPath": "/assets/avatar/models/neutral-base-01.vrm",
-      "iconPath": "/assets/avatar/icons/neutral-base-01.png",
-      "description": "A friendly hero, your way."
+      "description": "Boy character (short hair).",
+      "value": "boy"
     },
     {
       "id": "skin-light",

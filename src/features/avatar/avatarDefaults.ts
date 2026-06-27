@@ -36,7 +36,7 @@ export function rarityMeta(r: Rarity3D | undefined) {
 
 /** Tab label + emoji for each customizer slot (display order = manifest.slots). */
 export const SLOT_TAB_META: Record<Avatar3DSlot, { label: string; emoji: string }> = {
-  base: { label: "Base", emoji: "🧍" },
+  base: { label: "Body", emoji: "🧍" },
   skinTone: { label: "Skin", emoji: "🎨" },
   hairStyle: { label: "Hair", emoji: "💇" },
   hairColor: { label: "Hair Color", emoji: "🌈" },
@@ -61,12 +61,12 @@ export const FREE_SLOTS: Avatar3DSlot[] = [
   "hairColor",
 ];
 
-/** Slots hidden from the customizer + shop because they can't actually change a
- * fixed imported VRM at runtime: body type, hair STYLE and shoes are baked-in
- * mesh geometry. (Hair/eye/skin COLOR and outfits DO work — colors recolor the
- * model's materials, outfits load a per-look model — so they stay visible.) To
- * change body/hair-style/shoes, bake them into a per-look `{kid}-{outfit}.vrm`. */
-export const HIDDEN_SLOTS = new Set<Avatar3DSlot>(["base", "hairStyle", "shoes"]);
+/** Slots hidden from the customizer + shop because they can't change a fixed
+ * imported VRM at runtime: hair STYLE and shoes are baked-in mesh geometry.
+ * (Body type DOES work now — picking Boy/Girl swaps to that base model; hair/
+ * eye/skin COLOR recolor materials; outfits load a per-look model.) Extra hair
+ * styles need extra models (bake them into a `{kid}-{outfit}.vrm` look). */
+export const HIDDEN_SLOTS = new Set<Avatar3DSlot>(["hairStyle", "shoes"]);
 
 /** A shop section: a heading + a predicate over catalog items. */
 export type ShopSection = {
