@@ -6,7 +6,7 @@
 import { useState } from "react";
 import type { AvatarItem } from "./avatarTypes";
 import type { AvatarEconomy } from "./AvatarEconomy";
-import { rarityMeta } from "./avatarDefaults";
+import { rarityMeta, REMOVABLE_SLOTS } from "./avatarDefaults";
 import { resolveAssetUrl } from "./AvatarManifest";
 
 function ItemIcon({ item }: { item: AvatarItem }) {
@@ -67,9 +67,20 @@ export function ItemCard({
     econ.equip(item.slot, item.id);
     flash();
   };
+  const handleRemove = () => {
+    econ.unequip(item.slot);
+    flash();
+  };
 
   let button: React.ReactNode;
-  if (equipped) {
+  if (equipped && REMOVABLE_SLOTS.has(item.slot)) {
+    // Optional add-on that's on → let the learner take it back off.
+    button = (
+      <button className="ic__btn is-remove" onClick={handleRemove}>
+        ✕ Take off
+      </button>
+    );
+  } else if (equipped) {
     button = (
       <button className="ic__btn is-equipped" disabled>
         ✓ Equipped

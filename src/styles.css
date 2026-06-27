@@ -5240,6 +5240,13 @@ body.fun-cursor-on * {
   background: #e7f9ee;
   color: #18794e;
 }
+.ic__btn.is-remove {
+  background: #fdecec;
+  color: #c0362c;
+}
+.ic__btn.is-remove:hover:not(:disabled) {
+  background: #fbdcdc;
+}
 .ic__btn.is-need {
   background: #f3eef8;
   color: #a08bbb;
@@ -5384,6 +5391,11 @@ body.fun-cursor-on * {
   background: var(--kid, #8b5cf6);
   color: #fff;
   border-color: transparent;
+}
+.ghostbtn.is-takeoff {
+  color: #c0362c;
+  border-color: #f3c4c0;
+  background: #fdecec;
 }
 .saverow {
   display: inline-flex;

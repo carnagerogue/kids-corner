@@ -68,6 +68,19 @@ export const FREE_SLOTS: Avatar3DSlot[] = [
  * styles need extra models (bake them into a `{kid}-{outfit}.vrm` look). */
 export const HIDDEN_SLOTS = new Set<Avatar3DSlot>(["hairStyle", "shoes"]);
 
+/** Slots a learner can take OFF (back to nothing). Optional add-ons — unlike a
+ * body/skin/eyes/hair/room/emote, which you always have exactly one of. The
+ * customizer shows a "Take off" control for the equipped item in these slots. */
+export const REMOVABLE_SLOTS = new Set<Avatar3DSlot>([
+  "outfit",
+  "hat",
+  "glasses",
+  "backpack",
+  "handheld",
+  "pet",
+  "aura",
+]);
+
 /** A shop section: a heading + a predicate over catalog items. */
 export type ShopSection = {
   id: string;

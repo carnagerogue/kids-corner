@@ -8,7 +8,12 @@ import { useAvatarEconomy } from "./AvatarEconomy";
 import { useAvatarManifest } from "./AvatarManifest";
 import { useFavorites } from "./AvatarSaveSystem";
 import { ItemCard } from "./AvatarItemCard";
-import { HIDDEN_SLOTS, PRESET_TEMPLATES, SLOT_TAB_META } from "./avatarDefaults";
+import {
+  HIDDEN_SLOTS,
+  PRESET_TEMPLATES,
+  REMOVABLE_SLOTS,
+  SLOT_TAB_META,
+} from "./avatarDefaults";
 
 export function AvatarCustomizer({
   kidId,
@@ -26,6 +31,7 @@ export function AvatarCustomizer({
 
   const items = manifest.items.filter((i) => i.slot === slot);
   const tab = SLOT_TAB_META[slot];
+  const canTakeOff = REMOVABLE_SLOTS.has(slot) && !!econ.equippedItem(slot);
 
   const doSave = () => {
     econ.saveLoadout(name.trim() || tab.label + " Look", "⭐");
@@ -83,6 +89,15 @@ export function AvatarCustomizer({
               {tab.emoji} {tab.label}
             </h4>
             <div className="itemgrid__actions">
+              {canTakeOff && !saving && (
+                <button
+                  className="ghostbtn is-takeoff"
+                  onClick={() => econ.unequip(slot)}
+                  title={`Take off ${tab.label.toLowerCase()}`}
+                >
+                  ✕ Take off
+                </button>
+              )}
               {!saving ? (
                 <button className="ghostbtn" onClick={() => setSaving(true)}>
                   💾 Save look
