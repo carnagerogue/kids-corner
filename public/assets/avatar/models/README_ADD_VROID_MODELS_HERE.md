@@ -84,13 +84,24 @@ Full walkthrough, optimization tips, and license rules:
 
 ## Keep it fast (Chromebooks)
 
-Optimize before shipping so it stays smooth:
+VRoid VRMs are texture-heavy (often 15–20 MB). Shrink them before shipping.
+
+> ⚠️ **Do NOT run `gltf-transform optimize` (or `prune`) on a VRM.** Those tools
+> don't understand the `VRM` extension, so they silently drop the meta/humanoid/
+> blendshape/springbone data (and `prune` deletes textures it thinks are unused),
+> leaving a broken model. Geometry compression (Draco/meshopt) also won't load —
+> the app's loader has no decoder for it.
+
+Instead, optimize **textures only** (safe — it never touches the glTF/VRM JSON):
 
 ```bash
-npx gltf-transform optimize claire-base.vrm claire-base.vrm
+python3 scripts/optimize-vrm-textures.py input.vrm output.vrm
 ```
 
-Aim for **< ~8 MB** and **< ~60k triangles** per model.
+This resizes textures to ≤1024px and re-encodes them to WebP, typically cutting
+a model ~75% (e.g. 19 MB → ~5 MB) with no visible quality loss. It preserves the
+VRM extension, blendshapes, springbones, and license meta byte-for-byte. Aim for
+**< ~8 MB** per model.
 
 ## If a model fails to load
 
