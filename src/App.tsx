@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useApp } from "./store/AppContext";
 import { getKid } from "./store/selectors";
 import { readSession, writeSession } from "./store/storage";
@@ -19,12 +19,15 @@ import { MessagesView } from "./views/MessagesView";
 import { ParentZone } from "./views/ParentZone";
 import type { KidId } from "./types";
 
+const WorldView = lazy(() => import("./world/WorldView"));
+
 export type TabId =
   | "home"
   | "schedule"
   | "applications"
   | "missions"
   | "avatar"
+  | "world"
   | "trophies"
   | "messages"
   | "parent";
@@ -35,6 +38,7 @@ export const TABS: { id: TabId; label: string; emoji: string }[] = [
   { id: "applications", label: "Applications", emoji: "🧭" },
   { id: "missions", label: "Missions", emoji: "🎯" },
   { id: "avatar", label: "Avatar", emoji: "🧢" },
+  { id: "world", label: "World", emoji: "🌍" },
   { id: "trophies", label: "Trophies", emoji: "🏆" },
   { id: "messages", label: "Messages", emoji: "💬" },
 ];
@@ -122,6 +126,13 @@ export function App() {
         {tab === "applications" && <ApplicationsView />}
         {tab === "missions" && <MissionBoard />}
         {tab === "avatar" && <AvatarStudio />}
+        {tab === "world" && (
+          <Suspense
+            fallback={<div className="world world--msg">Loading the World… 🌍</div>}
+          >
+            <WorldView />
+          </Suspense>
+        )}
         {tab === "trophies" && <TrophyRoom />}
         {tab === "messages" && <MessagesView />}
         {tab === "parent" && <ParentZone onExit={() => setTab("home")} />}
