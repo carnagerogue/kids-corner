@@ -258,23 +258,75 @@ function WorldScene() {
       <hemisphereLight args={["#ffffff", "#9fd6a0", 1.1]} />
       <directionalLight position={[8, 14, 6]} intensity={1.5} color="#fff6e8" />
       <directionalLight position={[-5, 4, -3]} intensity={0.45} color="#bcd9ff" />
-      {/* grassy ground */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-        <circleGeometry args={[30, 64]} />
-        <meshStandardMaterial color="#74bd62" roughness={1} />
-      </mesh>
-      {/* a soft plaza disc in the middle */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-        <circleGeometry args={[7, 48]} />
-        <meshStandardMaterial color="#d8c79a" roughness={1} />
-      </mesh>
-      {WORLD_PROPS.length === 0 &&
+      {/* Our procedural ground — hidden when a preloaded map brings its own. */}
+      {!WORLD_MAP?.hasGround && (
+        <>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+            <circleGeometry args={[30, 64]} />
+            <meshStandardMaterial color="#74bd62" roughness={1} />
+          </mesh>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+            <circleGeometry args={[7, 48]} />
+            <meshStandardMaterial color="#d8c79a" roughness={1} />
+          </mesh>
+        </>
+      )}
+      {!WORLD_MAP &&
+        WORLD_PROPS.length === 0 &&
         trees.map((p, i) => <Tree key={i} position={p} />)}
     </>
   );
 }
 
-/** All the village props in one group so the camera can raycast against them. */
+// A single pre-built world map GLB (village/town scene). When set, it replaces
+// the hand-placed prop village + procedural ground. scale/y/spawn from the
+// asset's integration notes. null → use the WORLD_PROPS village.
+type WorldMapDef = {
+  url: string;
+  scale: number;
+  y: number;
+  /** Where the avatar should start on this map. */
+  spawn: { x: number; z: number };
+  /** Half-extent the avatar may roam on this map. */
+  bound: number;
+  /** Whether this map already provides its own ground (hide ours). */
+  hasGround: boolean;
+};
+// Set the return to a WorldMapDef to load a single pre-built map GLB instead of
+// the hand-placed prop village. (A function so TS keeps the union type.)
+function getWorldMap(): WorldMapDef | null {
+  return null;
+}
+const WORLD_MAP = getWorldMap();
+const ROAM = WORLD_MAP ? WORLD_MAP.bound : BOUND;
+
+/** Loads + adds a single pre-built map GLB. */
+function PreloadedMap({ map }: { map: WorldMapDef }) {
+  const [scene, setScene] = useState<THREE.Object3D | null>(null);
+  useEffect(() => {
+    let alive = true;
+    new GLTFLoader()
+      .loadAsync(resolveAssetUrl(map.url))
+      .then((g) => {
+        if (!alive) return;
+        g.scene.traverse((o) => {
+          o.frustumCulled = false;
+        });
+        setScene(g.scene);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [map.url]);
+  if (!scene) return null;
+  return (
+    <primitive object={scene} scale={map.scale} position={[0, map.y, 0]} />
+  );
+}
+
+/** The world geometry the camera raycasts against — either a preloaded map GLB
+ * or the hand-placed prop village. */
 function VillageProps({
   groupRef,
 }: {
@@ -282,9 +334,13 @@ function VillageProps({
 }) {
   return (
     <group ref={groupRef}>
-      {WORLD_PROPS.map((p, i) => (
-        <PropField key={i} url={p.url} height={p.height} items={p.items} />
-      ))}
+      {WORLD_MAP ? (
+        <PreloadedMap map={WORLD_MAP} />
+      ) : (
+        WORLD_PROPS.map((p, i) => (
+          <PropField key={i} url={p.url} height={p.height} items={p.items} />
+        ))
+      )}
     </group>
   );
 }
@@ -389,6 +445,8 @@ function Rig({
   const dirv = useMemo(() => new THREE.Vector3(), []);
   const ray = useMemo(() => new THREE.Raycaster(), []);
   const inited = useRef(false);
+  const dragging = useRef(false);
+  const wired = useRef(false);
 
   useEffect(() => {
     const isTyping = () => {
@@ -432,8 +490,8 @@ function Rig({
     const moving = move.lengthSq() > 1e-6;
     if (moving) {
       move.normalize();
-      s.x = clamp(s.x + move.x * SPEED * dt, -BOUND, BOUND);
-      s.z = clamp(s.z + move.z * SPEED * dt, -BOUND, BOUND);
+      s.x = clamp(s.x + move.x * SPEED * dt, -ROAM, ROAM);
+      s.z = clamp(s.z + move.z * SPEED * dt, -ROAM, ROAM);
       // Face the way we move (VRM forward is +Z in this pipeline).
       s.heading = Math.atan2(move.x, move.z);
       updateSelf({ x: s.x, z: s.z, heading: s.heading, moving: true });
@@ -446,6 +504,12 @@ function Rig({
     // user's drag-to-rotate + scroll-to-zoom stay relative to the avatar.
     const c = controls.current;
     if (c) {
+      // Track manual drag so the chase-cam pauses while the player free-looks.
+      if (!wired.current) {
+        wired.current = true;
+        c.addEventListener("start", () => (dragging.current = true));
+        c.addEventListener("end", () => (dragging.current = false));
+      }
       tgt.set(s.x, 1.2, s.z);
       if (!inited.current) {
         // Establish a nice third-person orbit distance once.
@@ -454,6 +518,14 @@ function Rig({
         camera.position.set(s.x, tgt.y + 9, s.z + 5.5);
       } else {
         c.target.lerp(tgt, Math.min(1, dt * 10));
+      }
+      // Chase-cam: while moving (and not free-looking) ease the camera around
+      // to sit BEHIND the avatar, so it follows from behind like an MMORPG.
+      if (moving && !dragging.current) {
+        const cur = c.getAzimuthalAngle();
+        let d = s.heading + Math.PI - cur;
+        d = Math.atan2(Math.sin(d), Math.cos(d));
+        c.setAzimuthalAngle(cur + d * Math.min(1, dt * 1.4));
       }
       c.update();
 
@@ -502,7 +574,11 @@ export default function WorldView() {
   const loadout = currentLoadout(state, kidId);
   const canWebgl = useMemo(() => webglAvailable(), []);
 
-  const self = useRef<Pose>({ ...spawnFor(kidId), heading: 0, moving: false });
+  const self = useRef<Pose>({
+    ...(WORLD_MAP ? WORLD_MAP.spawn : spawnFor(kidId)),
+    heading: 0,
+    moving: false,
+  });
   const propsRef = useRef<THREE.Group>(null);
   const [selfUrl, setSelfUrl] = useState<string | null | undefined>(undefined);
   const [players, setPlayers] = useState<PlayerState[]>([]);
