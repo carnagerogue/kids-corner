@@ -9,7 +9,7 @@ import { useAvatarEconomy } from "./AvatarEconomy";
 import { useAvatarManifest } from "./AvatarManifest";
 import { useFavorites } from "./AvatarSaveSystem";
 import { ItemCard } from "./AvatarItemCard";
-import { SHOP_SECTIONS } from "./avatarDefaults";
+import { HIDDEN_SLOTS, SHOP_SECTIONS } from "./avatarDefaults";
 import type { AvatarItem } from "./avatarTypes";
 
 /** Deterministically pick `n` items for today's deals. */
@@ -38,7 +38,11 @@ export function AvatarShop({
 
   const deals = useMemo(() => {
     const buyable = manifest.items.filter(
-      (i) => i.price > 0 && i.unlockType === "shop" && !econ.owns(i),
+      (i) =>
+        i.price > 0 &&
+        i.unlockType === "shop" &&
+        !econ.owns(i) &&
+        !HIDDEN_SLOTS.has(i.slot),
     );
     return pickDeals(buyable, 3).map((i) => ({
       item: i,
@@ -77,7 +81,9 @@ export function AvatarShop({
       )}
 
       {SHOP_SECTIONS.map((sec) => {
-        const items = manifest.items.filter(sec.match);
+        const items = manifest.items.filter(
+          (i) => sec.match(i) && !HIDDEN_SLOTS.has(i.slot),
+        );
         if (!items.length) return null;
         return (
           <section className="shop__section" key={sec.id}>

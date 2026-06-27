@@ -61,6 +61,13 @@ export const FREE_SLOTS: Avatar3DSlot[] = [
   "hairColor",
 ];
 
+/** Slots hidden from the customizer + shop because they can't actually change a
+ * fixed imported VRM at runtime: body type, hair STYLE and shoes are baked-in
+ * mesh geometry. (Hair/eye/skin COLOR and outfits DO work — colors recolor the
+ * model's materials, outfits load a per-look model — so they stay visible.) To
+ * change body/hair-style/shoes, bake them into a per-look `{kid}-{outfit}.vrm`. */
+export const HIDDEN_SLOTS = new Set<Avatar3DSlot>(["base", "hairStyle", "shoes"]);
+
 /** A shop section: a heading + a predicate over catalog items. */
 export type ShopSection = {
   id: string;

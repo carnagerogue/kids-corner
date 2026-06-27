@@ -8,7 +8,7 @@ import { useAvatarEconomy } from "./AvatarEconomy";
 import { useAvatarManifest } from "./AvatarManifest";
 import { useFavorites } from "./AvatarSaveSystem";
 import { ItemCard } from "./AvatarItemCard";
-import { PRESET_TEMPLATES, SLOT_TAB_META } from "./avatarDefaults";
+import { HIDDEN_SLOTS, PRESET_TEMPLATES, SLOT_TAB_META } from "./avatarDefaults";
 
 export function AvatarCustomizer({
   kidId,
@@ -57,7 +57,7 @@ export function AvatarCustomizer({
         <div className="slotrail" role="tablist" aria-label="Customize slot">
           {manifest.slots.map((s) => {
             const meta = SLOT_TAB_META[s.key];
-            if (!meta) return null;
+            if (!meta || HIDDEN_SLOTS.has(s.key)) return null;
             const equipped = econ.equippedItem(s.key);
             return (
               <button

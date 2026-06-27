@@ -108,6 +108,10 @@ function VrmCharacter({
     front: number; // model's front (+Z) in the bind pose — glasses sit near it
     eyeMid: THREE.Vector3 | null; // eye-bone midpoint if the rig has eye bones
   } | null>(null);
+  // Original material colors, so skin/hair/eye recolor can be restored to the
+  // model's defaults. WeakMap → entries vanish when a swapped-out model's
+  // materials are GC'd.
+  const origColorsRef = useRef(new WeakMap<THREE.Material, THREE.Color>());
 
   // ---- Imperative load (loadAsync is not Suspense-friendly) --------------
   useEffect(() => {
@@ -428,6 +432,43 @@ function VrmCharacter({
     loadout.aura,
   ]);
 
+  // ---- Recolor: tint the model's skin / hair / eye materials -------------
+  // Geometry can't swap on a fixed VRM, but COLORS can: VRoid + most rigs name
+  // their materials (…_SKIN / _HAIR / EyeIris…, or body / hair / eye), so we
+  // recolor those by name. We remember each material's original color and either
+  // apply the chosen tint or restore the default. (Tint multiplies the base
+  // texture, so it shifts the existing color rather than fully repainting it —
+  // great for skin tones, a softer shift for vivid hair colors.)
+  useEffect(() => {
+    if (!vrm) return;
+    const pick = (slot: keyof Loadout3D) => itemById(loadout[slot])?.color;
+    const want = { eye: pick("eyeColor"), hair: pick("hairColor"), skin: pick("skinTone") };
+    vrm.scene.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const m of mats) {
+        const mat = m as THREE.Material & { color?: THREE.Color };
+        if (!mat?.color) continue;
+        const name = (mat.name || "").toLowerCase();
+        const cat: keyof typeof want | null = /iris|^eye$/.test(name)
+          ? "eye"
+          : /hair/.test(name)
+            ? "hair"
+            : /skin|body/.test(name)
+              ? "skin"
+              : null;
+        if (!cat) continue;
+        if (!origColorsRef.current.has(mat)) {
+          origColorsRef.current.set(mat, mat.color.clone());
+        }
+        const tint = want[cat];
+        if (tint) mat.color.set(tint);
+        else mat.color.copy(origColorsRef.current.get(mat)!);
+      }
+    });
+  }, [vrm, loadout.skinTone, loadout.hairColor, loadout.eyeColor]);
+
   // ---- Per-frame: rest pose → active emote, then vrm.update(delta) -------
   useFrame(({ clock }, delta) => {
     if (!vrm) return;
@@ -530,6 +571,20 @@ export default function VRMAvatarViewer({
 
   const [targetY, setTargetY] = useState(0.9);
 
+  // Themed stage colors from the equipped Room. The room's accent is lightened
+  // toward white so the backdrop reads as a bright, themed space (space, jungle,
+  // underwater…) without darkening the character. No room → the default cozy.
+  const stage = useMemo(() => {
+    const room = itemById(loadout.room)?.color;
+    if (!room) return { bg: "#eef2fb", fog: "#eef2fb" };
+    const w = new THREE.Color("#ffffff");
+    const c = new THREE.Color(room);
+    return {
+      bg: "#" + c.clone().lerp(w, 0.62).getHexString(),
+      fog: "#" + c.clone().lerp(w, 0.4).getHexString(),
+    };
+  }, [loadout.room]);
+
   return (
     <Canvas
       shadows
@@ -538,9 +593,9 @@ export default function VRMAvatarViewer({
       gl={{ antialias: true, powerPreference: "high-performance" }}
       style={{ touchAction: "pan-y" }}
     >
-      {/* Bright, cozy backdrop (stage, not character). */}
-      <color attach="background" args={["#eef2fb"]} />
-      <fog attach="fog" args={["#eef2fb", 7, 14]} />
+      {/* Bright, themed backdrop (stage, not character). */}
+      <color attach="background" args={[stage.bg]} />
+      <fog attach="fog" args={[stage.fog, 7, 14]} />
 
       {/* Soft 3-point-ish lighting: ambient base + key + fill + cool rim. */}
       <hemisphereLight args={["#ffffff", "#c9d4ec", 0.9]} />
