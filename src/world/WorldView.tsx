@@ -303,7 +303,7 @@ function getWorldMap(): WorldMapDef | null {
 const WORLD_MAP = getWorldMap();
 // Cozy-suburb grid town assembled from the CC0 road kit + house/tree props.
 const SUBURB = true;
-const ROAM = WORLD_MAP ? WORLD_MAP.bound : SUBURB ? 20 : BOUND;
+const ROAM = WORLD_MAP ? WORLD_MAP.bound : SUBURB ? 27 : BOUND;
 
 /** Loads + adds a single pre-built map GLB. */
 function PreloadedMap({ map }: { map: WorldMapDef }) {
@@ -350,7 +350,11 @@ function PreloadedMap({ map }: { map: WorldMapDef }) {
 
 // --- Suburb: a grid town assembled from a CC0 road kit + house/tree props ----
 const TILE = 8; // world size of one road tile (≈5 avatar-widths, a 2-lane road)
-const GRID = 5; // 5×5 cells → 40×40-unit neighbourhood
+const GRID = 7; // 7×7 cells → 56×56-unit neighbourhood
+
+/** Solid building footprints (circles) the avatar can't walk through. Populated
+ * by SuburbTown when it lays out the town; read by the controller for collision. */
+const BUILDING_COLLIDERS: { x: number; z: number; r: number }[] = [];
 
 /** Normalize a cloned prototype: centered on x/z, base on y=0, sized either to a
  * footprint (max of x/z) or a height (y). Returns a wrapper to transform. */
@@ -395,12 +399,13 @@ type Placed = {
   x: number;
   z: number;
   rot: number;
+  y?: number;
 };
 
 function SuburbTown({ groupRef }: { groupRef: React.RefObject<THREE.Group> }) {
   const [src, setSrc] = useState<{
     road: (n: string) => THREE.Object3D | undefined;
-    house: THREE.Object3D;
+    builds: THREE.Object3D[];
     tree: THREE.Object3D;
     bench: THREE.Object3D;
     flowers: THREE.Object3D;
@@ -412,11 +417,13 @@ function SuburbTown({ groupRef }: { groupRef: React.RefObject<THREE.Group> }) {
     Promise.all([
       L("/assets/world/road-kit.glb"),
       L("/assets/world/house-modern.glb"),
+      L("/assets/world/house.glb"),
+      L("/assets/world/shop.glb"),
       L("/assets/world/tree.glb"),
       L("/assets/world/bench.glb"),
       L("/assets/world/flowers.glb"),
     ])
-      .then(([rk, hs, tr, bn, fl]) => {
+      .then(([rk, h1, h2, sh, tr, bn, fl]) => {
         if (!alive) return;
         const named = new Map<string, THREE.Object3D>();
         rk.scene.traverse((o) => {
@@ -425,7 +432,7 @@ function SuburbTown({ groupRef }: { groupRef: React.RefObject<THREE.Group> }) {
         });
         setSrc({
           road: (n) => named.get(n),
-          house: hs.scene,
+          builds: [h1.scene, h2.scene, sh.scene],
           tree: tr.scene,
           bench: bn.scene,
           flowers: fl.scene,
@@ -440,54 +447,77 @@ function SuburbTown({ groupRef }: { groupRef: React.RefObject<THREE.Group> }) {
   const placed = useMemo<Placed[]>(() => {
     if (!src) return [];
     const out: Placed[] = [];
+    BUILDING_COLLIDERS.length = 0;
     const off = ((GRID - 1) / 2) * TILE; // recenter grid on origin
     const cellX = (c: number) => c * TILE - off;
     const cellZ = (r: number) => r * TILE - off;
-    const isRoadC = (c: number) => c === 1 || c === 3;
-    const isRoadR = (r: number) => r === 1 || r === 3;
+    const isRoad = (i: number) => i % 2 === 1; // streets on odd rows/cols
 
+    let plot = 0;
     for (let c = 0; c < GRID; c++) {
       for (let r = 0; r < GRID; r++) {
         const x = cellX(c);
         const z = cellZ(r);
-        if (isRoadC(c) && isRoadR(r)) {
-          const t = fit(src.road("road_crossroad"), { footprint: TILE, flat: true });
+        const roadC = isRoad(c);
+        const roadR = isRoad(r);
+        if (roadC && roadR) {
+          // Lined 4-way intersection.
+          const t = fit(src.road("road_crossroadLine"), {
+            footprint: TILE,
+            flat: true,
+          });
           if (t) out.push({ obj: t, x, z, rot: 0 });
-        } else if (isRoadC(c) || isRoadR(r)) {
-          const t = fit(src.road("road_square"), { footprint: TILE, flat: true });
-          if (t) out.push({ obj: t, x, z, rot: isRoadR(r) ? Math.PI / 2 : 0 });
-        } else {
-          // Building lot: green lawn (the ground shows through) + a house facing
-          // the town centre, a tree, and a flower bed.
-          const h = fit(src.house, { height: 5 });
-          if (h)
-            out.push({
-              obj: h,
-              x,
-              z,
-              rot: Math.atan2(-x, -z), // face origin/town centre
+          // A painted crosswalk on each of the four approaches.
+          for (let k = 0; k < 4; k++) {
+            const cw = fit(src.road("road_crossing"), {
+              footprint: TILE * 0.95,
+              flat: true,
             });
+            if (cw) {
+              const a = (k * Math.PI) / 2;
+              out.push({
+                obj: cw,
+                x: x + Math.sin(a) * (TILE * 0.42),
+                z: z + Math.cos(a) * (TILE * 0.42),
+                rot: a,
+                y: 0.12, // lift the flat crosswalk decal above the road surface
+              });
+            }
+          }
+        } else if (roadC || roadR) {
+          // Straight road with painted lane lines.
+          const t = fit(src.road("road_square"), { footprint: TILE, flat: true });
+          if (t) out.push({ obj: t, x, z, rot: roadR ? Math.PI / 2 : 0 });
+        } else {
+          // Building lot: a building (varied) facing the nearest street, a tree,
+          // a flower bed — and a solid collider so the kid walks around it.
+          const proto = src.builds[plot % src.builds.length];
+          plot++;
+          const h = fit(proto, { height: 5 });
+          if (h) out.push({ obj: h, x, z, rot: Math.atan2(-x, -z) });
+          BUILDING_COLLIDERS.push({ x, z, r: 3.1 });
           const tr2 = fit(src.tree, { height: 4.5 });
-          if (tr2)
-            out.push({ obj: tr2, x: x + 2.6, z: z + 2.6, rot: 0 });
+          if (tr2) out.push({ obj: tr2, x: x + 2.7, z: z + 2.7, rot: 0 });
           const fl = fit(src.flowers, { height: 0.6 });
-          if (fl) out.push({ obj: fl, x: x - 2.4, z: z + 2.4, rot: 0 });
+          if (fl) out.push({ obj: fl, x: x - 2.5, z: z + 2.5, rot: 0 });
         }
       }
     }
-    // Lamp posts + benches at the four crossroads' corners.
-    for (const [c, r] of [
-      [1, 1],
-      [3, 1],
-      [1, 3],
-      [3, 3],
-    ]) {
-      const x = cellX(c);
-      const z = cellZ(r);
-      const lamp = fit(src.road("light_square"), { height: 4.5 });
-      if (lamp) out.push({ obj: lamp, x: x + 3.6, z: z + 3.6, rot: 0 });
-      const bench = fit(src.bench, { footprint: 1.8 });
-      if (bench) out.push({ obj: bench, x: x - 3.4, z: z + 3.6, rot: 0 });
+    // Lamp posts + benches along the streets: one at a corner of every
+    // intersection cell.
+    for (let c = 0; c < GRID; c++) {
+      for (let r = 0; r < GRID; r++) {
+        if (!(isRoad(c) && isRoad(r))) continue;
+        const x = cellX(c);
+        const z = cellZ(r);
+        const lamp = fit(src.road("light_square"), { height: 4.6 });
+        if (lamp)
+          out.push({ obj: lamp, x: x + 3.7, z: z + 3.7, rot: Math.PI });
+        if ((c + r) % 4 === 0) {
+          const bench = fit(src.bench, { footprint: 1.9 });
+          if (bench) out.push({ obj: bench, x: x - 3.6, z: z + 3.7, rot: 0 });
+        }
+      }
     }
     return out;
   }, [src]);
@@ -498,7 +528,7 @@ function SuburbTown({ groupRef }: { groupRef: React.RefObject<THREE.Group> }) {
         <primitive
           key={i}
           object={p.obj}
-          position={[p.x, 0, p.z]}
+          position={[p.x, p.y ?? 0, p.z]}
           rotation={[0, p.rot, 0]}
         />
       ))}
@@ -674,6 +704,17 @@ function Rig({
       move.normalize();
       s.x = clamp(s.x + move.x * SPEED * dt, -ROAM, ROAM);
       s.z = clamp(s.z + move.z * SPEED * dt, -ROAM, ROAM);
+      // Wall collision: if the step would enter a building, push back to its
+      // edge (slides along the wall instead of passing through).
+      for (const col of BUILDING_COLLIDERS) {
+        const ddx = s.x - col.x;
+        const ddz = s.z - col.z;
+        const d = Math.hypot(ddx, ddz);
+        if (d < col.r && d > 1e-4) {
+          s.x = col.x + (ddx / d) * col.r;
+          s.z = col.z + (ddz / d) * col.r;
+        }
+      }
       // Face the way we move (VRM forward is +Z in this pipeline).
       s.heading = Math.atan2(move.x, move.z);
       updateSelf({ x: s.x, z: s.z, heading: s.heading, moving: true });
@@ -698,10 +739,10 @@ function Rig({
         // facing so it looks where the avatar looks (and forward walks ahead).
         inited.current = true;
         c.target.copy(tgt);
-        const back = 5;
+        const back = 8.5;
         camera.position.set(
           s.x - Math.sin(s.heading) * back,
-          tgt.y + 10, // higher = looks down over the trees
+          tgt.y + 6, // street-level third-person so you see building facades
           s.z - Math.cos(s.heading) * back,
         );
       } else {
@@ -747,9 +788,9 @@ function Rig({
       rotateSpeed={0.9}
       zoomSpeed={1.1}
       minDistance={5}
-      maxDistance={20}
+      maxDistance={22}
       minPolarAngle={0.25}
-      maxPolarAngle={Math.PI / 2.7}
+      maxPolarAngle={Math.PI / 2.25}
     />
   );
 }
