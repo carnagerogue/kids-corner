@@ -66,13 +66,17 @@ import {
   claimDaily,
   completeChapter,
   currentChapterIndex,
+  currentStreak,
   dailyClaimable,
   dailyView,
+  equipAura,
+  equipCompanion,
   isBefriended,
   levelBar,
   levelForXp,
   levelTitle,
   loadAcademy,
+  ownAura,
   questStatus,
   recordBossWin,
   recordCorrect,
@@ -87,6 +91,7 @@ import {
 import { AcademyChallenge } from "./AcademyChallenge";
 import { BattleArena } from "./BattleArena";
 import { BossArena } from "./BossArena";
+import { WorldShop } from "./WorldShop";
 import {
   CHAMPIONS_RING,
   CREATURES,
@@ -97,6 +102,7 @@ import {
   type Creature,
 } from "./worldBattles";
 import { disposeObject3D } from "./disposeObject";
+import { auraById, type Aura } from "./shopItems";
 import { surfaceAt, WorldAudioEngine } from "./worldAudio";
 import {
   loadQualityChoice,
@@ -648,6 +654,70 @@ function VillageProps({
   );
 }
 
+// --- Cosmetic aura (a glowing ground ring + floating motes) --------------
+function AvatarAura({ aura }: { aura: Aura }) {
+  const ring = useRef<THREE.Mesh>(null);
+  const motes = useRef<THREE.Group>(null);
+  const dots = useMemo(
+    () =>
+      [0, 1, 2, 3, 4, 5].map((i) => {
+        const a = (i / 6) * Math.PI * 2;
+        return [Math.cos(a) * 0.62, 0.25 + (i % 3) * 0.55, Math.sin(a) * 0.62] as [
+          number,
+          number,
+          number,
+        ];
+      }),
+    [],
+  );
+  useFrame((_, dt) => {
+    if (ring.current) ring.current.rotation.z += dt * 0.8;
+    if (motes.current) motes.current.rotation.y += dt * 1.3;
+  });
+  return (
+    <group>
+      <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
+        <ringGeometry args={[0.5, 0.74, 40]} />
+        <meshBasicMaterial color={aura.color} transparent opacity={0.6} toneMapped={false} />
+      </mesh>
+      <group ref={motes}>
+        {dots.map((p, i) => (
+          <mesh key={i} position={p}>
+            <sphereGeometry args={[0.06, 8, 8]} />
+            <meshBasicMaterial color={aura.color} transparent opacity={0.85} toneMapped={false} />
+          </mesh>
+        ))}
+      </group>
+    </group>
+  );
+}
+
+// --- Equipped companion (a befriended creature floating at your shoulder) -
+function Companion({ creature }: { creature: Creature }) {
+  const gem = useRef<THREE.Group>(null);
+  useFrame(({ clock }, dt) => {
+    if (gem.current) {
+      gem.current.position.y = 1.3 + Math.sin(clock.elapsedTime * 2) * 0.12;
+      gem.current.rotation.y += dt * 1.3;
+    }
+  });
+  return (
+    <group position={[0.85, 0, -0.15]}>
+      <group ref={gem}>
+        <mesh castShadow>
+          <icosahedronGeometry args={[0.26, 0]} />
+          <meshStandardMaterial
+            color={creature.color}
+            emissive={creature.color}
+            emissiveIntensity={0.5}
+            roughness={0.35}
+          />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
 // --- One avatar (local or remote) ---------------------------------------
 function WorldAvatar({
   url,
@@ -656,6 +726,8 @@ function WorldAvatar({
   color,
   chat,
   shadows,
+  aura,
+  companion,
 }: {
   url: string;
   getPose: () => Pose;
@@ -663,6 +735,8 @@ function WorldAvatar({
   color: string;
   chat?: { text: string; ts: number } | null;
   shadows: boolean;
+  aura?: Aura | null;
+  companion?: Creature | null;
 }) {
   const group = useRef<THREE.Group>(null);
   const [loaded, setLoaded] = useState<LoadedAvatar | null>(null);
@@ -725,6 +799,8 @@ function WorldAvatar({
   return (
     <group ref={group}>
       {loaded && <primitive object={loaded.object} />}
+      {aura && <AvatarAura aura={aura} />}
+      {companion && <Companion creature={companion} />}
       {/* simple blob shadow */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
         <circleGeometry args={[0.42, 24]} />
@@ -1136,6 +1212,9 @@ export default function WorldView() {
     creature: Creature;
     questions: AcademyQuestion[];
   } | null>(null);
+  const [shopOpen, setShopOpen] = useState(false);
+  const [levelUp, setLevelUp] = useState<number | null>(null);
+  const prevLevel = useRef(levelForXp(academy.xp));
   // True whenever any modal/panel is open — read by Rig to freeze avatar input.
   const uiLock = useRef(false);
   const quality = useMemo(() => resolveQuality(qualityChoice), [qualityChoice]);
@@ -1164,10 +1243,14 @@ export default function WorldView() {
   useEffect(() => {
     const next = loadWorldSave(kidId);
     setWorldSave(next);
-    setAcademy(loadAcademy(kidId));
+    const nextAcademy = loadAcademy(kidId);
+    setAcademy(nextAcademy);
+    prevLevel.current = levelForXp(nextAcademy.xp);
     setAcademyOpen(null);
     setBattle(null);
     setBoss(null);
+    setShopOpen(false);
+    setLevelUp(null);
     const citySpawn = developmentCitySpawn();
     self.current = citySpawn
       ? { ...citySpawn, moving: false }
@@ -1177,9 +1260,15 @@ export default function WorldView() {
   // Keep the input-lock ref in sync with whatever panel is open.
   useEffect(() => {
     uiLock.current = Boolean(
-      dialogue || yardOpen || academyOpen || questLogOpen || battle || boss,
+      dialogue ||
+        yardOpen ||
+        academyOpen ||
+        questLogOpen ||
+        battle ||
+        boss ||
+        shopOpen,
     );
-  }, [dialogue, yardOpen, academyOpen, questLogOpen, battle, boss]);
+  }, [dialogue, yardOpen, academyOpen, questLogOpen, battle, boss, shopOpen]);
 
   useEffect(() => () => audio.dispose(), [audio]);
 
@@ -1377,10 +1466,53 @@ export default function WorldView() {
   const claimDailyReward = useCallback(() => {
     const today = todayStr();
     if (!dailyClaimable(academy, today)) return;
-    commitAcademy(claimDaily(academy, today));
-    commitWorld({ ...worldSave, townTokens: worldSave.townTokens + 15 });
+    const claimed = claimDaily(academy, today);
+    commitAcademy(claimed);
+    // Base 15 tokens + a streak bonus (3 per day, capped) to reward coming back.
+    const bonus = Math.min(30, claimed.streak * 3);
+    commitWorld({ ...worldSave, townTokens: worldSave.townTokens + 15 + bonus });
     celebrate();
   }, [academy, worldSave, commitAcademy, commitWorld, celebrate]);
+
+  const onBuyAura = useCallback(
+    (aura: Aura) => {
+      if (academy.ownedAuras.includes(aura.id) || worldSave.townTokens < aura.price)
+        return;
+      commitWorld({
+        ...worldSave,
+        townTokens: worldSave.townTokens - aura.price,
+      });
+      commitAcademy(equipAura(ownAura(academy, aura.id), aura.id)); // buy + auto-equip
+      celebrate();
+    },
+    [academy, worldSave, commitAcademy, commitWorld, celebrate],
+  );
+
+  const onEquipAura = useCallback(
+    (id: string | null) => commitAcademy(equipAura(academy, id)),
+    [academy, commitAcademy],
+  );
+
+  const onEquipCompanion = useCallback(
+    (id: string | null) => commitAcademy(equipCompanion(academy, id)),
+    [academy, commitAcademy],
+  );
+
+  // Celebrate crossing a level (from any XP source).
+  useEffect(() => {
+    const lvl = levelForXp(academy.xp);
+    if (lvl > prevLevel.current) {
+      setLevelUp(lvl);
+      celebrate();
+    }
+    prevLevel.current = lvl;
+  }, [academy.xp, celebrate]);
+
+  useEffect(() => {
+    if (levelUp === null) return;
+    const id = window.setTimeout(() => setLevelUp(null), 3800);
+    return () => window.clearTimeout(id);
+  }, [levelUp]);
 
   const interact = useCallback(() => {
     if (!nearest) return;
@@ -1460,6 +1592,7 @@ export default function WorldView() {
         setQuestLogOpen(false);
         setBattle(null);
         setBoss(null);
+        setShopOpen(false);
         return;
       }
       if (event.repeat) return; // holding E must not re-fire interact (review fix)
@@ -1521,6 +1654,7 @@ export default function WorldView() {
   const level = levelForXp(academy.xp);
   const xpBar = levelBar(academy.xp);
   const daily = dailyView(academy, todayStr());
+  const streak = currentStreak(academy, todayStr());
   const buddies = CREATURES.filter((creature) => !creature.boss);
   const activeAcademyQuest = academyOpen ? academyById(academyOpen) : null;
   const promptLabel =
@@ -1528,7 +1662,13 @@ export default function WorldView() {
       ? `Learn at ${academyById(nearest.id as AcademyQuestId)?.title ?? nearest.label}`
       : nearest?.label;
   const anyPanelOpen = Boolean(
-    dialogue || yardOpen || academyOpen || questLogOpen || battle || boss,
+    dialogue ||
+      yardOpen ||
+      academyOpen ||
+      questLogOpen ||
+      battle ||
+      boss ||
+      shopOpen,
   );
 
   return (
@@ -1576,6 +1716,10 @@ export default function WorldView() {
             color={kid?.color || "#6a5cff"}
             chat={myChat ?? selfChat}
             shadows={quality.shadows}
+            aura={auraById(academy.aura)}
+            companion={
+              academy.companion ? creatureById(academy.companion) : null
+            }
           />
         )}
         {others.map((player) => {
@@ -1629,6 +1773,7 @@ export default function WorldView() {
         <button onClick={() => setQuestLogOpen((open) => !open)}>
           📜 Quests{dailyClaimable(academy, todayStr()) ? " 🎁" : ""}
         </button>
+        <button onClick={() => setShopOpen(true)}>🛍️ Shop</button>
         <button onClick={toggleSound}>{soundOn ? "🔊 Sound" : "🔇 Sound"}</button>
         <label>
           <span className="sr-only">World quality</span>
@@ -1747,6 +1892,30 @@ export default function WorldView() {
         />
       )}
 
+      {shopOpen && (
+        <WorldShop
+          tokens={worldSave.townTokens}
+          ownedAuras={academy.ownedAuras}
+          equippedAura={academy.aura}
+          befriended={academy.befriended}
+          equippedCompanion={academy.companion}
+          onBuyAura={onBuyAura}
+          onEquipAura={onEquipAura}
+          onEquipCompanion={onEquipCompanion}
+          onClose={() => setShopOpen(false)}
+        />
+      )}
+
+      {levelUp !== null && (
+        <div className="world-levelup" role="status">
+          <span className="world-levelup__star">⭐</span>
+          <strong>Level Up!</strong>
+          <span>
+            You&apos;re now Lv {levelUp} · {levelTitle(levelUp)}
+          </span>
+        </div>
+      )}
+
       {questLogOpen && (
         <div
           className="academy academy--log"
@@ -1779,7 +1948,10 @@ export default function WorldView() {
 
             <div className={`academy__daily${daily.complete ? " is-complete" : ""}`}>
               <div className="academy__dailytop">
-                <span>{daily.quest.emoji} Daily Quest</span>
+                <span>
+                  {daily.quest.emoji} Daily Quest
+                  {streak > 0 && <em className="academy__streak"> 🔥 {streak}</em>}
+                </span>
                 <span>
                   {Math.min(daily.progress, daily.quest.goal)}/{daily.quest.goal}
                 </span>

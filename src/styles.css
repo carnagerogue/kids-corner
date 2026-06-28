@@ -7009,6 +7009,161 @@ body.fun-cursor-on * {
 .boss__hearts {
   white-space: nowrap;
 }
+
+/* --- Token shop -------------------------------------------------------- */
+.shop .academy__card {
+  width: min(620px, 100%);
+}
+.shop__section {
+  margin: 14px 0 8px;
+  font-weight: 900;
+  color: #4f3fb0;
+}
+.shop__section:first-of-type {
+  margin-top: 4px;
+}
+.shop__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.shop__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+  padding: 12px 11px 13px;
+  border: 2px solid #e6e3f3;
+  border-radius: 15px;
+  background: #fff;
+}
+.shop__item.is-equipped {
+  background: #f3f0ff;
+  border-width: 3px;
+}
+.shop__item strong {
+  color: #322a5c;
+  font-size: 0.92rem;
+}
+.shop__item small {
+  color: #7b7f9c;
+  font-size: 0.74rem;
+  min-height: 2.2em;
+  line-height: 1.2;
+}
+.shop__emoji {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.6);
+}
+.shop__btn {
+  margin-top: 4px;
+  width: 100%;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 10px;
+  font-weight: 800;
+  font-size: 0.84rem;
+  color: #4a3fa0;
+  background: #ece9fb;
+  cursor: pointer;
+}
+.shop__btn.is-on {
+  background: #d9f7e6;
+  color: #16794d;
+}
+.shop__btn.shop__buy {
+  color: #fff;
+  background: linear-gradient(135deg, #f0a030, #ef7d3a);
+}
+.shop__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #ece9fb;
+  color: #8a8fb0;
+}
+.shop__companions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+.shop__buddy {
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  width: 78px;
+  min-height: 74px;
+  border: 2px solid #e6e3f3;
+  border-radius: 14px;
+  background: #fff;
+  font-size: 1.6rem;
+  cursor: pointer;
+}
+.shop__buddy small {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #5b5f7e;
+}
+.shop__buddy.is-on {
+  background: #f3f0ff;
+  border-width: 3px;
+}
+.shop__empty {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 13px;
+  background: #f5f3ff;
+  color: #6b7191;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+/* --- Daily streak + level-up toast ------------------------------------ */
+.academy__streak {
+  font-style: normal;
+  color: #ef7d3a;
+  font-weight: 900;
+}
+.world-levelup {
+  position: absolute;
+  z-index: 60;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 16px 30px;
+  border-radius: 20px;
+  color: #fff;
+  text-align: center;
+  background: linear-gradient(135deg, #6558df, #b06bf0);
+  box-shadow: 0 18px 50px rgba(80, 50, 160, 0.5);
+  animation: levelup-pop 380ms cubic-bezier(0.2, 1.4, 0.5, 1) both;
+  pointer-events: none;
+}
+.world-levelup strong {
+  font-size: 1.5rem;
+  letter-spacing: 0.5px;
+}
+.world-levelup span:last-child {
+  font-size: 0.92rem;
+  opacity: 0.95;
+}
+.world-levelup__star {
+  font-size: 2.2rem;
+  animation: battle-bob 1.2s ease-in-out infinite;
+}
+@keyframes levelup-pop {
+  0% { opacity: 0; transform: translate(-50%, 14px) scale(0.7); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
 .world-yard__choices {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

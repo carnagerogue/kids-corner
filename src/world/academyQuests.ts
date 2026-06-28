@@ -64,6 +64,14 @@ export type AcademyProgress = {
   daily: DailyState;
   /** lifetime co-op boss raids completed. */
   bossWins: number;
+  /** consecutive days a daily quest was claimed. */
+  streak: number;
+  /** date of the last daily claim (for streak continuity). */
+  lastClaim: string;
+  /** shop: purchased aura ids, the equipped aura, the equipped companion. */
+  ownedAuras: string[];
+  aura: string | null;
+  companion: string | null;
 };
 
 export const XP_PER_CORRECT = 10;
@@ -80,6 +88,11 @@ const DEFAULT_PROGRESS: AcademyProgress = {
   befriended: [],
   daily: { date: "", progress: 0, claimed: false },
   bossWins: 0,
+  streak: 0,
+  lastClaim: "",
+  ownedAuras: [],
+  aura: null,
+  companion: null,
 };
 
 const LEVEL_XP = 100; // xp per level — full quest line ≈ level 6-7
@@ -265,14 +278,52 @@ export function dailyClaimable(p: AcademyProgress, dateStr: string): boolean {
   return view.complete && !view.claimed;
 }
 
-/** Claim today's reward (XP here; the caller adds tokens to the world save). */
+function dayBefore(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() - 1);
+  return todayStr(dt);
+}
+
+/** Streak that's still alive today (claimed today or yesterday), else 0. */
+export function currentStreak(p: AcademyProgress, dateStr: string): number {
+  if (p.lastClaim === dateStr || p.lastClaim === dayBefore(dateStr)) return p.streak;
+  return 0;
+}
+
+/** Claim today's reward (XP + streak here; the caller adds tokens to the world
+ * save). The streak grows when the previous claim was yesterday, else resets. */
 export function claimDaily(p: AcademyProgress, dateStr: string): AcademyProgress {
   if (!dailyClaimable(p, dateStr)) return p;
+  const streak = p.lastClaim === dayBefore(dateStr) ? p.streak + 1 : 1;
   return {
     ...p,
     xp: p.xp + XP_PER_DAILY,
     daily: { date: dateStr, progress: p.daily.progress, claimed: true },
+    streak,
+    lastClaim: dateStr,
   };
+}
+
+// --- Shop (cosmetic auras + companions; tokens spent in worldSave) ----------
+
+export function ownAura(p: AcademyProgress, auraId: string): AcademyProgress {
+  return p.ownedAuras.includes(auraId)
+    ? p
+    : { ...p, ownedAuras: [...p.ownedAuras, auraId] };
+}
+
+/** Equip (or, with null, remove) the avatar's aura. */
+export function equipAura(p: AcademyProgress, auraId: string | null): AcademyProgress {
+  return { ...p, aura: auraId };
+}
+
+/** Equip (or, with null, dismiss) a befriended creature as a companion. */
+export function equipCompanion(
+  p: AcademyProgress,
+  creatureId: string | null,
+): AcademyProgress {
+  return { ...p, companion: creatureId };
 }
 
 // --- Persistence (own slice, never touches worldGame's save) ----------------
@@ -299,6 +350,11 @@ export function loadAcademy(kidId: KidId): AcademyProgress {
             }
           : { date: "", progress: 0, claimed: false },
       bossWins: typeof value.bossWins === "number" && value.bossWins >= 0 ? value.bossWins : 0,
+      streak: typeof value.streak === "number" && value.streak >= 0 ? value.streak : 0,
+      lastClaim: typeof value.lastClaim === "string" ? value.lastClaim : "",
+      ownedAuras: Array.isArray(value.ownedAuras) ? value.ownedAuras : [],
+      aura: typeof value.aura === "string" ? value.aura : null,
+      companion: typeof value.companion === "string" ? value.companion : null,
       xp: typeof value.xp === "number" && value.xp >= 0 ? value.xp : 0,
       correct: typeof value.correct === "number" && value.correct >= 0 ? value.correct : 0,
     };
