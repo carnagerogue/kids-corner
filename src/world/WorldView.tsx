@@ -22,13 +22,16 @@ import {
   leaveWorld,
   shareActivatedLandmark,
   shareCollectedStar,
+  shareStats,
   sendChat,
+  subscribeStats,
   subscribeWorldGame,
   subscribeWorld,
   updateSelf,
   worldRoomCode,
   worldSyncEnabled,
   type PlayerState,
+  type PlayerStats,
 } from "./worldSync";
 import {
   activateLandmarks,
@@ -92,6 +95,12 @@ import { AcademyChallenge } from "./AcademyChallenge";
 import { BattleArena } from "./BattleArena";
 import { BossArena } from "./BossArena";
 import { WorldShop } from "./WorldShop";
+import { AwardsPanel } from "./AwardsPanel";
+import {
+  achievementById,
+  earnedAchievements,
+  type Achievement,
+} from "./achievements";
 import {
   CHAMPIONS_RING,
   CREATURES,
@@ -1213,6 +1222,9 @@ export default function WorldView() {
     questions: AcademyQuestion[];
   } | null>(null);
   const [shopOpen, setShopOpen] = useState(false);
+  const [awardsOpen, setAwardsOpen] = useState(false);
+  const [stats, setStats] = useState<PlayerStats[]>([]);
+  const [badgeToast, setBadgeToast] = useState<Achievement | null>(null);
   const [levelUp, setLevelUp] = useState<number | null>(null);
   const prevLevel = useRef(levelForXp(academy.xp));
   // True whenever any modal/panel is open — read by Rig to freeze avatar input.
@@ -1250,7 +1262,9 @@ export default function WorldView() {
     setBattle(null);
     setBoss(null);
     setShopOpen(false);
+    setAwardsOpen(false);
     setLevelUp(null);
+    setBadgeToast(null);
     const citySpawn = developmentCitySpawn();
     self.current = citySpawn
       ? { ...citySpawn, moving: false }
@@ -1266,9 +1280,19 @@ export default function WorldView() {
         questLogOpen ||
         battle ||
         boss ||
-        shopOpen,
+        shopOpen ||
+        awardsOpen,
     );
-  }, [dialogue, yardOpen, academyOpen, questLogOpen, battle, boss, shopOpen]);
+  }, [
+    dialogue,
+    yardOpen,
+    academyOpen,
+    questLogOpen,
+    battle,
+    boss,
+    shopOpen,
+    awardsOpen,
+  ]);
 
   useEffect(() => () => audio.dispose(), [audio]);
 
@@ -1300,6 +1324,8 @@ export default function WorldView() {
           x: sp.x,
           z: sp.z,
           heading: sp.heading,
+          aura: academy.aura,
+          companion: academy.companion,
         });
       }
     });
@@ -1514,6 +1540,56 @@ export default function WorldView() {
     return () => window.clearTimeout(id);
   }, [levelUp]);
 
+  // Subscribe to the family leaderboard.
+  useEffect(() => subscribeStats(setStats), [syncReady, syncCode]);
+
+  // Detect + persist newly-earned achievements, and pop a one-time toast.
+  useEffect(() => {
+    const earned = earnedAchievements(academy, worldSave);
+    const fresh = earned.filter((id) => !academy.achievements.includes(id));
+    if (fresh.length === 0) return;
+    commitAcademy({ ...academy, achievements: earned });
+    const badge = achievementById(fresh[0]);
+    if (badge) {
+      setBadgeToast(badge);
+      celebrate();
+    }
+  }, [academy, worldSave, commitAcademy, celebrate]);
+
+  useEffect(() => {
+    if (badgeToast === null) return;
+    const id = window.setTimeout(() => setBadgeToast(null), 4200);
+    return () => window.clearTimeout(id);
+  }, [badgeToast]);
+
+  // Publish self stats to the leaderboard whenever they change.
+  useEffect(() => {
+    if (!syncReady || !kid) return;
+    shareStats({
+      kidId,
+      name: kidName,
+      color: kid.color || "#6a5cff",
+      level: levelForXp(academy.xp),
+      xp: academy.xp,
+      badges: academy.achievements.length,
+      bossWins: academy.bossWins,
+      streak: academy.streak,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    syncReady,
+    kidId,
+    academy.xp,
+    academy.achievements.length,
+    academy.bossWins,
+    academy.streak,
+  ]);
+
+  // Mirror equipped cosmetics into our presence record so siblings see them.
+  useEffect(() => {
+    updateSelf({ aura: academy.aura, companion: academy.companion }, true);
+  }, [academy.aura, academy.companion]);
+
   const interact = useCallback(() => {
     if (!nearest) return;
     if (nearest.kind === "collectible") {
@@ -1593,6 +1669,7 @@ export default function WorldView() {
         setBattle(null);
         setBoss(null);
         setShopOpen(false);
+        setAwardsOpen(false);
         return;
       }
       if (event.repeat) return; // holding E must not re-fire interact (review fix)
@@ -1656,6 +1733,22 @@ export default function WorldView() {
   const daily = dailyView(academy, todayStr());
   const streak = currentStreak(academy, todayStr());
   const buddies = CREATURES.filter((creature) => !creature.boss);
+  const selfStats: PlayerStats = {
+    kidId,
+    name: kidName,
+    color: kid?.color || "#6a5cff",
+    level,
+    xp: academy.xp,
+    badges: academy.achievements.length,
+    bossWins: academy.bossWins,
+    streak,
+  };
+  const leaderboard = (() => {
+    const map = new Map<string, PlayerStats>();
+    for (const row of stats) map.set(row.kidId, row);
+    map.set(kidId, selfStats); // self is always the freshest, from local state
+    return Array.from(map.values());
+  })();
   const activeAcademyQuest = academyOpen ? academyById(academyOpen) : null;
   const promptLabel =
     nearest && nearest.kind === "landmark"
@@ -1668,7 +1761,8 @@ export default function WorldView() {
       questLogOpen ||
       battle ||
       boss ||
-      shopOpen,
+      shopOpen ||
+      awardsOpen,
   );
 
   return (
@@ -1738,6 +1832,10 @@ export default function WorldView() {
               color={player.color}
               chat={player.chat}
               shadows={quality.shadows}
+              aura={auraById(player.aura)}
+              companion={
+                player.companion ? creatureById(player.companion) : null
+              }
             />
           );
         })}
@@ -1774,6 +1872,7 @@ export default function WorldView() {
           📜 Quests{dailyClaimable(academy, todayStr()) ? " 🎁" : ""}
         </button>
         <button onClick={() => setShopOpen(true)}>🛍️ Shop</button>
+        <button onClick={() => setAwardsOpen(true)}>🏅 Awards</button>
         <button onClick={toggleSound}>{soundOn ? "🔊 Sound" : "🔇 Sound"}</button>
         <label>
           <span className="sr-only">World quality</span>
@@ -1906,12 +2005,32 @@ export default function WorldView() {
         />
       )}
 
+      {awardsOpen && (
+        <AwardsPanel
+          earned={academy.achievements}
+          rows={leaderboard}
+          selfKidId={kidId}
+          syncReady={syncReady}
+          onClose={() => setAwardsOpen(false)}
+        />
+      )}
+
       {levelUp !== null && (
         <div className="world-levelup" role="status">
           <span className="world-levelup__star">⭐</span>
           <strong>Level Up!</strong>
           <span>
             You&apos;re now Lv {levelUp} · {levelTitle(levelUp)}
+          </span>
+        </div>
+      )}
+
+      {badgeToast && (
+        <div className="world-badge" role="status">
+          <span className="world-badge__icon">{badgeToast.emoji}</span>
+          <span className="world-badge__text">
+            <strong>Badge unlocked!</strong>
+            <span>{badgeToast.name}</span>
           </span>
         </div>
       )}

@@ -72,6 +72,8 @@ export type AcademyProgress = {
   ownedAuras: string[];
   aura: string | null;
   companion: string | null;
+  /** ids of achievements already earned (so unlocks notify only once). */
+  achievements: string[];
 };
 
 export const XP_PER_CORRECT = 10;
@@ -93,6 +95,7 @@ const DEFAULT_PROGRESS: AcademyProgress = {
   ownedAuras: [],
   aura: null,
   companion: null,
+  achievements: [],
 };
 
 const LEVEL_XP = 100; // xp per level — full quest line ≈ level 6-7
@@ -355,6 +358,7 @@ export function loadAcademy(kidId: KidId): AcademyProgress {
       ownedAuras: Array.isArray(value.ownedAuras) ? value.ownedAuras : [],
       aura: typeof value.aura === "string" ? value.aura : null,
       companion: typeof value.companion === "string" ? value.companion : null,
+      achievements: Array.isArray(value.achievements) ? value.achievements : [],
       xp: typeof value.xp === "number" && value.xp >= 0 ? value.xp : 0,
       correct: typeof value.correct === "number" && value.correct >= 0 ? value.correct : 0,
     };

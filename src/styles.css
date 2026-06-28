@@ -7164,6 +7164,163 @@ body.fun-cursor-on * {
   0% { opacity: 0; transform: translate(-50%, 14px) scale(0.7); }
   100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
 }
+
+/* --- Awards panel (badges + leaderboard) ------------------------------ */
+.awards__tabs {
+  display: flex;
+  gap: 8px;
+  margin: 6px 0 14px;
+}
+.awards__tab {
+  flex: 1;
+  border: 2px solid #e6e3f3;
+  border-radius: 999px;
+  padding: 8px 10px;
+  background: #fff;
+  color: #5b5f7e;
+  font-weight: 800;
+  cursor: pointer;
+}
+.awards__tab.is-on {
+  background: #efeaff;
+  border-color: #c4b8f5;
+  color: #4f3fb0;
+}
+.awards__badges {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+.awards__badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 3px;
+  padding: 12px 10px;
+  border: 2px solid #ebebf6;
+  border-radius: 15px;
+  background: #fafaff;
+  filter: grayscale(0.8) opacity(0.6);
+}
+.awards__badge.is-earned {
+  filter: none;
+  border-color: #ffd591;
+  background: linear-gradient(135deg, #fff7e6, #fff0d6);
+}
+.awards__badgeicon {
+  font-size: 1.9rem;
+}
+.awards__badge strong {
+  color: #3a3271;
+  font-size: 0.86rem;
+}
+.awards__badge small {
+  color: #7b7f9c;
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+.awards__ranks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.awards__rank {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border: 2px solid #ebebf6;
+  border-radius: 14px;
+  background: #fff;
+}
+.awards__rank.is-self {
+  border-color: #b9b2f2;
+  background: #f3f0ff;
+}
+.awards__place {
+  flex: none;
+  width: 30px;
+  text-align: center;
+  font-weight: 900;
+  font-size: 1.05rem;
+  color: #6b7191;
+}
+.awards__who {
+  flex: 1;
+  min-width: 0;
+  padding-left: 10px;
+  border-left: 3px solid #ddd;
+}
+.awards__who strong {
+  display: block;
+  color: #2f2a55;
+}
+.awards__who small {
+  color: #7b7f9c;
+  font-size: 0.74rem;
+}
+.awards__stat {
+  flex: none;
+  font-weight: 800;
+  color: #4f3fb0;
+  font-size: 0.86rem;
+  text-align: right;
+}
+.awards__stat em {
+  font-style: normal;
+  color: #6b7191;
+  font-weight: 700;
+}
+.awards__hint {
+  margin: 14px 0 0;
+  padding: 11px 13px;
+  border-radius: 13px;
+  background: #f5f3ff;
+  color: #6b7191;
+  font-size: 0.84rem;
+  text-align: center;
+  line-height: 1.45;
+}
+
+/* --- Badge-unlock toast ----------------------------------------------- */
+.world-badge {
+  position: absolute;
+  z-index: 60;
+  top: 9%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px 12px 14px;
+  border-radius: 16px;
+  color: #5b4300;
+  background: linear-gradient(135deg, #ffe08a, #ffc24a);
+  box-shadow: 0 14px 40px rgba(180, 130, 30, 0.45);
+  animation: levelup-pop 360ms cubic-bezier(0.2, 1.4, 0.5, 1) both;
+  pointer-events: none;
+}
+.world-badge__icon {
+  font-size: 2.1rem;
+}
+.world-badge__text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.world-badge__text strong {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  opacity: 0.8;
+}
+.world-badge__text span {
+  font-size: 1.05rem;
+  font-weight: 900;
+}
 .world-yard__choices {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

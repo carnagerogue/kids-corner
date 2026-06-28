@@ -30,7 +30,21 @@ export type PlayerState = {
   heading: number;
   moving?: boolean;
   chat?: { text: string; ts: number } | null;
+  aura?: string | null; // equipped cosmetic aura id (so siblings see it)
+  companion?: string | null; // equipped companion creature id
   t?: number; // last-update epoch ms
+};
+
+export type PlayerStats = {
+  kidId: string;
+  name: string;
+  color: string;
+  level: number;
+  xp: number;
+  badges: number;
+  bossWins: number;
+  streak: number;
+  t?: number;
 };
 
 export type SharedWorldGame = {
@@ -231,4 +245,28 @@ export function recordBossHit(
     ref(db, `${root}/boss/${sanitize(dateStr)}/hits/${sanitize(kidId)}`),
     hits,
   );
+}
+
+// --- Family leaderboard (persistent per-kid stats, not presence) ------------
+export function shareStats(stats: PlayerStats): void {
+  db = getDb();
+  const root = worldRootPath();
+  if (!db || !root) return;
+  set(ref(db, `${root}/stats/${sanitize(stats.kidId)}`), {
+    ...stats,
+    t: Date.now(),
+  });
+}
+
+export function subscribeStats(cb: (rows: PlayerStats[]) => void): () => void {
+  db = getDb();
+  const root = worldRootPath();
+  if (!db || !root) {
+    cb([]);
+    return () => {};
+  }
+  return onValue(ref(db, `${root}/stats`), (snap) => {
+    const val = (snap.val() || {}) as Record<string, PlayerStats>;
+    cb(Object.values(val).filter((s) => s && s.kidId));
+  });
 }
