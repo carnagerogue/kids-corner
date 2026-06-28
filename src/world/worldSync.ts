@@ -18,7 +18,8 @@ import {
   type Database,
 } from "firebase/database";
 import { getDb } from "../firebase";
-import { readSyncCode } from "../sync";
+import { readSyncOverride } from "../sync";
+import type { LandmarkId } from "./worldGame";
 
 export type PlayerState = {
   kidId: string;
@@ -33,25 +34,46 @@ export type PlayerState = {
   t?: number; // last-update epoch ms
 };
 
+export type SharedWorldGame = {
+  questId: "lost-stars-v1";
+  stars: Record<string, { kidId: string; name: string; ts: number }>;
+  landmarks: Partial<Record<LandmarkId, { kidId: string; name: string; ts: number }>>;
+};
+
 const STALE_MS = 15000;
 const WRITE_INTERVAL_MS = 90;
 
 function sanitize(s: string): string {
   return s.replace(/[.#$/[\]]/g, "_");
 }
-function playersPath(): string {
-  // Under rooms/{code} because the RTDB rules only permit the `rooms/` subtree.
-  return `rooms/${sanitize(readSyncCode())}/world/players`;
+function worldRootPath(): string | null {
+  // Multiplayer is intentionally opt-in. A public, source-visible default room
+  // is not an acceptable boundary for child presence or chat.
+  const code = readSyncOverride();
+  return code ? `rooms/${sanitize(code)}/world` : null;
+}
+function playersPath(): string | null {
+  const root = worldRootPath();
+  return root ? `${root}/players` : null;
 }
 
 let db: Database | null = null;
 let selfPath: string | null = null;
 let lastWrite = 0;
+const sessionId = Math.random().toString(36).slice(2, 10);
+
+export function worldSyncEnabled(): boolean {
+  return !!worldRootPath();
+}
 
 export function joinWorld(initial: PlayerState): void {
   db = getDb();
   if (!db) return;
-  selfPath = `${playersPath()}/${sanitize(initial.kidId)}`;
+  const path = playersPath();
+  if (!path) return;
+  // Session suffix prevents two tabs/devices for one child from deleting or
+  // overwriting each other's presence record.
+  selfPath = `${path}/${sanitize(initial.kidId)}-${sessionId}`;
   const r = ref(db, selfPath);
   set(r, { ...initial, t: Date.now() });
   onDisconnect(r).remove();
@@ -76,11 +98,12 @@ export function subscribeWorld(
   cb: (players: PlayerState[]) => void,
 ): () => void {
   db = getDb();
-  if (!db) {
+  const path = playersPath();
+  if (!db || !path) {
     cb([]);
     return () => {};
   }
-  const r = ref(db, playersPath());
+  const r = ref(db, path);
   return onValue(r, (snap) => {
     const val = (snap.val() || {}) as Record<string, PlayerState>;
     const now = Date.now();
@@ -95,4 +118,57 @@ export function subscribeWorld(
 export function leaveWorld(): void {
   if (db && selfPath) remove(ref(db, selfPath));
   selfPath = null;
+}
+
+export function subscribeWorldGame(
+  cb: (game: SharedWorldGame | null) => void,
+): () => void {
+  db = getDb();
+  const root = worldRootPath();
+  if (!db || !root) {
+    cb(null);
+    return () => {};
+  }
+  return onValue(ref(db, `${root}/game/lost-stars-v1`), (snap) => {
+    const value = snap.val() as Partial<SharedWorldGame> | null;
+    cb(
+      value
+        ? {
+            questId: "lost-stars-v1",
+            stars: value.stars ?? {},
+            landmarks: value.landmarks ?? {},
+          }
+        : { questId: "lost-stars-v1", stars: {}, landmarks: {} },
+    );
+  });
+}
+
+export function shareCollectedStar(
+  starId: string,
+  kid: { kidId: string; name: string },
+): void {
+  db = getDb();
+  const root = worldRootPath();
+  if (!db || !root) return;
+  set(ref(db, `${root}/game/lost-stars-v1/stars/${sanitize(starId)}`), {
+    kidId: kid.kidId,
+    name: kid.name,
+    ts: Date.now(),
+  });
+}
+
+export function shareActivatedLandmark(
+  landmarkId: LandmarkId,
+  kid: { kidId: string; name: string },
+): void {
+  db = getDb();
+  const root = worldRootPath();
+  if (!db || !root) return;
+  set(
+    ref(
+      db,
+      `${root}/game/lost-stars-v1/landmarks/${sanitize(landmarkId)}`,
+    ),
+    { kidId: kid.kidId, name: kid.name, ts: Date.now() },
+  );
 }
