@@ -1,13 +1,15 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Html } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
+import { resolveAssetUrl } from "../features/avatar/AvatarManifest";
 import {
   STAR_COLLECTIBLES,
   currentSeasonalEvent,
   type DecorationId,
   type WorldSave,
 } from "./worldGame";
+import { loadAvatar, type LoadedAvatar } from "./vrmLoader";
 
 const DAY = new THREE.Color("#bfe6ff");
 const SUNSET = new THREE.Color("#f6a56f");
@@ -229,18 +231,118 @@ function SkyLab({ active }: { active: boolean }) {
   );
 }
 
+type NpcAvatarProps = {
+  modelPath: string;
+  name: string;
+  emoji: string;
+  position: [number, number, number];
+  rotationY?: number;
+  scale?: number;
+};
+
+/** A real, rigged VRM world character with a shared idle animation. */
+function NpcAvatar({
+  modelPath,
+  name,
+  emoji,
+  position,
+  rotationY = 0,
+  scale = 1,
+}: NpcAvatarProps) {
+  const [avatar, setAvatar] = useState<LoadedAvatar | null>(null);
+  const avatarRef = useRef<LoadedAvatar | null>(null);
+  const animationTime = useRef(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    let loaded: LoadedAvatar | null = null;
+
+    loadAvatar(resolveAssetUrl(modelPath))
+      .then((result) => {
+        loaded = result;
+        if (cancelled) {
+          result.dispose();
+          return;
+        }
+        result.object.traverse((object) => {
+          if (object instanceof THREE.Mesh) {
+            object.castShadow = true;
+            object.receiveShadow = true;
+          }
+        });
+        avatarRef.current = result;
+        setAvatar(result);
+      })
+      .catch((error) => {
+        console.warn(`Could not load world avatar ${name}`, error);
+      });
+
+    return () => {
+      cancelled = true;
+      if (avatarRef.current === loaded) avatarRef.current = null;
+      loaded?.dispose();
+    };
+  }, [modelPath, name]);
+
+  // Cap background NPC animation at 30 Hz to keep several skinned VRMs cheap
+  // enough for tablets while retaining the authored idle motion.
+  useFrame((_, dt) => {
+    animationTime.current += dt;
+    if (animationTime.current < 1 / 30) return;
+    avatarRef.current?.update(Math.min(animationTime.current, 0.1), false);
+    animationTime.current = 0;
+  });
+
+  return (
+    <group position={position} rotation={[0, rotationY, 0]} scale={scale}>
+      {avatar && <primitive object={avatar.object} />}
+      <mesh position={[0, 0.025, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <circleGeometry args={[0.46, 24]} />
+        <meshBasicMaterial color="#253646" transparent opacity={0.18} depthWrite={false} />
+      </mesh>
+      <Html position={[0, 1.9, 0]} center distanceFactor={10} occlude={false}>
+        <div className="world-npc-tag">{emoji} {name}</div>
+      </Html>
+    </group>
+  );
+}
+
 export function WorldLandmarks({ save }: { save: WorldSave }) {
   const active = new Set(save.activatedLandmarks);
   return (
     <>
       <group position={[-8, 0, -8]}>
         <StoryGrove active={active.has("story-grove")} />
+        <NpcAvatar
+          modelPath="/assets/avatar/models/froggy.vrm"
+          name="Story Keeper"
+          emoji="🐸"
+          position={[1.65, 0, 1.2]}
+          rotationY={Math.PI * 0.75}
+          scale={0.9}
+        />
       </group>
       <group position={[8, 0, -8]}>
         <MakerYard active={active.has("maker-yard")} />
+        <NpcAvatar
+          modelPath="/assets/avatar/models/happy-worm.vrm"
+          name="Maker Buddy"
+          emoji="🛠️"
+          position={[-1.8, 0, 1.2]}
+          rotationY={-Math.PI * 0.75}
+          scale={0.88}
+        />
       </group>
       <group position={[8, 0, 8]}>
         <SkyLab active={active.has("sky-lab")} />
+        <NpcAvatar
+          modelPath="/assets/avatar/models/chubby-cat.vrm"
+          name="Sky Captain"
+          emoji="🐱"
+          position={[-1.75, 0, 1.35]}
+          rotationY={-Math.PI * 0.25}
+          scale={0.92}
+        />
       </group>
       <HomeYard decoration={save.selectedDecoration} />
     </>
@@ -322,36 +424,13 @@ function StarFountain() {
 }
 
 export function MayorNova() {
-  const group = useRef<THREE.Group>(null);
-  const antenna = useRef<THREE.Mesh>(null);
-  useFrame(({ clock }, dt) => {
-    if (group.current) group.current.position.y = Math.sin(clock.elapsedTime * 2) * 0.06;
-    if (antenna.current) antenna.current.rotation.y += dt * 2;
-  });
   return (
-    <group ref={group} position={[0, 0, 2.2]}>
-      <mesh position={[0, 1.05, 0]} castShadow>
-        <capsuleGeometry args={[0.52, 0.75, 6, 12]} />
-        <meshStandardMaterial color="#7167e8" roughness={0.55} />
-      </mesh>
-      <mesh position={[0, 1.85, 0]} castShadow>
-        <sphereGeometry args={[0.52, 16, 12]} />
-        <meshStandardMaterial color="#f2f0ff" />
-      </mesh>
-      {[-0.19, 0.19].map((x) => (
-        <mesh key={x} position={[x, 1.94, 0.45]}>
-          <sphereGeometry args={[0.075, 10, 8]} />
-          <meshStandardMaterial color="#22305b" emissive="#79e7ff" emissiveIntensity={0.7} />
-        </mesh>
-      ))}
-      <mesh ref={antenna} position={[0, 2.53, 0]}>
-        <octahedronGeometry args={[0.16, 0]} />
-        <meshStandardMaterial color="#ffe45d" emissive="#ffc928" emissiveIntensity={1.1} />
-      </mesh>
-      <Html position={[0, 2.8, 0]} center distanceFactor={10} occlude={false}>
-        <div className="world-npc-tag">⭐ Mayor Nova</div>
-      </Html>
-    </group>
+    <NpcAvatar
+      modelPath="/assets/avatar/models/sample-vivi.vrm"
+      name="Mayor Nova"
+      emoji="⭐"
+      position={[0, 0, 2.2]}
+    />
   );
 }
 

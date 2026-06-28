@@ -61,6 +61,7 @@ import {
   saveQualityChoice,
   type QualityChoice,
 } from "./worldQuality";
+import { followOrbitTarget } from "./cameraFollow";
 import { SYNC_EVENT } from "../sync";
 
 const BOUND = 8; // play-area half-extent (props ring the outside)
@@ -734,6 +735,8 @@ function Rig({
   const lastNearId = useRef<string | null>(null);
   const stepDistance = useRef(0);
   const audioTick = useRef(0);
+  const desiredCameraDistance = useRef(Math.hypot(8.5, 6));
+  const cameraColliding = useRef(false);
 
   useEffect(() => {
     const isTyping = () => {
@@ -835,7 +838,18 @@ function Rig({
       if (!wired.current) {
         wired.current = true;
         c.addEventListener("start", () => (dragging.current = true));
-        c.addEventListener("end", () => (dragging.current = false));
+        c.addEventListener("end", () => {
+          dragging.current = false;
+          // Keep the player's chosen zoom distance. Do not accidentally save a
+          // shortened distance while camera collision is pulling the view in.
+          if (!cameraColliding.current) {
+            desiredCameraDistance.current = clamp(
+              camera.position.distanceTo(c.target),
+              5,
+              22,
+            );
+          }
+        });
       }
       tgt.set(s.x, 1.2, s.z);
       if (!inited.current) {
@@ -850,7 +864,15 @@ function Rig({
           s.z - Math.cos(s.heading) * back,
         );
       } else {
-        c.target.lerp(tgt, Math.min(1, dt * 10));
+        // OrbitControls does not translate the camera when its target moves.
+        // Move both by the same smoothed delta so the avatar stays framed while
+        // retaining the player's orbit angle and zoom distance.
+        followOrbitTarget(
+          camera.position,
+          c.target,
+          tgt,
+          Math.min(1, dt * 10),
+        );
       }
       // Chase-cam: while moving (and not free-looking) ease the camera around
       // to sit BEHIND the avatar, so it follows from behind like an MMORPG.
@@ -862,21 +884,25 @@ function Rig({
       }
       c.update();
 
-      // Camera collision: if a prop sits between the avatar and the camera,
-      // pull the camera in to that point so the view is never blocked.
+      // Camera collision: pull in immediately when scenery blocks the view,
+      // then ease back to the player's chosen zoom distance once it clears.
       if (propsRef.current) {
         dirv.copy(camera.position).sub(c.target);
         const dist = dirv.length();
         if (dist > 0.01) {
           dirv.normalize();
           ray.set(c.target, dirv);
-          ray.far = dist;
+          const wanted = desiredCameraDistance.current;
+          ray.far = wanted;
           const hits = ray.intersectObject(propsRef.current, true);
-          if (hits.length && hits[0].distance < dist - 0.1) {
-            camera.position
-              .copy(c.target)
-              .addScaledVector(dirv, Math.max(4, hits[0].distance - 0.4));
-          }
+          const allowed = hits.length
+            ? Math.max(4, hits[0].distance - 0.4)
+            : wanted;
+          cameraColliding.current = allowed < wanted - 0.1;
+          const nextDistance = cameraColliding.current
+            ? Math.min(dist, allowed)
+            : THREE.MathUtils.lerp(dist, wanted, Math.min(1, dt * 5));
+          camera.position.copy(c.target).addScaledVector(dirv, nextDistance);
         }
       }
     }

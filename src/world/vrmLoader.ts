@@ -13,6 +13,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { VRMLoaderPlugin, VRMUtils, type VRM } from "@pixiv/three-vrm";
 import {
   VRMAnimationLoaderPlugin,
+  VRMLookAtQuaternionProxy,
   createVRMAnimationClip,
   type VRMAnimation,
 } from "@pixiv/three-vrm-animation";
@@ -81,6 +82,11 @@ export async function loadAvatar(url: string): Promise<LoadedAvatar> {
   let mixer: THREE.AnimationMixer | null = null;
   const idle = await loadIdleAnimation();
   if (idle) {
+    if (vrm.lookAt) {
+      const lookAtProxy = new VRMLookAtQuaternionProxy(vrm.lookAt);
+      lookAtProxy.name = "VRMLookAtQuaternionProxy";
+      vrm.scene.add(lookAtProxy);
+    }
     mixer = new THREE.AnimationMixer(vrm.scene);
     mixer.clipAction(createVRMAnimationClip(idle, vrm)).play();
   }
