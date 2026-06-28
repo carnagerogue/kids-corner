@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Html } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { resolveAssetUrl } from "../features/avatar/AvatarManifest";
 import {
   STAR_COLLECTIBLES,
@@ -9,7 +10,6 @@ import {
   type DecorationId,
   type WorldSave,
 } from "./worldGame";
-import { loadAvatar, type LoadedAvatar } from "./vrmLoader";
 
 const DAY = new THREE.Color("#bfe6ff");
 const SUNSET = new THREE.Color("#f6a56f");
@@ -240,7 +240,59 @@ type NpcAvatarProps = {
   scale?: number;
 };
 
-/** A real, rigged VRM world character with a shared idle animation. */
+type LoadedNpcAvatar = {
+  object: THREE.Object3D;
+  mixer: THREE.AnimationMixer;
+  dispose: () => void;
+};
+
+async function loadNpcAvatar(modelPath: string): Promise<LoadedNpcAvatar> {
+  const gltf = await new GLTFLoader().loadAsync(resolveAssetUrl(modelPath));
+  const object = gltf.scene;
+
+  object.traverse((child) => {
+    if (child instanceof THREE.Mesh) {
+      child.castShadow = true;
+      child.receiveShadow = true;
+      child.frustumCulled = false;
+    }
+  });
+
+  // Kenney's characters share a small source scale. Normalize every NPC to a
+  // consistent 1.65 world-unit height and place its feet at ground level.
+  object.updateWorldMatrix(true, true);
+  let box = new THREE.Box3().setFromObject(object);
+  const height = Math.max(0.001, box.max.y - box.min.y);
+  object.scale.setScalar(1.65 / height);
+  object.updateWorldMatrix(true, true);
+  box = new THREE.Box3().setFromObject(object);
+  object.position.set(
+    -(box.min.x + box.max.x) / 2,
+    -box.min.y,
+    -(box.min.z + box.max.z) / 2,
+  );
+
+  const mixer = new THREE.AnimationMixer(object);
+  const idle = THREE.AnimationClip.findByName(gltf.animations, "idle");
+  if (idle) mixer.clipAction(idle).play();
+
+  return {
+    object,
+    mixer,
+    dispose: () => {
+      mixer.stopAllAction();
+      mixer.uncacheRoot(object);
+      object.traverse((child) => {
+        if (!(child instanceof THREE.Mesh)) return;
+        child.geometry.dispose();
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        materials.forEach((material) => material.dispose());
+      });
+    },
+  };
+}
+
+/** A rigged, animated GLB character from Kenney's CC0 Mini Characters set. */
 function NpcAvatar({
   modelPath,
   name,
@@ -249,27 +301,21 @@ function NpcAvatar({
   rotationY = 0,
   scale = 1,
 }: NpcAvatarProps) {
-  const [avatar, setAvatar] = useState<LoadedAvatar | null>(null);
-  const avatarRef = useRef<LoadedAvatar | null>(null);
+  const [avatar, setAvatar] = useState<LoadedNpcAvatar | null>(null);
+  const avatarRef = useRef<LoadedNpcAvatar | null>(null);
   const animationTime = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
-    let loaded: LoadedAvatar | null = null;
+    let loaded: LoadedNpcAvatar | null = null;
 
-    loadAvatar(resolveAssetUrl(modelPath))
+    loadNpcAvatar(modelPath)
       .then((result) => {
         loaded = result;
         if (cancelled) {
           result.dispose();
           return;
         }
-        result.object.traverse((object) => {
-          if (object instanceof THREE.Mesh) {
-            object.castShadow = true;
-            object.receiveShadow = true;
-          }
-        });
         avatarRef.current = result;
         setAvatar(result);
       })
@@ -289,7 +335,7 @@ function NpcAvatar({
   useFrame((_, dt) => {
     animationTime.current += dt;
     if (animationTime.current < 1 / 30) return;
-    avatarRef.current?.update(Math.min(animationTime.current, 0.1), false);
+    avatarRef.current?.mixer.update(Math.min(animationTime.current, 0.1));
     animationTime.current = 0;
   });
 
@@ -314,7 +360,7 @@ export function WorldLandmarks({ save }: { save: WorldSave }) {
       <group position={[-8, 0, -8]}>
         <StoryGrove active={active.has("story-grove")} />
         <NpcAvatar
-          modelPath="/assets/avatar/models/froggy.vrm"
+          modelPath="/assets/world/npcs/kenney-mini/character-female-f.glb"
           name="Story Keeper"
           emoji="🐸"
           position={[1.65, 0, 1.2]}
@@ -325,7 +371,7 @@ export function WorldLandmarks({ save }: { save: WorldSave }) {
       <group position={[8, 0, -8]}>
         <MakerYard active={active.has("maker-yard")} />
         <NpcAvatar
-          modelPath="/assets/avatar/models/happy-worm.vrm"
+          modelPath="/assets/world/npcs/kenney-mini/character-male-e.glb"
           name="Maker Buddy"
           emoji="🛠️"
           position={[-1.8, 0, 1.2]}
@@ -336,7 +382,7 @@ export function WorldLandmarks({ save }: { save: WorldSave }) {
       <group position={[8, 0, 8]}>
         <SkyLab active={active.has("sky-lab")} />
         <NpcAvatar
-          modelPath="/assets/avatar/models/chubby-cat.vrm"
+          modelPath="/assets/world/npcs/kenney-mini/character-male-c.glb"
           name="Sky Captain"
           emoji="🐱"
           position={[-1.75, 0, 1.35]}
@@ -426,10 +472,11 @@ function StarFountain() {
 export function MayorNova() {
   return (
     <NpcAvatar
-      modelPath="/assets/avatar/models/sample-vivi.vrm"
+      modelPath="/assets/world/npcs/kenney-mini/character-female-d.glb"
       name="Mayor Nova"
       emoji="⭐"
       position={[0, 0, 2.2]}
+      rotationY={Math.PI}
     />
   );
 }
