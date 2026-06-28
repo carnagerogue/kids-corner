@@ -96,6 +96,7 @@ import { AcademyChallenge } from "./AcademyChallenge";
 import { BattleArena } from "./BattleArena";
 import { BossArena } from "./BossArena";
 import { WorldShop } from "./WorldShop";
+import { WorldArcade } from "./WorldArcade";
 import { AwardsPanel } from "./AwardsPanel";
 import {
   achievementById,
@@ -1223,6 +1224,7 @@ export default function WorldView() {
     questions: AcademyQuestion[];
   } | null>(null);
   const [shopOpen, setShopOpen] = useState(false);
+  const [arcadeOpen, setArcadeOpen] = useState(false);
   const [awardsOpen, setAwardsOpen] = useState(false);
   const [stats, setStats] = useState<PlayerStats[]>([]);
   const [badgeToast, setBadgeToast] = useState<Achievement | null>(null);
@@ -1263,6 +1265,7 @@ export default function WorldView() {
     setBattle(null);
     setBoss(null);
     setShopOpen(false);
+    setArcadeOpen(false);
     setAwardsOpen(false);
     setLevelUp(null);
     setBadgeToast(null);
@@ -1282,6 +1285,7 @@ export default function WorldView() {
         battle ||
         boss ||
         shopOpen ||
+        arcadeOpen ||
         awardsOpen,
     );
   }, [
@@ -1292,6 +1296,7 @@ export default function WorldView() {
     battle,
     boss,
     shopOpen,
+    arcadeOpen,
     awardsOpen,
   ]);
 
@@ -1545,6 +1550,15 @@ export default function WorldView() {
     [academy, commitAcademy],
   );
 
+  const onArcadeReward = useCallback(
+    (tokens: number, xp: number) => {
+      if (tokens > 0)
+        commitWorld({ ...worldSave, townTokens: worldSave.townTokens + tokens });
+      if (xp > 0) commitAcademy({ ...academy, xp: academy.xp + xp });
+    },
+    [worldSave, academy, commitWorld, commitAcademy],
+  );
+
   // Celebrate crossing a level (from any XP source).
   useEffect(() => {
     const lvl = levelForXp(academy.xp);
@@ -1690,6 +1704,7 @@ export default function WorldView() {
         setBattle(null);
         setBoss(null);
         setShopOpen(false);
+        setArcadeOpen(false);
         setAwardsOpen(false);
         return;
       }
@@ -1783,6 +1798,7 @@ export default function WorldView() {
       battle ||
       boss ||
       shopOpen ||
+      arcadeOpen ||
       awardsOpen,
   );
 
@@ -1893,6 +1909,7 @@ export default function WorldView() {
           📜 Quests{dailyClaimable(academy, todayStr()) ? " 🎁" : ""}
         </button>
         <button onClick={() => setShopOpen(true)}>🛍️ Shop</button>
+        <button onClick={() => setArcadeOpen(true)}>🎮 Arcade</button>
         <button onClick={() => setAwardsOpen(true)}>🏅 Awards</button>
         <button onClick={toggleSound}>{soundOn ? "🔊 Sound" : "🔇 Sound"}</button>
         <label>
@@ -2023,6 +2040,15 @@ export default function WorldView() {
           onEquipAura={onEquipAura}
           onEquipCompanion={onEquipCompanion}
           onClose={() => setShopOpen(false)}
+        />
+      )}
+
+      {arcadeOpen && (
+        <WorldArcade
+          level={level}
+          tokens={worldSave.townTokens}
+          onReward={onArcadeReward}
+          onClose={() => setArcadeOpen(false)}
         />
       )}
 

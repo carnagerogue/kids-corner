@@ -7431,6 +7431,228 @@ body.fun-cursor-on * {
   font-weight: 700;
   color: #5b5f7e;
 }
+
+/* --- Arcade mini-games ------------------------------------------------- */
+.arcade__intro {
+  margin: 4px 0 12px;
+  color: #6b7191;
+  text-align: center;
+}
+.arcade__menu {
+  display: grid;
+  gap: 11px;
+}
+.arcade__game {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+  padding: 15px 16px;
+  border: 2px solid #e6e3f3;
+  border-radius: 16px;
+  background: #fff;
+  cursor: pointer;
+  transition: transform 80ms ease, border-color 120ms ease;
+}
+.arcade__game:hover {
+  transform: translateY(-2px);
+  border-color: #b9b2f2;
+}
+.arcade__gameicon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #efeaff, #e0d8ff);
+  font-size: 1.9rem;
+}
+.arcade__gametext {
+  display: flex;
+  flex-direction: column;
+}
+.arcade__gametext strong {
+  color: #322a5c;
+  font-size: 1.05rem;
+}
+.arcade__gametext small {
+  color: #7b7f9c;
+  font-size: 0.82rem;
+}
+.arcade__play {
+  display: flex;
+  flex-direction: column;
+}
+.arcade__result {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 0;
+}
+.arcade__resulticon {
+  font-size: 2.8rem;
+  animation: battle-bob 1.4s ease-in-out infinite;
+}
+.arcade__result strong {
+  font-size: 1.2rem;
+  color: #3a3271;
+}
+.arcade__earned {
+  margin: 2px 0 12px;
+  font-weight: 900;
+  color: #ef7d3a;
+}
+/* Math Dash */
+.dash {
+  transition: background 120ms ease;
+  border-radius: 14px;
+}
+.dash.is-wrong {
+  background: #fff0f0;
+}
+.dash__hud {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 900;
+  color: #4f3fb0;
+  margin-bottom: 7px;
+}
+.dash__timebar {
+  height: 10px;
+  border-radius: 999px;
+  background: #ece9fb;
+  overflow: hidden;
+}
+.dash__timebar > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #41c98a, #ffd23d, #ef6a6a);
+  transition: width 1s linear;
+}
+.dash__problem {
+  text-align: center;
+  font-size: 2.1rem;
+  font-weight: 900;
+  color: #242a44;
+  margin: 18px 0;
+}
+.dash__choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.dash__choice {
+  padding: 16px;
+  border: 2px solid #e3e3f0;
+  border-radius: 14px;
+  background: #fff;
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: #2c3350;
+  cursor: pointer;
+}
+.dash__choice:active {
+  background: #efeefb;
+}
+.dash__hint {
+  text-align: center;
+  color: #9aa0b5;
+  font-size: 0.82rem;
+  margin: 12px 0 0;
+}
+/* Word Scramble */
+.scram__top {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 800;
+  color: #4f3fb0;
+}
+.scram__clue {
+  text-align: center;
+  margin: 10px 0 16px;
+  padding: 11px 13px;
+  border-radius: 13px;
+  background: #f1eeff;
+  color: #443a72;
+  font-style: italic;
+  line-height: 1.4;
+}
+.scram__answer {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 16px;
+}
+.scram__slot {
+  width: 42px;
+  height: 50px;
+  border: 2px dashed #c9c3ec;
+  border-radius: 11px;
+  background: #faf9ff;
+  font-size: 1.3rem;
+  font-weight: 900;
+  color: #3a3271;
+  cursor: pointer;
+}
+.scram__slot.is-filled {
+  border-style: solid;
+  border-color: #6558df;
+  background: #efeaff;
+}
+.scram.is-right .scram__slot {
+  border-color: #41c98a;
+  background: #e8fbf1;
+  color: #14794d;
+}
+.scram.is-wrong .scram__answer {
+  animation: academy-shake 240ms ease;
+}
+.scram__tray {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.scram__tile {
+  width: 46px;
+  height: 52px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #6558df, #9671f5);
+  color: #fff;
+  font-size: 1.35rem;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 4px 0 #4a3fa0;
+}
+.scram__tile:disabled {
+  opacity: 0.25;
+  box-shadow: none;
+  cursor: default;
+}
+.scram__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+.scram__btn {
+  flex: 1;
+  border: 2px solid #e2e2ed;
+  border-radius: 999px;
+  padding: 10px;
+  background: #fff;
+  color: #5b5f7e;
+  font-weight: 800;
+  cursor: pointer;
+}
+.scram__btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 .world-yard__choices {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
