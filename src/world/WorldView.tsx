@@ -26,6 +26,7 @@ import {
   subscribeWorldGame,
   subscribeWorld,
   updateSelf,
+  worldRoomCode,
   worldSyncEnabled,
   type PlayerState,
 } from "./worldSync";
@@ -72,6 +73,7 @@ import {
   type AcademyQuestId,
 } from "./academyQuests";
 import { AcademyChallenge } from "./AcademyChallenge";
+import { disposeObject3D } from "./disposeObject";
 import { surfaceAt, WorldAudioEngine } from "./worldAudio";
 import {
   loadQualityChoice,
@@ -488,13 +490,18 @@ function SuburbTown({
 
   useEffect(() => {
     let alive = true;
+    let loaded: THREE.Object3D[] = [];
     const L = (u: string) => new GLTFLoader().loadAsync(resolveAssetUrl(u));
     Promise.all([
       L("/assets/world/road-kit.glb"),
       L("/assets/world/bench.glb"),
     ])
       .then(([rk, bn]) => {
-        if (!alive) return;
+        loaded = [rk.scene, bn.scene];
+        if (!alive) {
+          loaded.forEach(disposeObject3D);
+          return;
+        }
         const named = new Map<string, THREE.Object3D>();
         rk.scene.traverse((o) => {
           // Map by NODE name (the tile pieces are named nodes, not meshes).
@@ -508,6 +515,9 @@ function SuburbTown({
       .catch(() => {});
     return () => {
       alive = false;
+      // Free the source GLB geometry/materials/textures (shared by the instanced
+      // clones) so the suburb doesn't leak GPU memory on every Canvas remount.
+      loaded.forEach(disposeObject3D);
     };
   }, []);
 
@@ -567,6 +577,18 @@ function SuburbTown({
   const instancedTown = useMemo(
     () => buildInstancedTown(placed, shadows),
     [placed, shadows],
+  );
+
+  // Dispose the InstancedMeshes' per-instance GPU buffers when the town is
+  // rebuilt (quality change) or unmounted. <primitive> never disposes them.
+  useEffect(
+    () => () => {
+      instancedTown.traverse((o) => {
+        const mesh = o as THREE.InstancedMesh;
+        if (mesh.isInstancedMesh) mesh.dispose();
+      });
+    },
+    [instancedTown],
   );
 
   return (
@@ -739,7 +761,12 @@ function Rig({
   useEffect(() => {
     const isTyping = () => {
       const el = document.activeElement;
-      return el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA");
+      return (
+        el &&
+        (el.tagName === "INPUT" ||
+          el.tagName === "TEXTAREA" ||
+          el.tagName === "SELECT")
+      );
     };
     const down = (e: KeyboardEvent) => {
       if (inputLock.current || isTyping()) return;
@@ -806,6 +833,10 @@ function Rig({
       // edge (slides along the wall instead of passing through).
       for (const col of LANDMARK_COLLIDERS) pushOutsideCollider(s, col);
       resolveCityBuildingCollisions(s, openDoors);
+      // Re-clamp AFTER collision resolution so a perimeter building can't push
+      // the avatar back outside the ±ROAM world bound.
+      s.x = clamp(s.x, -ROAM, ROAM);
+      s.z = clamp(s.z, -ROAM, ROAM);
       // Face the way we move (VRM forward is +Z in this pipeline).
       s.heading = Math.atan2(move.x, move.z);
       updateSelf({ x: s.x, z: s.z, heading: s.heading, moving: true });
@@ -900,14 +931,24 @@ function Rig({
       if (propsRef.current) {
         dirv.copy(camera.position).sub(c.target);
         const dist = dirv.length();
-        if (dist > 0.01) {
+        const wanted = desiredCameraDistance.current;
+        // The raycast is a recursive test against the WHOLE town subtree, so skip
+        // it when the player is idle, not free-looking, not currently de-occluding,
+        // and already at the chosen distance — i.e. nothing can have changed.
+        const needsCheck =
+          moving ||
+          dragging.current ||
+          cameraColliding.current ||
+          Math.abs(dist - wanted) > 0.05;
+        if (dist > 0.01 && needsCheck) {
           dirv.normalize();
           ray.set(c.target, dirv);
-          const wanted = desiredCameraDistance.current;
           ray.far = wanted;
           const hits = ray.intersectObject(propsRef.current, true);
+          // Floor low enough to actually tuck in front of a near wall (a 4-unit
+          // floor could sit farther out than the obstruction it should dodge).
           const allowed = hits.length
-            ? Math.max(4, hits[0].distance - 0.4)
+            ? Math.max(1.5, hits[0].distance - 0.4)
             : wanted;
           cameraColliding.current = allowed < wanted - 0.1;
           const nextDistance = cameraColliding.current
@@ -1052,6 +1093,9 @@ export default function WorldView() {
   const [clockLabel, setClockLabel] = useState("8:00 AM");
   const [soundOn, setSoundOn] = useState(false);
   const [syncReady, setSyncReady] = useState(() => worldSyncEnabled());
+  // Track the active room code too, so a code→code change (not just on/off)
+  // re-runs the join/subscribe effects instead of stranding us in the old room.
+  const [syncCode, setSyncCode] = useState(() => worldRoomCode());
   const [qualityChoice, setQualityChoice] = useState<QualityChoice>(() =>
     loadQualityChoice(),
   );
@@ -1068,6 +1112,11 @@ export default function WorldView() {
     () => [...interactionsFor(worldSave), ...cityDoorInteractions(openDoors)],
     [worldSave, openDoors],
   );
+
+  // Always-current worldSave so the shared-game subscription can compute its
+  // merge from the latest state without an impure setState updater.
+  const worldSaveRef = useRef(worldSave);
+  worldSaveRef.current = worldSave;
 
   const commitWorld = useCallback(
     (next: WorldSave) => {
@@ -1096,7 +1145,10 @@ export default function WorldView() {
   useEffect(() => () => audio.dispose(), [audio]);
 
   useEffect(() => {
-    const changed = () => setSyncReady(worldSyncEnabled());
+    const changed = () => {
+      setSyncReady(worldSyncEnabled());
+      setSyncCode(worldRoomCode());
+    };
     window.addEventListener(SYNC_EVENT, changed);
     return () => window.removeEventListener(SYNC_EVENT, changed);
   }, []);
@@ -1128,26 +1180,39 @@ export default function WorldView() {
       leaveWorld();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kidId, canWebgl, syncReady]);
+  }, [kidId, canWebgl, syncReady, syncCode]);
 
-  useEffect(() => subscribeWorld(setPlayers), [syncReady]);
+  useEffect(() => subscribeWorld(setPlayers), [syncReady, syncCode]);
 
   useEffect(
     () =>
       subscribeWorldGame((shared) => {
         if (!shared) return;
-        setWorldSave((previous) => {
-          let next = mergeCollectedStars(previous, Object.keys(shared.stars));
-          next = activateLandmarks(
-            next,
-            Object.keys(shared.landmarks) as LandmarkId[],
-            event,
-          ).save;
-          saveWorldSave(kidId, next);
-          return next;
-        });
+        // Pure: read the latest save from a ref, persist OUTSIDE setState, and
+        // bail when the merge changed nothing so we don't churn state/localStorage
+        // on every snapshot (the updater used to do both, impurely).
+        const previous = worldSaveRef.current;
+        let next = mergeCollectedStars(previous, Object.keys(shared.stars));
+        next = activateLandmarks(
+          next,
+          Object.keys(shared.landmarks) as LandmarkId[],
+          currentSeasonalEvent(),
+        ).save;
+        if (
+          next.quest.phase === previous.quest.phase &&
+          next.quest.collected.length === previous.quest.collected.length &&
+          next.activatedLandmarks.length === previous.activatedLandmarks.length &&
+          next.townTokens === previous.townTokens &&
+          next.seasonalRewardId === previous.seasonalRewardId &&
+          next.unlockedDecorations.length === previous.unlockedDecorations.length
+        ) {
+          return;
+        }
+        worldSaveRef.current = next;
+        setWorldSave(next);
+        saveWorldSave(kidId, next);
       }),
-    [event, kidId, syncReady],
+    [kidId, syncCode],
   );
 
   useEffect(() => {
@@ -1197,7 +1262,11 @@ export default function WorldView() {
         townTokens: worldSave.townTokens + chapter.rewardTokens,
       };
       if (firstForQuest) {
-        nextSave = activateLandmarks(nextSave, [quest.questId], event).save;
+        nextSave = activateLandmarks(
+          nextSave,
+          [quest.questId],
+          currentSeasonalEvent(),
+        ).save;
         shareActivatedLandmark(quest.questId, { kidId, name: kidName });
       }
       commitWorld(nextSave);
@@ -1207,7 +1276,6 @@ export default function WorldView() {
       academyOpen,
       academy,
       worldSave,
-      event,
       kidId,
       kidName,
       commitAcademy,
@@ -1320,7 +1388,12 @@ export default function WorldView() {
       </div>
     );
 
-  const selfChat = players.find((player) => player.kidId === kidId)?.chat ?? null;
+  // Pick the most-recent record for this kid (per-session suffix means a second
+  // tab/device can share the kidId) so we never show a stale session's bubble.
+  const selfChat =
+    players
+      .filter((player) => player.kidId === kidId)
+      .sort((a, b) => (b.t ?? 0) - (a.t ?? 0))[0]?.chat ?? null;
   const others = Array.from(
     new Map(
       players

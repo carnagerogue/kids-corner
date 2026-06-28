@@ -32,6 +32,7 @@ export function LivingSky({
   const { scene } = useThree();
   const sky = useMemo(() => new THREE.Color(), []);
   const groundColor = useMemo(() => new THREE.Color(), []);
+  const fog = useMemo(() => new THREE.Fog(0xffffff, 19, 43), []);
   const lastUi = useRef(0);
   const start = useRef(performance.now());
 
@@ -45,7 +46,11 @@ export function LivingSky({
     const sunset = 1 - Math.min(1, Math.abs(elevation) * 4);
     sky.copy(NIGHT).lerp(DAY, daylight).lerp(SUNSET, sunset * 0.42);
     scene.background = sky;
-    scene.fog = new THREE.Fog(sky, daylight > 0.2 ? 19 : 14, daylight > 0.2 ? 43 : 35);
+    // Mutate one stable Fog instead of allocating a new THREE.Fog every frame.
+    fog.color.copy(sky);
+    fog.near = daylight > 0.2 ? 19 : 14;
+    fog.far = daylight > 0.2 ? 43 : 35;
+    scene.fog = fog;
     if (sun.current) {
       sun.current.position.set(
         Math.cos(sunAngle) * 18,
@@ -354,7 +359,10 @@ function NpcAvatar({
 }
 
 export function WorldLandmarks({ save }: { save: WorldSave }) {
-  const active = new Set(save.activatedLandmarks);
+  const active = useMemo(
+    () => new Set(save.activatedLandmarks),
+    [save.activatedLandmarks],
+  );
   return (
     <>
       <group position={[-8, 0, -8]}>

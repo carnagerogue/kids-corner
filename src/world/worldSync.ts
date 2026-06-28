@@ -11,7 +11,6 @@
 import {
   ref,
   set,
-  update,
   onValue,
   onDisconnect,
   remove,
@@ -42,6 +41,7 @@ export type SharedWorldGame = {
 
 const STALE_MS = 15000;
 const WRITE_INTERVAL_MS = 90;
+const CHAT_TTL_MS = 12000; // a chat bubble stops showing this long after it was said
 
 function sanitize(s: string): string {
   return s.replace(/[.#$/[\]]/g, "_");
@@ -61,9 +61,19 @@ let db: Database | null = null;
 let selfPath: string | null = null;
 let lastWrite = 0;
 const sessionId = Math.random().toString(36).slice(2, 10);
+// The latest COMPLETE self record. Every write re-sends the whole thing via
+// set(), so a heartbeat that lands right after a transient onDisconnect-remove
+// can't resurrect a half-record (only {t}) that the kidId read-filter drops.
+let selfState: PlayerState | null = null;
 
 export function worldSyncEnabled(): boolean {
   return !!worldRootPath();
+}
+
+/** The active room code (empty when multiplayer is off). Lets callers re-join
+ * when the family sync code changes mid-session. */
+export function worldRoomCode(): string {
+  return readSyncOverride();
 }
 
 export function joinWorld(initial: PlayerState): void {
@@ -74,23 +84,26 @@ export function joinWorld(initial: PlayerState): void {
   // Session suffix prevents two tabs/devices for one child from deleting or
   // overwriting each other's presence record.
   selfPath = `${path}/${sanitize(initial.kidId)}-${sessionId}`;
+  selfState = { ...initial, t: Date.now() };
   const r = ref(db, selfPath);
-  set(r, { ...initial, t: Date.now() });
+  set(r, selfState);
   onDisconnect(r).remove();
 }
 
 /** Write self position/heading, throttled. Pass force for important changes. */
 export function updateSelf(partial: Partial<PlayerState>, force = false): void {
-  if (!db || !selfPath) return;
+  if (!db || !selfPath || !selfState) return;
   const now = Date.now();
+  selfState = { ...selfState, ...partial, t: now };
   if (!force && now - lastWrite < WRITE_INTERVAL_MS) return;
   lastWrite = now;
-  update(ref(db, selfPath), { ...partial, t: now });
+  set(ref(db, selfPath), selfState);
 }
 
 export function sendChat(text: string): void {
-  if (!db || !selfPath) return;
-  update(ref(db, selfPath), { chat: { text: text.slice(0, 120), ts: Date.now() } });
+  if (!db || !selfPath || !selfState) return;
+  selfState = { ...selfState, chat: { text: text.slice(0, 120), ts: Date.now() } };
+  set(ref(db, selfPath), selfState);
 }
 
 /** Subscribe to all players. Returns an unsubscribe fn. Filters stale entries. */
@@ -108,16 +121,25 @@ export function subscribeWorld(
     const val = (snap.val() || {}) as Record<string, PlayerState>;
     const now = Date.now();
     cb(
-      Object.values(val).filter(
-        (p) => p && p.kidId && (!p.t || now - p.t < STALE_MS),
-      ),
+      Object.values(val)
+        .filter((p) => p && p.kidId && (!p.t || now - p.t < STALE_MS))
+        // Drop chat that's older than its display window so a late joiner (or a
+        // reconnect) never re-pops a stale bubble that lingered in the DB.
+        .map((p) =>
+          p.chat && now - p.chat.ts > CHAT_TTL_MS ? { ...p, chat: null } : p,
+        ),
     );
   });
 }
 
 export function leaveWorld(): void {
-  if (db && selfPath) remove(ref(db, selfPath));
+  if (db && selfPath) {
+    const r = ref(db, selfPath);
+    onDisconnect(r).cancel(); // don't leave an armed remove() on the connection
+    remove(r);
+  }
   selfPath = null;
+  selfState = null;
 }
 
 export function subscribeWorldGame(

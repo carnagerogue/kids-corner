@@ -4,6 +4,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { resolveAssetUrl } from "../features/avatar/AvatarManifest";
+import { disposeObject3D } from "./disposeObject";
 import type { InteractionTarget } from "./worldGame";
 
 const WIDTH = 6.35;
@@ -215,6 +216,9 @@ function EnterableBuilding({
   useFrame((_, dt) => {
     if (!hinge.current) return;
     const target = open ? -Math.PI * 0.48 : 0;
+    // Skip the damp once the door has effectively settled so 12 idle doors don't
+    // each run easing math every frame.
+    if (Math.abs(hinge.current.rotation.y - target) < 0.0005) return;
     hinge.current.rotation.y = THREE.MathUtils.damp(hinge.current.rotation.y, target, 8, dt);
   });
   const door = useMemo(() => kit ? normalizeDetail(kit.door, 2.15) : null, [kit]);
@@ -256,8 +260,20 @@ function EnterableBuilding({
         )}
       </group>
 
-      <Interior type={building.interior} accent={building.accent} />
-      {open && <pointLight position={[0, 2.4, 0]} color="#fff1cf" intensity={1.2} distance={8} />}
+      {open && <Interior type={building.interior} accent={building.accent} />}
+      {/* Warm "lights on" glow when open — an emissive panel instead of a real
+          pointLight, so opening every door doesn't stack N real-time lights. */}
+      {open && (
+        <mesh position={[0, WALL_HEIGHT - 0.18, 0]}>
+          <boxGeometry args={[WIDTH - 0.7, 0.08, DEPTH - 0.7]} />
+          <meshStandardMaterial
+            color="#fff3d2"
+            emissive="#ffe2a4"
+            emissiveIntensity={1.5}
+            toneMapped={false}
+          />
+        </mesh>
+      )}
       <mesh position={[0, WALL_HEIGHT + 0.1, 0]} castShadow={shadows} receiveShadow>
         <boxGeometry args={[WIDTH + 0.28, 0.2, DEPTH + 0.28]} />
         <meshStandardMaterial color="#4f5661" transparent opacity={open ? 0.16 : 1} depthWrite={!open} />
@@ -271,14 +287,33 @@ export function CityBuildings({ openDoors, shadows }: { openDoors: ReadonlySet<s
   const [kit, setKit] = useState<Kit | null>(null);
   useEffect(() => {
     let alive = true;
+    let loaded: Kit | null = null;
     const loader = new GLTFLoader();
     Promise.all([
       loader.loadAsync(resolveAssetUrl("/assets/world/city-modular/door-brown-window.glb")),
       loader.loadAsync(resolveAssetUrl("/assets/world/city-modular/window-white-wide.glb")),
     ]).then(([door, window]) => {
-      if (alive) setKit({ door: door.scene, window: window.scene });
-    }).catch(() => {});
-    return () => { alive = false; };
+      loaded = { door: door.scene, window: window.scene };
+      if (alive) setKit(loaded);
+      else {
+        disposeObject3D(loaded.door);
+        disposeObject3D(loaded.window);
+      }
+    }).catch((error) => {
+      console.warn(
+        "CityBuildings: detail kit failed to load; using fallback geometry.",
+        error,
+      );
+    });
+    return () => {
+      alive = false;
+      // Free the GLB geometry/materials/textures (and the per-building clones that
+      // share them) so the kit doesn't leak GPU memory on every Canvas remount.
+      if (loaded) {
+        disposeObject3D(loaded.door);
+        disposeObject3D(loaded.window);
+      }
+    };
   }, []);
 
   return (

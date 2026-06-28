@@ -11,20 +11,26 @@ export type RuntimeQuality = {
 };
 
 const KEY = "kids-corner:world-quality";
+const CHOICES: string[] = ["auto", "high", "balanced", "low"];
 
 export function loadQualityChoice(): QualityChoice {
-  const fromQuery = new URLSearchParams(window.location.search).get("quality");
-  if (["auto", "high", "balanced", "low"].includes(fromQuery ?? "")) {
-    return fromQuery as QualityChoice;
-  }
+  // A saved preference wins over the URL, so a shared `?quality=` link can't
+  // silently and permanently pin a returning user to a tier they didn't choose.
   try {
     const value = localStorage.getItem(KEY);
-    return ["auto", "high", "balanced", "low"].includes(value ?? "")
-      ? (value as QualityChoice)
-      : "auto";
+    if (value && CHOICES.includes(value)) return value as QualityChoice;
   } catch {
-    return "auto";
+    /* storage blocked — fall through to the URL/default */
   }
+  try {
+    const fromQuery = new URLSearchParams(window.location?.search ?? "").get(
+      "quality",
+    );
+    if (fromQuery && CHOICES.includes(fromQuery)) return fromQuery as QualityChoice;
+  } catch {
+    /* no window/URL available */
+  }
+  return "auto";
 }
 
 export function saveQualityChoice(choice: QualityChoice): void {

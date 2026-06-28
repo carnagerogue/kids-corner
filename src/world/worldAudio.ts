@@ -16,6 +16,7 @@ export class WorldAudioEngine {
   private wind: GainNode | null = null;
   private birdTimer = 0;
   private enabled = false;
+  private toggleSeq = 0;
 
   get isEnabled(): boolean {
     return this.enabled;
@@ -23,12 +24,21 @@ export class WorldAudioEngine {
 
   async setEnabled(enabled: boolean): Promise<void> {
     this.enabled = enabled;
+    // Sequence guard: if a newer toggle happens while we await resume(), this
+    // (now-stale) call must not re-raise the gain after the user turned it off.
+    const seq = ++this.toggleSeq;
     if (!enabled) {
       if (this.master) this.master.gain.setTargetAtTime(0, this.ctx?.currentTime ?? 0, 0.05);
+      // Let the fade finish, then suspend the context so a muted World stops
+      // rendering the wind loop and burning CPU/battery.
+      window.setTimeout(() => {
+        if (!this.enabled && seq === this.toggleSeq) void this.ctx?.suspend();
+      }, 200);
       return;
     }
     this.ensureGraph();
     await this.ctx?.resume();
+    if (seq !== this.toggleSeq) return; // superseded by a later toggle
     if (this.master && this.ctx) {
       this.master.gain.setTargetAtTime(0.55, this.ctx.currentTime, 0.08);
     }
@@ -63,7 +73,7 @@ export class WorldAudioEngine {
   }
 
   updatePosition(x: number, z: number, daylight: number): void {
-    if (!this.ctx || !this.wind) return;
+    if (!this.enabled || !this.ctx || !this.wind) return;
     const breeze = 0.025 + Math.min(0.035, Math.hypot(x, z) / 900);
     const nightQuiet = 0.45 + daylight * 0.55;
     this.wind.gain.setTargetAtTime(breeze * nightQuiet, this.ctx.currentTime, 0.4);

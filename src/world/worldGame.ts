@@ -207,15 +207,22 @@ export function activateLandmarks(
   ids: LandmarkId[],
   event = currentSeasonalEvent(),
 ): { save: WorldSave; festivalCompleted: boolean } {
-  const beforeComplete = save.activatedLandmarks.length === LANDMARKS.length;
+  // Only count real landmark ids (mirrors mergeCollectedStars' valid.has filter)
+  // so a stray id can never inflate the activated count to "complete".
+  const valid = new Set<LandmarkId>(LANDMARKS.map((landmark) => landmark.id));
   const activatedLandmarks = Array.from(
-    new Set<LandmarkId>([...save.activatedLandmarks, ...ids]),
+    new Set<LandmarkId>([
+      ...save.activatedLandmarks,
+      ...ids.filter((id) => valid.has(id)),
+    ]),
   );
   const rewardId = `${event.id}-${new Date().getFullYear()}`;
   const completed = activatedLandmarks.length === LANDMARKS.length;
+  // Award (and celebrate) once per season: the rewardId carries the season+year,
+  // so each new season re-earns the banner even though landmarks stay powered.
   const award = completed && save.seasonalRewardId !== rewardId;
   return {
-    festivalCompleted: award && !beforeComplete,
+    festivalCompleted: award,
     save: {
       ...save,
       activatedLandmarks,
