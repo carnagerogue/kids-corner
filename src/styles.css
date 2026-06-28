@@ -6891,6 +6891,124 @@ body.fun-cursor-on * {
   white-space: nowrap;
   box-shadow: 0 4px 12px rgba(21, 25, 57, 0.2);
 }
+.world-ring-sign {
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 2px solid #ffcf52;
+  background: rgba(45, 36, 71, 0.82);
+  color: #ffe9a8;
+  font-weight: 900;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+/* --- Daily quest (in the quest log) ------------------------------------ */
+.academy__daily {
+  margin: 4px 0 14px;
+  padding: 12px 13px;
+  border-radius: 15px;
+  background: linear-gradient(135deg, #fff4d9, #ffe7c2);
+  border: 2px solid #ffd591;
+}
+.academy__daily.is-complete {
+  background: linear-gradient(135deg, #e9fbf0, #d6f5e2);
+  border-color: #8fd9b4;
+}
+.academy__dailytop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #8a5a12;
+  font-weight: 800;
+  font-size: 0.84rem;
+}
+.academy__daily strong {
+  display: block;
+  margin: 3px 0 8px;
+  color: #5b4a2a;
+}
+.academy__dailybar {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  overflow: hidden;
+}
+.academy__dailybar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ffb43d, #ff8f3d);
+}
+.academy__daily.is-complete .academy__dailybar > span {
+  background: linear-gradient(90deg, #41c98a, #6ad6a4);
+}
+.academy__dailyclaim {
+  margin-top: 10px;
+  width: 100%;
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 16px;
+  color: #fff;
+  background: linear-gradient(135deg, #f0a030, #ef7d3a);
+  font-weight: 900;
+  cursor: pointer;
+  animation: battle-bob 1.6s ease-in-out infinite;
+}
+.academy__dailydone,
+.academy__dailyhint {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #8a6a32;
+}
+.academy__bosswins {
+  margin-top: 10px;
+  font-size: 0.84rem;
+  color: #6b4f9e;
+}
+
+/* --- Boss raid --------------------------------------------------------- */
+.boss__creature {
+  width: 110px;
+  height: 110px;
+  font-size: 3.4rem;
+}
+.boss__shield {
+  margin-bottom: 12px;
+  padding: 11px 13px;
+  border-radius: 14px;
+  background: #2c2350;
+  color: #ede8ff;
+}
+.boss__shieldhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 900;
+  margin-bottom: 7px;
+}
+.boss__shieldbar {
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  overflow: hidden;
+}
+.boss__shieldbar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff7ad0, #b06bf0, #6bb8f0);
+  transition: width 220ms ease;
+}
+.boss__raiders {
+  margin-top: 7px;
+  font-size: 0.8rem;
+  opacity: 0.92;
+}
+.boss__hearts {
+  white-space: nowrap;
+}
 .world-yard__choices {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

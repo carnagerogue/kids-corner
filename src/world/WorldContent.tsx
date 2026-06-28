@@ -10,7 +10,12 @@ import {
   type DecorationId,
   type WorldSave,
 } from "./worldGame";
-import { CREATURES, type Creature } from "./worldBattles";
+import {
+  CHAMPIONS_RING,
+  CREATURES,
+  creatureUnlocked,
+  type Creature,
+} from "./worldBattles";
 
 const DAY = new THREE.Color("#bfe6ff");
 const SUNSET = new THREE.Color("#f6a56f");
@@ -513,44 +518,61 @@ function FloatingStar({ position }: { position: readonly [number, number, number
   );
 }
 
-function WorldCreature({ creature, friend }: { creature: Creature; friend: boolean }) {
+function WorldCreature({
+  creature,
+  friend,
+  locked,
+}: {
+  creature: Creature;
+  friend: boolean;
+  locked: boolean;
+}) {
   const gem = useRef<THREE.Mesh>(null);
   const ring = useRef<THREE.Mesh>(null);
+  const size = creature.boss ? 0.72 : 0.5;
+  const tint = locked ? "#9aa0ad" : creature.color;
   useFrame(({ clock }, dt) => {
     if (gem.current) {
       gem.current.position.y =
         creature.position[1] + Math.sin(clock.elapsedTime * 1.6) * 0.16;
-      gem.current.rotation.y += dt * 0.9;
+      gem.current.rotation.y += dt * (creature.boss ? 0.5 : 0.9);
     }
     if (ring.current) ring.current.rotation.z += dt * 0.6;
   });
+  const badge = locked ? "" : friend ? " 💚" : creature.boss ? " 🏆" : " ⚔️";
   return (
     <group position={[creature.position[0], 0, creature.position[2]]}>
       <mesh ref={gem} castShadow>
-        <icosahedronGeometry args={[0.5, 0]} />
+        <icosahedronGeometry args={[size, 0]} />
         <meshStandardMaterial
-          color={creature.color}
-          emissive={creature.color}
-          emissiveIntensity={0.45}
+          color={tint}
+          emissive={tint}
+          emissiveIntensity={locked ? 0.12 : 0.45}
           roughness={0.35}
           metalness={0.1}
         />
       </mesh>
       <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
-        <ringGeometry args={[0.7, 0.95, 28]} />
-        <meshBasicMaterial color={creature.color} transparent opacity={0.35} />
+        <ringGeometry args={[size + 0.2, size + 0.45, 28]} />
+        <meshBasicMaterial color={tint} transparent opacity={0.35} />
       </mesh>
       <Html position={[0, creature.position[1] + 0.95, 0]} center distanceFactor={11} occlude={false}>
-        <div className="world-creature-tag" style={{ borderColor: creature.color }}>
-          {creature.emoji} {creature.name}
-          {friend ? " 💚" : " ⚔️"}
+        <div className="world-creature-tag" style={{ borderColor: tint }}>
+          {locked ? "🔒" : creature.emoji} {creature.name}
+          {locked ? ` · Lv ${creature.unlockLevel}` : badge}
         </div>
       </Html>
     </group>
   );
 }
 
-export function WorldCreatures({ befriended }: { befriended: string[] }) {
+export function WorldCreatures({
+  befriended,
+  level,
+}: {
+  befriended: string[];
+  level: number;
+}) {
   return (
     <>
       {CREATURES.map((creature) => (
@@ -558,9 +580,35 @@ export function WorldCreatures({ befriended }: { befriended: string[] }) {
           key={creature.id}
           creature={creature}
           friend={befriended.includes(creature.id)}
+          locked={!creatureUnlocked(creature, level)}
         />
       ))}
     </>
+  );
+}
+
+export function ChampionsRing({ unlocked }: { unlocked: boolean }) {
+  return (
+    <group position={[CHAMPIONS_RING.x, 0, CHAMPIONS_RING.z]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]}>
+        <ringGeometry args={[CHAMPIONS_RING.radius - 0.6, CHAMPIONS_RING.radius, 56]} />
+        <meshBasicMaterial
+          color={unlocked ? "#ffcf52" : "#9aa0ad"}
+          transparent
+          opacity={0.5}
+        />
+      </mesh>
+      <Html
+        position={[0, 3.2, -CHAMPIONS_RING.radius + 1.2]}
+        center
+        distanceFactor={15}
+        occlude={false}
+      >
+        <div className="world-ring-sign">
+          🏆 Champions&apos; Ring{unlocked ? "" : ` · Lv ${CHAMPIONS_RING.unlockLevel}+`}
+        </div>
+      </Html>
+    </group>
   );
 }
 

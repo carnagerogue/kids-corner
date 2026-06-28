@@ -49,6 +49,8 @@ export type AcademyQuest = {
 
 // --- Progression model ------------------------------------------------------
 
+export type DailyState = { date: string; progress: number; claimed: boolean };
+
 export type AcademyProgress = {
   version: 1;
   xp: number;
@@ -58,11 +60,17 @@ export type AcademyProgress = {
   correct: number;
   /** ids of challenge-battle creatures the learner has befriended. */
   befriended: string[];
+  /** today's daily-quest progress (resets when the date rolls over). */
+  daily: DailyState;
+  /** lifetime co-op boss raids completed. */
+  bossWins: number;
 };
 
 export const XP_PER_CORRECT = 10;
 export const XP_PER_CHAPTER = 20;
 export const XP_PER_BATTLE_WIN = 30;
+export const XP_PER_BOSS_WIN = 50;
+export const XP_PER_DAILY = 25;
 
 const DEFAULT_PROGRESS: AcademyProgress = {
   version: 1,
@@ -70,6 +78,8 @@ const DEFAULT_PROGRESS: AcademyProgress = {
   chaptersDone: {},
   correct: 0,
   befriended: [],
+  daily: { date: "", progress: 0, claimed: false },
+  bossWins: 0,
 };
 
 const LEVEL_XP = 100; // xp per level — full quest line ≈ level 6-7
@@ -176,6 +186,95 @@ export function befriend(p: AcademyProgress, creatureId: string): AcademyProgres
   };
 }
 
+/** Boss raids are co-op: each completion bumps a lifetime count + big XP. */
+export function recordBossWin(p: AcademyProgress): AcademyProgress {
+  return { ...p, xp: p.xp + XP_PER_BOSS_WIN, bossWins: p.bossWins + 1 };
+}
+
+// --- Daily quest ------------------------------------------------------------
+
+export type DailyKind = "correct" | "battle-win" | "chapter";
+export type DailyQuestDef = {
+  id: string;
+  label: string;
+  emoji: string;
+  goal: number;
+  kind: DailyKind;
+};
+
+export const DAILY_QUESTS: DailyQuestDef[] = [
+  { id: "answer-7", label: "Answer 7 questions correctly", emoji: "🎯", goal: 7, kind: "correct" },
+  { id: "win-battle", label: "Win a creature battle", emoji: "⚔️", goal: 1, kind: "battle-win" },
+  { id: "finish-chapter", label: "Finish a story chapter", emoji: "📖", goal: 1, kind: "chapter" },
+  { id: "answer-12", label: "Answer 12 questions correctly", emoji: "🌟", goal: 12, kind: "correct" },
+  { id: "win-2-battles", label: "Win 2 creature battles", emoji: "🏆", goal: 2, kind: "battle-win" },
+];
+
+/** Local YYYY-MM-DD for the given date (defaults to now). */
+export function todayStr(date = new Date()): string {
+  const y = date.getFullYear();
+  const m = `${date.getMonth() + 1}`.padStart(2, "0");
+  const d = `${date.getDate()}`.padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** Deterministic daily quest for a date (rotates so every kid gets the same one). */
+export function dailyQuestFor(dateStr: string): DailyQuestDef {
+  let h = 0;
+  for (let i = 0; i < dateStr.length; i++) h = (h * 31 + dateStr.charCodeAt(i)) >>> 0;
+  return DAILY_QUESTS[h % DAILY_QUESTS.length];
+}
+
+export type DailyView = {
+  quest: DailyQuestDef;
+  progress: number;
+  claimed: boolean;
+  complete: boolean;
+};
+
+/** Today's quest + progress for display (a stale stored day reads as 0/unclaimed). */
+export function dailyView(p: AcademyProgress, dateStr: string): DailyView {
+  const quest = dailyQuestFor(dateStr);
+  const fresh = p.daily.date === dateStr;
+  const progress = fresh ? Math.min(quest.goal, p.daily.progress) : 0;
+  const claimed = fresh ? p.daily.claimed : false;
+  return { quest, progress, claimed, complete: progress >= quest.goal };
+}
+
+/** Advance today's daily quest when a matching event happens (rolls the day over
+ * first). Returns the same object when nothing changed. */
+export function recordDailyEvent(
+  p: AcademyProgress,
+  kind: DailyKind,
+  amount: number,
+  dateStr: string,
+): AcademyProgress {
+  const rolled =
+    p.daily.date === dateStr
+      ? p
+      : { ...p, daily: { date: dateStr, progress: 0, claimed: false } };
+  const quest = dailyQuestFor(dateStr);
+  if (quest.kind !== kind || rolled.daily.claimed) return rolled;
+  const progress = Math.min(quest.goal, rolled.daily.progress + amount);
+  if (progress === rolled.daily.progress) return rolled;
+  return { ...rolled, daily: { ...rolled.daily, progress } };
+}
+
+export function dailyClaimable(p: AcademyProgress, dateStr: string): boolean {
+  const view = dailyView(p, dateStr);
+  return view.complete && !view.claimed;
+}
+
+/** Claim today's reward (XP here; the caller adds tokens to the world save). */
+export function claimDaily(p: AcademyProgress, dateStr: string): AcademyProgress {
+  if (!dailyClaimable(p, dateStr)) return p;
+  return {
+    ...p,
+    xp: p.xp + XP_PER_DAILY,
+    daily: { date: dateStr, progress: p.daily.progress, claimed: true },
+  };
+}
+
 // --- Persistence (own slice, never touches worldGame's save) ----------------
 
 const key = (kidId: KidId) => `kids-corner:academy:${kidId}:v1`;
@@ -191,6 +290,15 @@ export function loadAcademy(kidId: KidId): AcademyProgress {
       version: 1,
       chaptersDone: { ...(value.chaptersDone ?? {}) },
       befriended: Array.isArray(value.befriended) ? value.befriended : [],
+      daily:
+        value.daily && typeof value.daily.date === "string"
+          ? {
+              date: value.daily.date,
+              progress: Math.max(0, value.daily.progress ?? 0),
+              claimed: !!value.daily.claimed,
+            }
+          : { date: "", progress: 0, claimed: false },
+      bossWins: typeof value.bossWins === "number" && value.bossWins >= 0 ? value.bossWins : 0,
       xp: typeof value.xp === "number" && value.xp >= 0 ? value.xp : 0,
       correct: typeof value.correct === "number" && value.correct >= 0 ? value.correct : 0,
     };

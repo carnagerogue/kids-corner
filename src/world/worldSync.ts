@@ -194,3 +194,41 @@ export function shareActivatedLandmark(
     { kidId: kid.kidId, name: kid.name, ts: Date.now() },
   );
 }
+
+// --- Co-op boss raid (date-keyed; each kid writes ONLY their own hit count,
+// so concurrent raiders never race) ----------------------------------------
+export type BossState = { hits: Record<string, number>; total: number };
+
+export function subscribeBoss(
+  dateStr: string,
+  cb: (state: BossState) => void,
+): () => void {
+  db = getDb();
+  const root = worldRootPath();
+  if (!db || !root) {
+    cb({ hits: {}, total: 0 });
+    return () => {};
+  }
+  return onValue(
+    ref(db, `${root}/boss/${sanitize(dateStr)}/hits`),
+    (snap) => {
+      const hits = (snap.val() || {}) as Record<string, number>;
+      const total = Object.values(hits).reduce((sum, n) => sum + (n || 0), 0);
+      cb({ hits, total });
+    },
+  );
+}
+
+export function recordBossHit(
+  dateStr: string,
+  kidId: string,
+  hits: number,
+): void {
+  db = getDb();
+  const root = worldRootPath();
+  if (!db || !root) return;
+  set(
+    ref(db, `${root}/boss/${sanitize(dateStr)}/hits/${sanitize(kidId)}`),
+    hits,
+  );
+}

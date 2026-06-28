@@ -50,6 +50,7 @@ import {
 import {
   AmbientLife,
   CelebrationBurst,
+  ChampionsRing,
   LivingSky,
   MayorNova,
   QuestCollectibles,
@@ -62,16 +63,22 @@ import {
   befriend,
   befriendedCount,
   chaptersDone,
+  claimDaily,
   completeChapter,
   currentChapterIndex,
+  dailyClaimable,
+  dailyView,
   isBefriended,
   levelBar,
   levelForXp,
   levelTitle,
   loadAcademy,
   questStatus,
+  recordBossWin,
   recordCorrect,
+  recordDailyEvent,
   saveAcademy,
+  todayStr,
   type AcademyChapter,
   type AcademyProgress,
   type AcademyQuestId,
@@ -79,10 +86,13 @@ import {
 } from "./academyQuests";
 import { AcademyChallenge } from "./AcademyChallenge";
 import { BattleArena } from "./BattleArena";
+import { BossArena } from "./BossArena";
 import {
+  CHAMPIONS_RING,
   CREATURES,
   creatureById,
   creatureInteractions,
+  creatureUnlocked,
   drawBattleQuestions,
   type Creature,
 } from "./worldBattles";
@@ -1122,6 +1132,10 @@ export default function WorldView() {
     creature: Creature;
     questions: AcademyQuestion[];
   } | null>(null);
+  const [boss, setBoss] = useState<{
+    creature: Creature;
+    questions: AcademyQuestion[];
+  } | null>(null);
   // True whenever any modal/panel is open — read by Rig to freeze avatar input.
   const uiLock = useRef(false);
   const quality = useMemo(() => resolveQuality(qualityChoice), [qualityChoice]);
@@ -1153,6 +1167,7 @@ export default function WorldView() {
     setAcademy(loadAcademy(kidId));
     setAcademyOpen(null);
     setBattle(null);
+    setBoss(null);
     const citySpawn = developmentCitySpawn();
     self.current = citySpawn
       ? { ...citySpawn, moving: false }
@@ -1162,9 +1177,9 @@ export default function WorldView() {
   // Keep the input-lock ref in sync with whatever panel is open.
   useEffect(() => {
     uiLock.current = Boolean(
-      dialogue || yardOpen || academyOpen || questLogOpen || battle,
+      dialogue || yardOpen || academyOpen || questLogOpen || battle || boss,
     );
-  }, [dialogue, yardOpen, academyOpen, questLogOpen, battle]);
+  }, [dialogue, yardOpen, academyOpen, questLogOpen, battle, boss]);
 
   useEffect(() => () => audio.dispose(), [audio]);
 
@@ -1268,7 +1283,9 @@ export default function WorldView() {
   );
 
   const onAcademyCorrect = useCallback(() => {
-    commitAcademy(recordCorrect(academy));
+    commitAcademy(
+      recordDailyEvent(recordCorrect(academy), "correct", 1, todayStr()),
+    );
   }, [academy, commitAcademy]);
 
   const onAcademyChapterComplete = useCallback(
@@ -1278,7 +1295,7 @@ export default function WorldView() {
       if (!quest) return;
       const idx = currentChapterIndex(academy, quest);
       const { progress, firstForQuest } = completeChapter(academy, quest, idx);
-      commitAcademy(progress);
+      commitAcademy(recordDailyEvent(progress, "chapter", 1, todayStr()));
       // Award the chapter's tokens. Completing a quest's FIRST chapter also powers
       // that landmark's festival light — so the town lights up through learning.
       let nextSave: WorldSave = {
@@ -1308,23 +1325,62 @@ export default function WorldView() {
     ],
   );
 
-  const openBattle = useCallback((creatureId: string) => {
-    const creature = creatureById(creatureId);
-    if (!creature) return;
-    setBattle({ creature, questions: drawBattleQuestions(creature) });
-  }, []);
+  const openBattle = useCallback(
+    (creatureId: string) => {
+      const creature = creatureById(creatureId);
+      if (!creature) return;
+      const lvl = levelForXp(academy.xp);
+      if (!creatureUnlocked(creature, lvl)) {
+        setDialogue({
+          title: `${creature.emoji} ${creature.name}`,
+          text: `This champion only challenges Level ${creature.unlockLevel}+ explorers. Keep learning to level up — you're Level ${lvl} now!`,
+        });
+        return;
+      }
+      const payload = { creature, questions: drawBattleQuestions(creature) };
+      if (creature.boss) setBoss(payload);
+      else setBattle(payload);
+    },
+    [academy],
+  );
 
   const onBattleCorrect = useCallback(() => {
-    commitAcademy(recordCorrect(academy));
+    commitAcademy(
+      recordDailyEvent(recordCorrect(academy), "correct", 1, todayStr()),
+    );
   }, [academy, commitAcademy]);
 
   const onBattleWin = useCallback(() => {
     if (!battle) return;
-    commitAcademy(befriend(academy, battle.creature.id));
+    commitAcademy(
+      recordDailyEvent(
+        befriend(academy, battle.creature.id),
+        "battle-win",
+        1,
+        todayStr(),
+      ),
+    );
     const reward = 8 + battle.creature.puzzleLength * 2;
     commitWorld({ ...worldSave, townTokens: worldSave.townTokens + reward });
     celebrate();
   }, [battle, academy, worldSave, commitAcademy, commitWorld, celebrate]);
+
+  const onBossWin = useCallback(() => {
+    if (!boss) return;
+    commitAcademy(
+      recordDailyEvent(recordBossWin(academy), "battle-win", 1, todayStr()),
+    );
+    commitWorld({ ...worldSave, townTokens: worldSave.townTokens + 40 });
+    celebrate();
+  }, [boss, academy, worldSave, commitAcademy, commitWorld, celebrate]);
+
+  const claimDailyReward = useCallback(() => {
+    const today = todayStr();
+    if (!dailyClaimable(academy, today)) return;
+    commitAcademy(claimDaily(academy, today));
+    commitWorld({ ...worldSave, townTokens: worldSave.townTokens + 15 });
+    celebrate();
+  }, [academy, worldSave, commitAcademy, commitWorld, celebrate]);
 
   const interact = useCallback(() => {
     if (!nearest) return;
@@ -1403,6 +1459,7 @@ export default function WorldView() {
         setAcademyOpen(null);
         setQuestLogOpen(false);
         setBattle(null);
+        setBoss(null);
         return;
       }
       if (event.repeat) return; // holding E must not re-fire interact (review fix)
@@ -1463,13 +1520,15 @@ export default function WorldView() {
   const festivalCount = worldSave.activatedLandmarks.length;
   const level = levelForXp(academy.xp);
   const xpBar = levelBar(academy.xp);
+  const daily = dailyView(academy, todayStr());
+  const buddies = CREATURES.filter((creature) => !creature.boss);
   const activeAcademyQuest = academyOpen ? academyById(academyOpen) : null;
   const promptLabel =
     nearest && nearest.kind === "landmark"
       ? `Learn at ${academyById(nearest.id as AcademyQuestId)?.title ?? nearest.label}`
       : nearest?.label;
   const anyPanelOpen = Boolean(
-    dialogue || yardOpen || academyOpen || questLogOpen || battle,
+    dialogue || yardOpen || academyOpen || questLogOpen || battle || boss,
   );
 
   return (
@@ -1494,7 +1553,8 @@ export default function WorldView() {
         </group>
         <MayorNova />
         <QuestCollectibles save={worldSave} />
-        <WorldCreatures befriended={academy.befriended} />
+        <ChampionsRing unlocked={level >= CHAMPIONS_RING.unlockLevel} />
+        <WorldCreatures befriended={academy.befriended} level={level} />
         <AmbientLife particleCount={quality.particles} birdCount={quality.birds} />
         <CelebrationBurst burstId={celebrationId} />
         <Rig
@@ -1566,7 +1626,9 @@ export default function WorldView() {
         <span className="world-tools__level" title={`${xpBar.into}/${xpBar.span} XP to next level`}>
           🎓 Lv {level}
         </span>
-        <button onClick={() => setQuestLogOpen((open) => !open)}>📜 Quests</button>
+        <button onClick={() => setQuestLogOpen((open) => !open)}>
+          📜 Quests{dailyClaimable(academy, todayStr()) ? " 🎁" : ""}
+        </button>
         <button onClick={toggleSound}>{soundOn ? "🔊 Sound" : "🔇 Sound"}</button>
         <label>
           <span className="sr-only">World quality</span>
@@ -1672,6 +1734,19 @@ export default function WorldView() {
         />
       )}
 
+      {boss && (
+        <BossArena
+          creature={boss.creature}
+          questions={boss.questions}
+          level={level}
+          dateStr={todayStr()}
+          kidId={kidId}
+          onCorrect={onBattleCorrect}
+          onWin={onBossWin}
+          onClose={() => setBoss(null)}
+        />
+      )}
+
       {questLogOpen && (
         <div
           className="academy academy--log"
@@ -1701,6 +1776,33 @@ export default function WorldView() {
                 {xpBar.into}/{xpBar.span} XP to Lv {level + 1}
               </span>
             </div>
+
+            <div className={`academy__daily${daily.complete ? " is-complete" : ""}`}>
+              <div className="academy__dailytop">
+                <span>{daily.quest.emoji} Daily Quest</span>
+                <span>
+                  {Math.min(daily.progress, daily.quest.goal)}/{daily.quest.goal}
+                </span>
+              </div>
+              <strong>{daily.quest.label}</strong>
+              <div className="academy__dailybar">
+                <span
+                  style={{
+                    width: `${Math.round((daily.progress / daily.quest.goal) * 100)}%`,
+                  }}
+                />
+              </div>
+              {daily.claimed ? (
+                <span className="academy__dailydone">✅ Claimed today — back tomorrow!</span>
+              ) : daily.complete ? (
+                <button className="academy__dailyclaim" onClick={claimDailyReward}>
+                  Claim reward 🎁 +25 XP · 🪙 15
+                </button>
+              ) : (
+                <span className="academy__dailyhint">Reward: 🎁 +25 XP · 🪙 15 tokens</span>
+              )}
+            </div>
+
             <ul className="academy__quests">
               {ACADEMY_QUESTS.map((quest) => {
                 const status = questStatus(academy, quest);
@@ -1731,12 +1833,13 @@ export default function WorldView() {
               <div className="academy__buddieshead">
                 <strong>⚔️ Brain Buddies</strong>
                 <span>
-                  {befriendedCount(academy)}/{CREATURES.length}
+                  {befriendedCount(academy)}/{buddies.length}
                 </span>
               </div>
               <div className="academy__buddyrow">
-                {CREATURES.map((creature) => {
+                {buddies.map((creature) => {
                   const friend = isBefriended(academy, creature.id);
+                  const locked = !creatureUnlocked(creature, level);
                   return (
                     <span
                       key={creature.id}
@@ -1744,20 +1847,28 @@ export default function WorldView() {
                       title={
                         friend
                           ? `${creature.name} — befriended!`
-                          : `${creature.name} — challenge to befriend`
+                          : locked
+                            ? `${creature.name} — unlocks at Lv ${creature.unlockLevel}`
+                            : `${creature.name} — challenge to befriend`
                       }
                     >
-                      {creature.emoji}
+                      {locked ? "🔒" : creature.emoji}
                       {friend && <em>💚</em>}
                     </span>
                   );
                 })}
               </div>
+              {academy.bossWins > 0 && (
+                <div className="academy__bosswins">
+                  🏆 Boss raids won: <strong>{academy.bossWins}</strong>
+                </div>
+              )}
             </div>
 
             <p className="academy__hinttext">
-              Press <kbd>E</kbd> at 📚🛠️🔭 landmarks to learn, or find roaming{" "}
-              <strong>⚔️ creatures</strong> to battle and befriend.
+              Press <kbd>E</kbd> at 📚🛠️🔭 landmarks to learn, battle roaming{" "}
+              <strong>⚔️ creatures</strong>, and reach Lv {CHAMPIONS_RING.unlockLevel}{" "}
+              for the 🏆 Champions&apos; Ring.
             </p>
           </div>
         </div>
