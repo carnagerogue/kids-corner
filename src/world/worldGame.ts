@@ -265,6 +265,7 @@ export type InteractionTarget =
       radius: number;
     }
   | { id: string; kind: "door"; label: string; position: Vec3; radius: number }
+  | { id: string; kind: "creature"; label: string; position: Vec3; radius: number }
   | { id: "home-yard"; kind: "yard"; label: string; position: Vec3; radius: number };
 
 export function interactionsFor(save: WorldSave): InteractionTarget[] {

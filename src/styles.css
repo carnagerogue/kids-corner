@@ -6766,6 +6766,131 @@ body.fun-cursor-on * {
   color: #6147c6;
   font-weight: 800;
 }
+
+/* --- Challenge battles -------------------------------------------------- */
+.battle__creature {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  margin: 6px auto 4px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 3rem;
+  box-shadow: 0 10px 26px rgba(21, 25, 57, 0.28);
+  animation: battle-bob 2.4s ease-in-out infinite;
+}
+@keyframes battle-bob {
+  50% { transform: translateY(-7px); }
+}
+.battle__creature.is-friend {
+  animation: battle-pop 500ms ease-out both;
+}
+@keyframes battle-pop {
+  0% { transform: scale(0.6); }
+  60% { transform: scale(1.12); }
+}
+.battle__creature .battle__heart {
+  position: absolute;
+  right: -4px;
+  bottom: -2px;
+  font-size: 1.5rem;
+}
+.battle__status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.battle__meter {
+  display: inline-flex;
+  gap: 6px;
+}
+.battle__pip {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  background: #e2e0ef;
+}
+.battle__pip.is-solved {
+  background: linear-gradient(135deg, #6558df, #9671f5);
+}
+.battle__hearts {
+  font-size: 1.1rem;
+  letter-spacing: 1px;
+}
+.battle__actions {
+  display: flex;
+  gap: 10px;
+}
+.battle__actions .academy__next {
+  flex: 1;
+}
+.battle__leave {
+  flex: none;
+  border: 2px solid #e2e2ed;
+  border-radius: 999px;
+  padding: 0 18px;
+  background: #fff;
+  color: #6b7191;
+  font-weight: 800;
+  cursor: pointer;
+}
+/* Brain Buddies collection in the quest log */
+.academy__buddies {
+  margin-top: 14px;
+  padding: 12px 13px;
+  border-radius: 15px;
+  background: #f5f3ff;
+}
+.academy__buddieshead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #4f3fb0;
+  margin-bottom: 9px;
+}
+.academy__buddyrow {
+  display: flex;
+  gap: 9px;
+}
+.academy__buddy {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  background: #fff;
+  border: 2px solid #e4e0f5;
+  filter: grayscale(0.7) opacity(0.55);
+}
+.academy__buddy.is-friend {
+  filter: none;
+  border-color: #8fd9b4;
+  background: #eefcf4;
+}
+.academy__buddy em {
+  position: absolute;
+  right: -4px;
+  bottom: -5px;
+  font-size: 0.85rem;
+  font-style: normal;
+}
+/* In-world floating creature name tag */
+.world-creature-tag {
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 2px solid #8b7bf2;
+  background: rgba(255, 255, 255, 0.94);
+  color: #2f2a55;
+  font-weight: 800;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(21, 25, 57, 0.2);
+}
 .world-yard__choices {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

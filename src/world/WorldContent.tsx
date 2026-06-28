@@ -10,6 +10,7 @@ import {
   type DecorationId,
   type WorldSave,
 } from "./worldGame";
+import { CREATURES, type Creature } from "./worldBattles";
 
 const DAY = new THREE.Color("#bfe6ff");
 const SUNSET = new THREE.Color("#f6a56f");
@@ -509,6 +510,57 @@ function FloatingStar({ position }: { position: readonly [number, number, number
       </mesh>
       <pointLight color="#ffd84f" intensity={0.9} distance={4} />
     </group>
+  );
+}
+
+function WorldCreature({ creature, friend }: { creature: Creature; friend: boolean }) {
+  const gem = useRef<THREE.Mesh>(null);
+  const ring = useRef<THREE.Mesh>(null);
+  useFrame(({ clock }, dt) => {
+    if (gem.current) {
+      gem.current.position.y =
+        creature.position[1] + Math.sin(clock.elapsedTime * 1.6) * 0.16;
+      gem.current.rotation.y += dt * 0.9;
+    }
+    if (ring.current) ring.current.rotation.z += dt * 0.6;
+  });
+  return (
+    <group position={[creature.position[0], 0, creature.position[2]]}>
+      <mesh ref={gem} castShadow>
+        <icosahedronGeometry args={[0.5, 0]} />
+        <meshStandardMaterial
+          color={creature.color}
+          emissive={creature.color}
+          emissiveIntensity={0.45}
+          roughness={0.35}
+          metalness={0.1}
+        />
+      </mesh>
+      <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
+        <ringGeometry args={[0.7, 0.95, 28]} />
+        <meshBasicMaterial color={creature.color} transparent opacity={0.35} />
+      </mesh>
+      <Html position={[0, creature.position[1] + 0.95, 0]} center distanceFactor={11} occlude={false}>
+        <div className="world-creature-tag" style={{ borderColor: creature.color }}>
+          {creature.emoji} {creature.name}
+          {friend ? " 💚" : " ⚔️"}
+        </div>
+      </Html>
+    </group>
+  );
+}
+
+export function WorldCreatures({ befriended }: { befriended: string[] }) {
+  return (
+    <>
+      {CREATURES.map((creature) => (
+        <WorldCreature
+          key={creature.id}
+          creature={creature}
+          friend={befriended.includes(creature.id)}
+        />
+      ))}
+    </>
   );
 }
 

@@ -53,14 +53,18 @@ import {
   LivingSky,
   MayorNova,
   QuestCollectibles,
+  WorldCreatures,
   WorldLandmarks,
 } from "./WorldContent";
 import {
   ACADEMY_QUESTS,
   academyById,
+  befriend,
+  befriendedCount,
   chaptersDone,
   completeChapter,
   currentChapterIndex,
+  isBefriended,
   levelBar,
   levelForXp,
   levelTitle,
@@ -71,8 +75,17 @@ import {
   type AcademyChapter,
   type AcademyProgress,
   type AcademyQuestId,
+  type AcademyQuestion,
 } from "./academyQuests";
 import { AcademyChallenge } from "./AcademyChallenge";
+import { BattleArena } from "./BattleArena";
+import {
+  CREATURES,
+  creatureById,
+  creatureInteractions,
+  drawBattleQuestions,
+  type Creature,
+} from "./worldBattles";
 import { disposeObject3D } from "./disposeObject";
 import { surfaceAt, WorldAudioEngine } from "./worldAudio";
 import {
@@ -1105,11 +1118,19 @@ export default function WorldView() {
   const [academyOpen, setAcademyOpen] = useState<AcademyQuestId | null>(null);
   const [academyChapter, setAcademyChapter] = useState(0);
   const [questLogOpen, setQuestLogOpen] = useState(false);
+  const [battle, setBattle] = useState<{
+    creature: Creature;
+    questions: AcademyQuestion[];
+  } | null>(null);
   // True whenever any modal/panel is open — read by Rig to freeze avatar input.
   const uiLock = useRef(false);
   const quality = useMemo(() => resolveQuality(qualityChoice), [qualityChoice]);
   const interactions = useMemo(
-    () => [...interactionsFor(worldSave), ...cityDoorInteractions(openDoors)],
+    () => [
+      ...interactionsFor(worldSave),
+      ...cityDoorInteractions(openDoors),
+      ...creatureInteractions(),
+    ],
     [worldSave, openDoors],
   );
 
@@ -1131,6 +1152,7 @@ export default function WorldView() {
     setWorldSave(next);
     setAcademy(loadAcademy(kidId));
     setAcademyOpen(null);
+    setBattle(null);
     const citySpawn = developmentCitySpawn();
     self.current = citySpawn
       ? { ...citySpawn, moving: false }
@@ -1139,8 +1161,10 @@ export default function WorldView() {
 
   // Keep the input-lock ref in sync with whatever panel is open.
   useEffect(() => {
-    uiLock.current = Boolean(dialogue || yardOpen || academyOpen || questLogOpen);
-  }, [dialogue, yardOpen, academyOpen, questLogOpen]);
+    uiLock.current = Boolean(
+      dialogue || yardOpen || academyOpen || questLogOpen || battle,
+    );
+  }, [dialogue, yardOpen, academyOpen, questLogOpen, battle]);
 
   useEffect(() => () => audio.dispose(), [audio]);
 
@@ -1284,6 +1308,24 @@ export default function WorldView() {
     ],
   );
 
+  const openBattle = useCallback((creatureId: string) => {
+    const creature = creatureById(creatureId);
+    if (!creature) return;
+    setBattle({ creature, questions: drawBattleQuestions(creature) });
+  }, []);
+
+  const onBattleCorrect = useCallback(() => {
+    commitAcademy(recordCorrect(academy));
+  }, [academy, commitAcademy]);
+
+  const onBattleWin = useCallback(() => {
+    if (!battle) return;
+    commitAcademy(befriend(academy, battle.creature.id));
+    const reward = 8 + battle.creature.puzzleLength * 2;
+    commitWorld({ ...worldSave, townTokens: worldSave.townTokens + reward });
+    celebrate();
+  }, [battle, academy, worldSave, commitAcademy, commitWorld, celebrate]);
+
   const interact = useCallback(() => {
     if (!nearest) return;
     if (nearest.kind === "collectible") {
@@ -1327,6 +1369,11 @@ export default function WorldView() {
       openAcademy(nearest.id);
       return;
     }
+    if (nearest.kind === "creature") {
+      // Friendly brain-creatures — walking up starts a turn-based quiz duel.
+      openBattle(nearest.id);
+      return;
+    }
     if (nearest.kind === "door") {
       setOpenDoors((current) => {
         const next = new Set(current);
@@ -1337,7 +1384,16 @@ export default function WorldView() {
       return;
     }
     setYardOpen(true);
-  }, [nearest, worldSave, commitWorld, kidId, kidName, celebrate, openAcademy]);
+  }, [
+    nearest,
+    worldSave,
+    commitWorld,
+    kidId,
+    kidName,
+    celebrate,
+    openAcademy,
+    openBattle,
+  ]);
 
   useEffect(() => {
     const press = (event: KeyboardEvent) => {
@@ -1346,6 +1402,7 @@ export default function WorldView() {
         setYardOpen(false);
         setAcademyOpen(null);
         setQuestLogOpen(false);
+        setBattle(null);
         return;
       }
       if (event.repeat) return; // holding E must not re-fire interact (review fix)
@@ -1411,7 +1468,9 @@ export default function WorldView() {
     nearest && nearest.kind === "landmark"
       ? `Learn at ${academyById(nearest.id as AcademyQuestId)?.title ?? nearest.label}`
       : nearest?.label;
-  const anyPanelOpen = Boolean(dialogue || yardOpen || academyOpen || questLogOpen);
+  const anyPanelOpen = Boolean(
+    dialogue || yardOpen || academyOpen || questLogOpen || battle,
+  );
 
   return (
     <div className="world">
@@ -1435,6 +1494,7 @@ export default function WorldView() {
         </group>
         <MayorNova />
         <QuestCollectibles save={worldSave} />
+        <WorldCreatures befriended={academy.befriended} />
         <AmbientLife particleCount={quality.particles} birdCount={quality.birds} />
         <CelebrationBurst burstId={celebrationId} />
         <Rig
@@ -1600,6 +1660,18 @@ export default function WorldView() {
         />
       )}
 
+      {battle && (
+        <BattleArena
+          creature={battle.creature}
+          questions={battle.questions}
+          level={level}
+          alreadyFriend={isBefriended(academy, battle.creature.id)}
+          onCorrect={onBattleCorrect}
+          onWin={onBattleWin}
+          onClose={() => setBattle(null)}
+        />
+      )}
+
       {questLogOpen && (
         <div
           className="academy academy--log"
@@ -1654,9 +1726,38 @@ export default function WorldView() {
                 );
               })}
             </ul>
+
+            <div className="academy__buddies">
+              <div className="academy__buddieshead">
+                <strong>⚔️ Brain Buddies</strong>
+                <span>
+                  {befriendedCount(academy)}/{CREATURES.length}
+                </span>
+              </div>
+              <div className="academy__buddyrow">
+                {CREATURES.map((creature) => {
+                  const friend = isBefriended(academy, creature.id);
+                  return (
+                    <span
+                      key={creature.id}
+                      className={`academy__buddy${friend ? " is-friend" : ""}`}
+                      title={
+                        friend
+                          ? `${creature.name} — befriended!`
+                          : `${creature.name} — challenge to befriend`
+                      }
+                    >
+                      {creature.emoji}
+                      {friend && <em>💚</em>}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+
             <p className="academy__hinttext">
-              Walk up to 📚 Story Grove, 🛠️ Maker Yard, or 🔭 Sky Lab and press{" "}
-              <kbd>E</kbd> to learn.
+              Press <kbd>E</kbd> at 📚🛠️🔭 landmarks to learn, or find roaming{" "}
+              <strong>⚔️ creatures</strong> to battle and befriend.
             </p>
           </div>
         </div>

@@ -56,16 +56,20 @@ export type AcademyProgress = {
   chaptersDone: Partial<Record<AcademyQuestId, number>>;
   /** lifetime correct answers (for badges / stats). */
   correct: number;
+  /** ids of challenge-battle creatures the learner has befriended. */
+  befriended: string[];
 };
 
 export const XP_PER_CORRECT = 10;
 export const XP_PER_CHAPTER = 20;
+export const XP_PER_BATTLE_WIN = 30;
 
 const DEFAULT_PROGRESS: AcademyProgress = {
   version: 1,
   xp: 0,
   chaptersDone: {},
   correct: 0,
+  befriended: [],
 };
 
 const LEVEL_XP = 100; // xp per level — full quest line ≈ level 6-7
@@ -151,6 +155,27 @@ export function completeChapter(
   };
 }
 
+// --- Challenge battles ------------------------------------------------------
+
+export function isBefriended(p: AcademyProgress, creatureId: string): boolean {
+  return p.befriended.includes(creatureId);
+}
+
+export function befriendedCount(p: AcademyProgress): number {
+  return p.befriended.length;
+}
+
+/** Win a battle: award the win bonus (every time — battles are replayable) and
+ * add the creature to the collection the first time. */
+export function befriend(p: AcademyProgress, creatureId: string): AcademyProgress {
+  const already = p.befriended.includes(creatureId);
+  return {
+    ...p,
+    xp: p.xp + XP_PER_BATTLE_WIN,
+    befriended: already ? p.befriended : [...p.befriended, creatureId],
+  };
+}
+
 // --- Persistence (own slice, never touches worldGame's save) ----------------
 
 const key = (kidId: KidId) => `kids-corner:academy:${kidId}:v1`;
@@ -165,6 +190,7 @@ export function loadAcademy(kidId: KidId): AcademyProgress {
       ...value,
       version: 1,
       chaptersDone: { ...(value.chaptersDone ?? {}) },
+      befriended: Array.isArray(value.befriended) ? value.befriended : [],
       xp: typeof value.xp === "number" && value.xp >= 0 ? value.xp : 0,
       correct: typeof value.correct === "number" && value.correct >= 0 ? value.correct : 0,
     };
