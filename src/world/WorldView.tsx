@@ -730,7 +730,7 @@ function WorldAvatar({
         <circleGeometry args={[0.42, 24]} />
         <meshBasicMaterial color="#000000" transparent opacity={0.18} />
       </mesh>
-      <Html position={[0, 2.05, 0]} center distanceFactor={9} occlude={false}>
+      <Html position={[0, 2.05, 0]} center distanceFactor={9} occlude={false} zIndexRange={[12, 0]}>
         <div className="wtag" style={{ borderColor: color }}>
           {name}
         </div>

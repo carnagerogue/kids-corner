@@ -123,7 +123,7 @@ function LandmarkSign({ name, emoji, color }: { name: string; emoji: string; col
         <cylinderGeometry args={[0.09, 0.12, 1.1, 8]} />
         <meshStandardMaterial color="#6f482e" />
       </mesh>
-      <Html position={[0, 0.72, 0.1]} center distanceFactor={11} occlude={false}>
+      <Html position={[0, 0.72, 0.1]} center distanceFactor={11} occlude={false} zIndexRange={[12, 0]}>
         <div className="world-sign" style={{ borderColor: color }}>
           {emoji} {name}
         </div>
@@ -357,7 +357,7 @@ function NpcAvatar({
         <circleGeometry args={[0.46, 24]} />
         <meshBasicMaterial color="#253646" transparent opacity={0.18} depthWrite={false} />
       </mesh>
-      <Html position={[0, 1.9, 0]} center distanceFactor={10} occlude={false}>
+      <Html position={[0, 1.9, 0]} center distanceFactor={10} occlude={false} zIndexRange={[12, 0]}>
         <div className="world-npc-tag">{emoji} {name}</div>
       </Html>
     </group>
@@ -556,7 +556,7 @@ function WorldCreature({
         <ringGeometry args={[size + 0.2, size + 0.45, 28]} />
         <meshBasicMaterial color={tint} transparent opacity={0.35} />
       </mesh>
-      <Html position={[0, creature.position[1] + 0.95, 0]} center distanceFactor={11} occlude={false}>
+      <Html position={[0, creature.position[1] + 0.95, 0]} center distanceFactor={11} occlude={false} zIndexRange={[12, 0]}>
         <div className="world-creature-tag" style={{ borderColor: tint }}>
           {locked ? "🔒" : creature.emoji} {creature.name}
           {locked ? ` · Lv ${creature.unlockLevel}` : badge}
@@ -603,6 +603,7 @@ export function ChampionsRing({ unlocked }: { unlocked: boolean }) {
         center
         distanceFactor={15}
         occlude={false}
+        zIndexRange={[12, 0]}
       >
         <div className="world-ring-sign">
           🏆 Champions&apos; Ring{unlocked ? "" : ` · Lv ${CHAMPIONS_RING.unlockLevel}+`}

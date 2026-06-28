@@ -244,7 +244,7 @@ function EnterableBuilding({
       <mesh position={[halfW, WALL_HEIGHT / 2, 0]} castShadow={shadows}><boxGeometry args={[WALL_THICKNESS, WALL_HEIGHT, DEPTH]} /><meshStandardMaterial color={building.color} /></mesh>
 
       <mesh position={[0, 2.72, halfD + 0.13]} castShadow><boxGeometry args={[2.65, 0.5, 0.14]} /><meshStandardMaterial color={building.accent} /></mesh>
-      <Html position={[0, 2.73, halfD + 0.23]} center distanceFactor={12} occlude={false}>
+      <Html position={[0, 2.73, halfD + 0.23]} center distanceFactor={12} occlude={false} zIndexRange={[12, 0]}>
         <div className="world-building-sign">{building.emoji} {building.name}</div>
       </Html>
 
