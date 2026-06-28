@@ -14,3 +14,7 @@ auto-upgrades.
 
 Paths in the manifest start with `/assets/...`; the app adds the correct base URL
 (`/kids-corner/` on GitHub Pages) automatically. Never hard-code the base.
+
+Before committing new VRM models, run `npm run optimize:vrms` from the project
+root. The VRM-safe optimizer only repacks embedded textures; it deliberately
+preserves the extension JSON and validates the result before replacing a file.

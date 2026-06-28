@@ -5,7 +5,7 @@
 //
 // LAZY-LOADED from App so the heavy three/three-vrm bundle only loads here.
 // ---------------------------------------------------------------------------
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
@@ -20,11 +20,48 @@ import { loadAvatar, resolveModelUrl, type LoadedAvatar } from "./vrmLoader";
 import {
   joinWorld,
   leaveWorld,
+  shareActivatedLandmark,
+  shareCollectedStar,
   sendChat,
+  subscribeWorldGame,
   subscribeWorld,
   updateSelf,
+  worldSyncEnabled,
   type PlayerState,
 } from "./worldSync";
+import {
+  activateLandmarks,
+  collectStar,
+  completeStarQuest,
+  currentSeasonalEvent,
+  interactionsFor,
+  LANDMARKS,
+  loadWorldSave,
+  mergeCollectedStars,
+  saveWorldSave,
+  selectDecoration,
+  startStarQuest,
+  type DecorationId,
+  type InteractionTarget,
+  type LandmarkId,
+  type WorldSave,
+} from "./worldGame";
+import {
+  AmbientLife,
+  CelebrationBurst,
+  LivingSky,
+  MayorNova,
+  QuestCollectibles,
+  WorldLandmarks,
+} from "./WorldContent";
+import { surfaceAt, WorldAudioEngine } from "./worldAudio";
+import {
+  loadQualityChoice,
+  resolveQuality,
+  saveQualityChoice,
+  type QualityChoice,
+} from "./worldQuality";
+import { SYNC_EVENT } from "../sync";
 
 const BOUND = 8; // play-area half-extent (props ring the outside)
 const SPEED = 3.6;
@@ -218,69 +255,6 @@ const WORLD_PROPS: PropDef[] = [
   { url: "/assets/world/log.glb", height: 1.3, items: scatter(3, 10, 17, 41) },
 ];
 
-// --- Scenery -------------------------------------------------------------
-function Tree({ position }: { position: [number, number, number] }) {
-  return (
-    <group position={position}>
-      <mesh position={[0, 0.6, 0]}>
-        <cylinderGeometry args={[0.12, 0.18, 1.2, 7]} />
-        <meshStandardMaterial color="#7a5230" roughness={1} />
-      </mesh>
-      {[0, 1, 2].map((i) => (
-        <mesh key={i} position={[0, 1.3 + i * 0.4, 0]}>
-          <icosahedronGeometry args={[0.7 - i * 0.15, 0]} />
-          <meshStandardMaterial
-            color={["#3f9b4f", "#54b85f", "#6cc96f"][i]}
-            roughness={1}
-            flatShading
-          />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-function WorldScene() {
-  const trees = useMemo(
-    () =>
-      Array.from({ length: 16 }, (_, i) => {
-        const a = (i / 16) * Math.PI * 2;
-        const r = 18 + ((i * 7) % 5);
-        return [Math.cos(a) * r, 0, Math.sin(a) * r] as [number, number, number];
-      }),
-    [],
-  );
-  return (
-    <>
-      <color attach="background" args={["#bfe6ff"]} />
-      {/* Fade the wide flat ground into the sky so the town feels nestled. */}
-      <fog attach="fog" args={["#bfe6ff", 16, 30]} />
-      <ambientLight intensity={0.55} />
-      <hemisphereLight args={["#ffffff", "#9fd6a0", 1.1]} />
-      <directionalLight position={[8, 14, 6]} intensity={1.5} color="#fff6e8" />
-      <directionalLight position={[-5, 4, -3]} intensity={0.45} color="#bcd9ff" />
-      {/* Solid green ground (also used under a preloaded map whose own ground
-          we hide). Sits just below y=0 so building bases don't z-fight. */}
-      {!WORLD_MAP?.hasGround && (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
-          <circleGeometry args={[44, 64]} />
-          <meshStandardMaterial color="#83c267" roughness={1} />
-        </mesh>
-      )}
-      {/* Tan plaza disc only for the hand-placed village (not a real map). */}
-      {!WORLD_MAP && !SUBURB && (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-          <circleGeometry args={[7, 48]} />
-          <meshStandardMaterial color="#d8c79a" roughness={1} />
-        </mesh>
-      )}
-      {!WORLD_MAP &&
-        WORLD_PROPS.length === 0 &&
-        trees.map((p, i) => <Tree key={i} position={p} />)}
-    </>
-  );
-}
-
 // A single pre-built world map GLB (village/town scene). When set, it replaces
 // the hand-placed prop village + procedural ground. scale/y/spawn from the
 // asset's integration notes. null → use the WORLD_PROPS village.
@@ -355,6 +329,21 @@ const GRID = 7; // 7×7 cells → 56×56-unit neighbourhood
 /** Solid building footprints (circles) the avatar can't walk through. Populated
  * by SuburbTown when it lays out the town; read by the controller for collision. */
 const BUILDING_COLLIDERS: { x: number; z: number; r: number }[] = [];
+const LANDMARK_COLLIDERS = [
+  { x: -8, z: -8, r: 2.15 },
+  { x: 8, z: -8, r: 2.15 },
+  { x: 8, z: 8, r: 2.05 },
+];
+
+function pushOutsideCollider(pose: Pose, col: { x: number; z: number; r: number }) {
+  const ddx = pose.x - col.x;
+  const ddz = pose.z - col.z;
+  const distance = Math.hypot(ddx, ddz);
+  if (distance < col.r && distance > 1e-4) {
+    pose.x = col.x + (ddx / distance) * col.r;
+    pose.z = col.z + (ddz / distance) * col.r;
+  }
+}
 
 /** Normalize a cloned prototype: centered on x/z, base on y=0, sized either to a
  * footprint (max of x/z) or a height (y). Returns a wrapper to transform. */
@@ -402,7 +391,66 @@ type Placed = {
   y?: number;
 };
 
-function SuburbTown({ groupRef }: { groupRef: React.RefObject<THREE.Group> }) {
+/** Flatten repeated GLTF clones into InstancedMeshes grouped by shared
+ * geometry/material. This keeps the suburb's draw-call count proportional to
+ * asset variety instead of the number of road tiles and props. */
+function buildInstancedTown(placed: Placed[], shadows: boolean): THREE.Group {
+  type Bucket = {
+    geometry: THREE.BufferGeometry;
+    material: THREE.Material;
+    matrices: THREE.Matrix4[];
+  };
+  const buckets = new Map<string, Bucket>();
+  const root = new THREE.Group();
+  const placement = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const scale = new THREE.Vector3(1, 1, 1);
+
+  for (const p of placed) {
+    p.obj.updateWorldMatrix(true, true);
+    q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), p.rot);
+    placement.compose(new THREE.Vector3(p.x, p.y ?? 0, p.z), q, scale);
+    p.obj.traverse((node) => {
+      const mesh = node as THREE.Mesh;
+      if (!mesh.isMesh || Array.isArray(mesh.material)) return;
+      const key = `${mesh.geometry.uuid}:${mesh.material.uuid}`;
+      let bucket = buckets.get(key);
+      if (!bucket) {
+        bucket = {
+          geometry: mesh.geometry,
+          material: mesh.material,
+          matrices: [],
+        };
+        buckets.set(key, bucket);
+      }
+      bucket.matrices.push(placement.clone().multiply(mesh.matrixWorld));
+    });
+  }
+
+  for (const bucket of buckets.values()) {
+    const instanced = new THREE.InstancedMesh(
+      bucket.geometry,
+      bucket.material,
+      bucket.matrices.length,
+    );
+    bucket.matrices.forEach((matrix, index) => instanced.setMatrixAt(index, matrix));
+    instanced.instanceMatrix.needsUpdate = true;
+    instanced.castShadow = shadows;
+    instanced.receiveShadow = true;
+    instanced.frustumCulled = true;
+    instanced.computeBoundingSphere();
+    root.add(instanced);
+  }
+  return root;
+}
+
+function SuburbTown({
+  groupRef,
+  shadows,
+}: {
+  groupRef: React.RefObject<THREE.Group>;
+  shadows: boolean;
+}) {
   const [src, setSrc] = useState<{
     road: (n: string) => THREE.Object3D | undefined;
     builds: THREE.Object3D[];
@@ -452,6 +500,7 @@ function SuburbTown({ groupRef }: { groupRef: React.RefObject<THREE.Group> }) {
     const cellX = (c: number) => c * TILE - off;
     const cellZ = (r: number) => r * TILE - off;
     const isRoad = (i: number) => i % 2 === 1; // streets on odd rows/cols
+    const reservedLots = new Set(["-8,-8", "8,-8", "8,8", "-8,8"]);
 
     let plot = 0;
     for (let c = 0; c < GRID; c++) {
@@ -489,6 +538,8 @@ function SuburbTown({ groupRef }: { groupRef: React.RefObject<THREE.Group> }) {
           const t = fit(src.road("road_square"), { footprint: TILE, flat: true });
           if (t) out.push({ obj: t, x, z, rot: roadR ? Math.PI / 2 : 0 });
         } else {
+          // Four lots are gameplay spaces: three landmarks and the kid's yard.
+          if (reservedLots.has(`${x},${z}`)) continue;
           // Building lot: a building (varied) facing the nearest street, a tree,
           // a flower bed — and a solid collider so the kid walks around it.
           const proto = src.builds[plot % src.builds.length];
@@ -522,16 +573,14 @@ function SuburbTown({ groupRef }: { groupRef: React.RefObject<THREE.Group> }) {
     return out;
   }, [src]);
 
+  const instancedTown = useMemo(
+    () => buildInstancedTown(placed, shadows),
+    [placed, shadows],
+  );
+
   return (
     <group ref={groupRef}>
-      {placed.map((p, i) => (
-        <primitive
-          key={i}
-          object={p.obj}
-          position={[p.x, p.y ?? 0, p.z]}
-          rotation={[0, p.rot, 0]}
-        />
-      ))}
+      <primitive object={instancedTown} />
     </group>
   );
 }
@@ -540,10 +589,12 @@ function SuburbTown({ groupRef }: { groupRef: React.RefObject<THREE.Group> }) {
  * preloaded map GLB, or the hand-placed prop village. */
 function VillageProps({
   groupRef,
+  shadows,
 }: {
   groupRef: React.RefObject<THREE.Group>;
+  shadows: boolean;
 }) {
-  if (SUBURB) return <SuburbTown groupRef={groupRef} />;
+  if (SUBURB) return <SuburbTown groupRef={groupRef} shadows={shadows} />;
   return (
     <group ref={groupRef}>
       {WORLD_MAP ? (
@@ -564,12 +615,14 @@ function WorldAvatar({
   name,
   color,
   chat,
+  shadows,
 }: {
   url: string;
   getPose: () => Pose;
   name: string;
   color: string;
   chat?: { text: string; ts: number } | null;
+  shadows: boolean;
 }) {
   const group = useRef<THREE.Group>(null);
   const [loaded, setLoaded] = useState<LoadedAvatar | null>(null);
@@ -585,6 +638,13 @@ function WorldAvatar({
           return;
         }
         inst = a;
+        a.object.traverse((node) => {
+          const mesh = node as THREE.Mesh;
+          if (mesh.isMesh) {
+            mesh.castShadow = shadows;
+            mesh.receiveShadow = shadows;
+          }
+        });
         setLoaded(a);
       })
       .catch(() => {});
@@ -592,7 +652,7 @@ function WorldAvatar({
       alive = false;
       inst?.dispose();
     };
-  }, [url]);
+  }, [url, shadows]);
 
   // Chat bubble auto-hides ~6s after the message.
   const [bubble, setBubble] = useState<string | null>(null);
@@ -641,12 +701,24 @@ function WorldAvatar({
 }
 
 // --- Camera + local input -----------------------------------------------
+type TouchInput = { x: number; y: number };
+
 function Rig({
   self,
   propsRef,
+  touch,
+  interactions,
+  onNear,
+  audio,
+  daylight,
 }: {
   self: React.MutableRefObject<Pose>;
   propsRef: React.RefObject<THREE.Group>;
+  touch: React.MutableRefObject<TouchInput>;
+  interactions: InteractionTarget[];
+  onNear: (target: InteractionTarget | null) => void;
+  audio: WorldAudioEngine;
+  daylight: React.MutableRefObject<number>;
 }) {
   const keys = useRef<Set<string>>(new Set());
   const controls = useRef<React.ElementRef<typeof OrbitControls>>(null);
@@ -659,6 +731,9 @@ function Rig({
   const inited = useRef(false);
   const dragging = useRef(false);
   const wired = useRef(false);
+  const lastNearId = useRef<string | null>(null);
+  const stepDistance = useRef(0);
+  const audioTick = useRef(0);
 
   useEffect(() => {
     const isTyping = () => {
@@ -697,8 +772,19 @@ function Rig({
     move.set(0, 0, 0);
     if (keys.current.has("up")) move.add(fwd);
     if (keys.current.has("down")) move.sub(fwd);
-    if (keys.current.has("right")) move.add(new THREE.Vector3(rx, 0, rz));
-    if (keys.current.has("left")) move.add(new THREE.Vector3(-rx, 0, -rz));
+    if (keys.current.has("right")) {
+      move.x += rx;
+      move.z += rz;
+    }
+    if (keys.current.has("left")) {
+      move.x -= rx;
+      move.z -= rz;
+    }
+    if (Math.abs(touch.current.y) > 0.03) move.addScaledVector(fwd, touch.current.y);
+    if (Math.abs(touch.current.x) > 0.03) {
+      move.x += rx * touch.current.x;
+      move.z += rz * touch.current.x;
+    }
     const moving = move.lengthSq() > 1e-6;
     if (moving) {
       move.normalize();
@@ -706,22 +792,40 @@ function Rig({
       s.z = clamp(s.z + move.z * SPEED * dt, -ROAM, ROAM);
       // Wall collision: if the step would enter a building, push back to its
       // edge (slides along the wall instead of passing through).
-      for (const col of BUILDING_COLLIDERS) {
-        const ddx = s.x - col.x;
-        const ddz = s.z - col.z;
-        const d = Math.hypot(ddx, ddz);
-        if (d < col.r && d > 1e-4) {
-          s.x = col.x + (ddx / d) * col.r;
-          s.z = col.z + (ddz / d) * col.r;
-        }
-      }
+      for (const col of BUILDING_COLLIDERS) pushOutsideCollider(s, col);
+      for (const col of LANDMARK_COLLIDERS) pushOutsideCollider(s, col);
       // Face the way we move (VRM forward is +Z in this pipeline).
       s.heading = Math.atan2(move.x, move.z);
       updateSelf({ x: s.x, z: s.z, heading: s.heading, moving: true });
+      stepDistance.current += SPEED * dt;
+      if (stepDistance.current > 0.72) {
+        stepDistance.current = 0;
+        audio.step(surfaceAt(s.x, s.z));
+      }
     } else if (s.moving) {
       updateSelf({ x: s.x, z: s.z, heading: s.heading, moving: false }, true);
     }
     s.moving = moving;
+    audioTick.current += dt;
+    if (audioTick.current >= 0.12) {
+      audioTick.current = 0;
+      audio.updatePosition(s.x, s.z, daylight.current);
+    }
+
+    let nearest: InteractionTarget | null = null;
+    let nearestDistance = Infinity;
+    for (const target of interactions) {
+      const distance = Math.hypot(s.x - target.position[0], s.z - target.position[2]);
+      if (distance <= target.radius && distance < nearestDistance) {
+        nearest = target;
+        nearestDistance = distance;
+      }
+    }
+    const nextNearId = nearest ? `${nearest.kind}:${nearest.id}` : null;
+    if (nextNearId !== lastNearId.current) {
+      lastNearId.current = nextNearId;
+      onNear(nearest);
+    }
 
     // Orbit camera follows the character: keep the orbit target on them, so the
     // user's drag-to-rotate + scroll-to-zoom stay relative to the avatar.
@@ -795,36 +899,149 @@ function Rig({
   );
 }
 
+function TouchControls({
+  input,
+  onInteract,
+  interactLabel,
+}: {
+  input: React.MutableRefObject<TouchInput>;
+  onInteract: () => void;
+  interactLabel?: string;
+}) {
+  const [knob, setKnob] = useState({ x: 0, y: 0 });
+  const pad = useRef<HTMLDivElement>(null);
+
+  const move = (clientX: number, clientY: number) => {
+    const rect = pad.current?.getBoundingClientRect();
+    if (!rect) return;
+    const dx = clientX - (rect.left + rect.width / 2);
+    const dy = clientY - (rect.top + rect.height / 2);
+    const radius = rect.width * 0.34;
+    const length = Math.hypot(dx, dy) || 1;
+    const scale = Math.min(1, radius / length);
+    const x = dx * scale;
+    const y = dy * scale;
+    setKnob({ x, y });
+    input.current = { x: x / radius, y: -y / radius };
+  };
+  const release = () => {
+    setKnob({ x: 0, y: 0 });
+    input.current = { x: 0, y: 0 };
+  };
+
+  return (
+    <div className="world-touch" aria-label="Touch movement controls">
+      <div
+        ref={pad}
+        className="world-touch__pad"
+        onPointerDown={(event) => {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          move(event.clientX, event.clientY);
+        }}
+        onPointerMove={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            move(event.clientX, event.clientY);
+          }
+        }}
+        onPointerUp={release}
+        onPointerCancel={release}
+      >
+        <div
+          className="world-touch__knob"
+          style={{ transform: `translate(${knob.x}px, ${knob.y}px)` }}
+        />
+      </div>
+      {interactLabel && (
+        <button className="world-touch__action" onClick={onInteract}>
+          ✨ {interactLabel}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // --- Main view -----------------------------------------------------------
+type Dialogue = {
+  title: string;
+  text: string;
+  action?: "start-quest" | "finish-quest";
+};
+
+const QUICK_CHAT = [
+  "Hi! 👋",
+  "Come with me! 🗺️",
+  "I found a star! ⭐",
+  "Let’s power a landmark! ✨",
+  "Great job! 🎉",
+];
+
 export default function WorldView() {
   const { state } = useApp();
   const kidId = state.activeKid;
   const kid = getKid(state, kidId);
+  const kidName = kid?.firstName || kid?.name || "Explorer";
   const loadout = currentLoadout(state, kidId);
   const canWebgl = useMemo(() => webglAvailable(), []);
+  const event = useMemo(() => currentSeasonalEvent(), []);
 
   const self = useRef<Pose>(
     (() => {
       const sp = WORLD_MAP
         ? WORLD_MAP.spawn
         : SUBURB
-          ? { x: 0, z: 8 } // on the south street, looking up the block
+          ? { x: 0, z: 4.25 } // begin beside Mayor Nova for immediate onboarding
           : spawnFor(kidId);
-      // On a map/suburb, start facing the town centre (≈ origin).
       const heading = WORLD_MAP || SUBURB ? Math.atan2(-sp.x, -sp.z) : 0;
       return { ...sp, heading, moving: false };
     })(),
   );
   const propsRef = useRef<THREE.Group>(null);
+  const townRef = useRef<THREE.Group>(null);
+  const touch = useRef<TouchInput>({ x: 0, y: 0 });
+  const daylight = useRef(1);
+  const audio = useMemo(() => new WorldAudioEngine(), []);
+
   const [selfUrl, setSelfUrl] = useState<string | null | undefined>(undefined);
   const [players, setPlayers] = useState<PlayerState[]>([]);
-  const [chatText, setChatText] = useState("");
-  // Local chat shows instantly (no Firebase round-trip / stale-filter delay).
-  const [myChat, setMyChat] = useState<{ text: string; ts: number } | null>(
-    null,
+  const [quickChat, setQuickChat] = useState(QUICK_CHAT[0]);
+  const [myChat, setMyChat] = useState<{ text: string; ts: number } | null>(null);
+  const [worldSave, setWorldSave] = useState<WorldSave>(() => loadWorldSave(kidId));
+  const [nearest, setNearest] = useState<InteractionTarget | null>(null);
+  const [dialogue, setDialogue] = useState<Dialogue | null>(null);
+  const [yardOpen, setYardOpen] = useState(false);
+  const [celebrationId, setCelebrationId] = useState(0);
+  const [clockLabel, setClockLabel] = useState("8:00 AM");
+  const [soundOn, setSoundOn] = useState(false);
+  const [syncReady, setSyncReady] = useState(() => worldSyncEnabled());
+  const [qualityChoice, setQualityChoice] = useState<QualityChoice>(() =>
+    loadQualityChoice(),
+  );
+  const quality = useMemo(() => resolveQuality(qualityChoice), [qualityChoice]);
+  const interactions = useMemo(() => interactionsFor(worldSave), [worldSave]);
+
+  const commitWorld = useCallback(
+    (next: WorldSave) => {
+      setWorldSave(next);
+      saveWorldSave(kidId, next);
+    },
+    [kidId],
   );
 
-  // Resolve this kid's model, then announce presence.
+  useEffect(() => {
+    const next = loadWorldSave(kidId);
+    setWorldSave(next);
+    self.current = { x: 0, z: 4.25, heading: Math.PI, moving: false };
+  }, [kidId]);
+
+  useEffect(() => () => audio.dispose(), [audio]);
+
+  useEffect(() => {
+    const changed = () => setSyncReady(worldSyncEnabled());
+    window.addEventListener(SYNC_EVENT, changed);
+    return () => window.removeEventListener(SYNC_EVENT, changed);
+  }, []);
+
+  // Resolve this kid's model, then announce presence if private family sync is on.
   useEffect(() => {
     if (!kid || !canWebgl) return;
     let alive = true;
@@ -833,16 +1050,16 @@ export default function WorldView() {
     resolveModelUrl(kidId, outfit, baseAsset).then((url) => {
       if (!alive) return;
       setSelfUrl(url);
-      if (url) {
+      if (url && syncReady) {
         const sp = self.current;
         joinWorld({
           kidId,
-          name: kid.firstName || kid.name,
+          name: kidName,
           color: kid.color || "#6a5cff",
           modelUrl: url,
           x: sp.x,
           z: sp.z,
-          heading: 0,
+          heading: sp.heading,
         });
       }
     });
@@ -851,24 +1068,122 @@ export default function WorldView() {
       leaveWorld();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kidId, canWebgl]);
+  }, [kidId, canWebgl, syncReady]);
 
-  // Subscribe to everyone in the room.
-  useEffect(() => subscribeWorld(setPlayers), []);
+  useEffect(() => subscribeWorld(setPlayers), [syncReady]);
 
-  // Heartbeat: refresh our timestamp so we don't get stale-filtered while idle.
+  useEffect(
+    () =>
+      subscribeWorldGame((shared) => {
+        if (!shared) return;
+        setWorldSave((previous) => {
+          let next = mergeCollectedStars(previous, Object.keys(shared.stars));
+          next = activateLandmarks(
+            next,
+            Object.keys(shared.landmarks) as LandmarkId[],
+            event,
+          ).save;
+          saveWorldSave(kidId, next);
+          return next;
+        });
+      }),
+    [event, kidId, syncReady],
+  );
+
   useEffect(() => {
     const id = window.setInterval(() => updateSelf({}, true), 4000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [syncReady]);
+
+  const celebrate = useCallback(() => {
+    setCelebrationId((value) => value + 1);
+    audio.celebration();
+  }, [audio]);
+
+  const interact = useCallback(() => {
+    if (!nearest) return;
+    if (nearest.kind === "collectible") {
+      const next = collectStar(worldSave, nearest.id);
+      if (next !== worldSave) {
+        commitWorld(next);
+        shareCollectedStar(nearest.id, { kidId, name: kidName });
+        celebrate();
+      }
+      return;
+    }
+    if (nearest.kind === "npc") {
+      if (worldSave.quest.phase === "available") {
+        setDialogue({
+          title: "Mayor Nova",
+          text: "Five town stars tumbled out of the night sky! Will you explore the neighborhood and bring them home? Siblings in your family room can help.",
+          action: "start-quest",
+        });
+      } else if (worldSave.quest.phase === "collecting") {
+        setDialogue({
+          title: "Mayor Nova",
+          text: `You have ${worldSave.quest.collected.length} of 5 stars. Look for golden glows near each landmark—and one close to home.`,
+        });
+      } else if (worldSave.quest.phase === "return") {
+        setDialogue({
+          title: "Mayor Nova",
+          text: "Every star is back! Let’s relight the town and add a Star Fountain to your yard collection.",
+          action: "finish-quest",
+        });
+      } else {
+        setDialogue({
+          title: "Mayor Nova",
+          text: "The town is shining because of you. Try powering all three landmarks for the seasonal festival reward!",
+        });
+      }
+      return;
+    }
+    if (nearest.kind === "landmark") {
+      const landmark = LANDMARKS.find((item) => item.id === nearest.id);
+      if (!landmark) return;
+      const result = activateLandmarks(worldSave, [nearest.id], event);
+      commitWorld(result.save);
+      shareActivatedLandmark(nearest.id, { kidId, name: kidName });
+      setDialogue({
+        title: `${landmark.emoji} ${landmark.name}`,
+        text: worldSave.activatedLandmarks.includes(nearest.id)
+          ? landmark.description
+          : `${landmark.description} Its festival light is powered now!`,
+      });
+      if (result.festivalCompleted) celebrate();
+      return;
+    }
+    setYardOpen(true);
+  }, [nearest, worldSave, commitWorld, kidId, kidName, celebrate, event]);
+
+  useEffect(() => {
+    const press = (event: KeyboardEvent) => {
+      if ((event.key === "e" || event.key === "E") && document.activeElement?.tagName !== "SELECT") {
+        event.preventDefault();
+        interact();
+      }
+      if (event.key === "Escape") {
+        setDialogue(null);
+        setYardOpen(false);
+      }
+    };
+    window.addEventListener("keydown", press);
+    return () => window.removeEventListener("keydown", press);
+  }, [interact]);
 
   const send = () => {
-    const t = chatText.trim();
-    if (t) {
-      sendChat(t);
-      setMyChat({ text: t, ts: Date.now() });
-      setChatText("");
-    }
+    sendChat(quickChat);
+    setMyChat({ text: quickChat, ts: Date.now() });
+  };
+
+  const toggleSound = async () => {
+    const next = !soundOn;
+    setSoundOn(next);
+    await audio.setEnabled(next);
+  };
+
+  const changeQuality = (choice: QualityChoice) => {
+    setQualityChoice(choice);
+    saveQualityChoice(choice);
   };
 
   if (!canWebgl)
@@ -880,76 +1195,207 @@ export default function WorldView() {
   if (selfUrl === null)
     return (
       <div className="world world--msg">
-        🌍 Pick a character on the <strong>Avatar</strong> tab first — then come
-        play in the World!
+        🌍 Pick a character on the <strong>Avatar</strong> tab first — then come play in the World!
       </div>
     );
 
-  const selfChat = players.find((p) => p.kidId === kidId)?.chat ?? null;
-  const others = players.filter((p) => p.kidId !== kidId && p.modelUrl);
+  const selfChat = players.find((player) => player.kidId === kidId)?.chat ?? null;
+  const others = Array.from(
+    new Map(
+      players
+        .filter((player) => player.kidId !== kidId && player.modelUrl)
+        .map((player) => [player.kidId, player]),
+    ).values(),
+  );
+  const presentCount = 1 + others.length;
+  const questCount = worldSave.quest.collected.length;
+  const festivalCount = worldSave.activatedLandmarks.length;
 
   return (
     <div className="world">
       <Canvas
-        shadows={false}
-        dpr={[1, 1.6]}
-        gl={{ antialias: true, toneMapping: THREE.NoToneMapping }}
+        key={quality.resolved}
+        shadows={quality.shadows}
+        dpr={quality.dpr}
+        gl={{ antialias: quality.antialias, toneMapping: THREE.ACESFilmicToneMapping }}
         camera={{ position: [0, 9.5, 5.5], fov: 45 }}
       >
-        <WorldScene />
-        <VillageProps groupRef={propsRef} />
-        <Rig self={self} propsRef={propsRef} />
+        <LivingSky
+          shadows={quality.shadows}
+          onClock={setClockLabel}
+          onDaylight={(value) => {
+            daylight.current = value;
+          }}
+        />
+        <group ref={propsRef}>
+          <VillageProps groupRef={townRef} shadows={quality.shadows} />
+          <WorldLandmarks save={worldSave} />
+        </group>
+        <MayorNova />
+        <QuestCollectibles save={worldSave} />
+        <AmbientLife particleCount={quality.particles} birdCount={quality.birds} />
+        <CelebrationBurst burstId={celebrationId} />
+        <Rig
+          self={self}
+          propsRef={propsRef}
+          touch={touch}
+          interactions={interactions}
+          onNear={setNearest}
+          audio={audio}
+          daylight={daylight}
+        />
         {selfUrl && (
           <WorldAvatar
             url={selfUrl}
             getPose={() => self.current}
-            name={(kid?.firstName || kid?.name || "Me") + " (you)"}
+            name={`${kidName} (you)`}
             color={kid?.color || "#6a5cff"}
             chat={myChat ?? selfChat}
+            shadows={quality.shadows}
           />
         )}
-        {others.map((p) => (
-          <WorldAvatar
-            key={p.kidId}
-            url={p.modelUrl}
-            getPose={() => ({
-              x: p.x,
-              z: p.z,
-              heading: p.heading,
-              moving: !!p.moving,
-            })}
-            name={p.name}
-            color={p.color}
-            chat={p.chat}
-          />
-        ))}
+        {others.map((player) => {
+          const pose: Pose = {
+              x: player.x,
+              z: player.z,
+              heading: player.heading,
+              moving: !!player.moving,
+          };
+          return (
+            <WorldAvatar
+              key={player.kidId}
+              url={player.modelUrl}
+              getPose={() => pose}
+              name={player.name}
+              color={player.color}
+              chat={player.chat}
+              shadows={quality.shadows}
+            />
+          );
+        })}
       </Canvas>
+
+      <div className="world-status" aria-live="polite">
+        <div className="world-status__quest">
+          <span className="world-status__eyebrow">⭐ LOST STARS</span>
+          <strong>
+            {worldSave.quest.phase === "available" && "Talk to Mayor Nova"}
+            {worldSave.quest.phase === "collecting" && `${questCount}/5 found`}
+            {worldSave.quest.phase === "return" && "Return to Mayor Nova"}
+            {worldSave.quest.phase === "complete" && "Town restored!"}
+          </strong>
+          <div className="world-status__pips">
+            {Array.from({ length: 5 }, (_, i) => (
+              <span key={i} className={i < questCount ? "is-on" : ""}>★</span>
+            ))}
+          </div>
+        </div>
+        <div className="world-status__festival" style={{ borderColor: event.accent }}>
+          <span>{event.emoji} {event.name}</span>
+          <strong>{festivalCount}/{LANDMARKS.length} lights</strong>
+        </div>
+      </div>
+
+      <div className="world-tools">
+        <span className="world-tools__time">🕒 {clockLabel}</span>
+        <span className="world-tools__tokens">🪙 {worldSave.townTokens}</span>
+        <button onClick={toggleSound}>{soundOn ? "🔊 Sound" : "🔇 Sound"}</button>
+        <label>
+          <span className="sr-only">World quality</span>
+          <select
+            value={qualityChoice}
+            onChange={(e) => changeQuality(e.target.value as QualityChoice)}
+          >
+            <option value="auto">Auto · {quality.resolved}</option>
+            <option value="high">High</option>
+            <option value="balanced">Balanced</option>
+            <option value="low">Low / iPad</option>
+          </select>
+        </label>
+      </div>
+
+      {nearest && !dialogue && !yardOpen && (
+        <button className="world-interact" onClick={interact}>
+          <kbd>E</kbd> {nearest.label}
+        </button>
+      )}
+
+      <TouchControls input={touch} onInteract={interact} interactLabel={nearest?.label} />
+
+      {dialogue && (
+        <div className="world-dialogue" role="dialog" aria-modal="true" aria-labelledby="world-dialogue-title">
+          <button className="world-dialogue__close" onClick={() => setDialogue(null)} aria-label="Close dialogue">×</button>
+          <h3 id="world-dialogue-title">{dialogue.title}</h3>
+          <p>{dialogue.text}</p>
+          {dialogue.action === "start-quest" && (
+            <button
+              className="world-dialogue__primary"
+              onClick={() => {
+                commitWorld(startStarQuest(worldSave));
+                setDialogue(null);
+              }}
+            >
+              Start exploring ⭐
+            </button>
+          )}
+          {dialogue.action === "finish-quest" && (
+            <button
+              className="world-dialogue__primary"
+              onClick={() => {
+                commitWorld(completeStarQuest(worldSave));
+                setDialogue(null);
+                celebrate();
+              }}
+            >
+              Relight the town! 🎉
+            </button>
+          )}
+        </div>
+      )}
+
+      {yardOpen && (
+        <div className="world-dialogue world-yard" role="dialog" aria-modal="true" aria-labelledby="world-yard-title">
+          <button className="world-dialogue__close" onClick={() => setYardOpen(false)} aria-label="Close yard decorator">×</button>
+          <h3 id="world-yard-title">🏡 My Yard</h3>
+          <p>Choose a decoration. New adventures unlock more.</p>
+          <div className="world-yard__choices">
+            {([
+              ["starter-garden", "🌷", "Flower Garden"],
+              ["star-fountain", "⛲", "Star Fountain"],
+              ["seasonal-banner", event.emoji, `${event.name} Banner`],
+            ] as [DecorationId, string, string][]).map(([id, emoji, label]) => {
+              const unlocked = worldSave.unlockedDecorations.includes(id);
+              return (
+                <button
+                  key={id}
+                  disabled={!unlocked}
+                  className={worldSave.selectedDecoration === id ? "is-selected" : ""}
+                  onClick={() => commitWorld(selectDecoration(worldSave, id))}
+                >
+                  <span>{unlocked ? emoji : "🔒"}</span>
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="world__hud">
         <div className="world__hint">
-          <strong>Move</strong> WASD/arrows · <strong>drag</strong> to look ·{" "}
-          <strong>scroll</strong> to zoom · {players.length} here
+          <strong>Move</strong> WASD/arrows · <strong>interact</strong> E · {presentCount} here
+          {!syncReady && <span> · Solo mode</span>}
         </div>
-        {WORLD_MAP && (
-          <div className="world__credit">
-            Map: “Happy Town” by Alex Safayan &amp; Alex Pasquarella · CC-BY
+        {syncReady ? (
+          <div className="world__chat">
+            <select className="world__chatinput" value={quickChat} onChange={(e) => setQuickChat(e.target.value)}>
+              {QUICK_CHAT.map((phrase) => <option key={phrase}>{phrase}</option>)}
+            </select>
+            <button className="world__send" onClick={send}>Say 💬</button>
           </div>
+        ) : (
+          <div className="world__solo">Add a private Family Sync code in Grown-Ups to enable sibling co-op.</div>
         )}
-        <div className="world__chat">
-          <input
-            className="world__chatinput"
-            placeholder="Say something…"
-            value={chatText}
-            maxLength={120}
-            onChange={(e) => setChatText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") send();
-            }}
-          />
-          <button className="world__send" onClick={send}>
-            Say 💬
-          </button>
-        </div>
       </div>
     </div>
   );

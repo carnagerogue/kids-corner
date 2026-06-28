@@ -53,6 +53,16 @@ crafts, outdoor adventures, and kid-friendly rewards.
   on by default).
 - **🏆 Trophy Room** — levels with fun ranks (Sprout → Summer Hero), unlockable
   badges, streaks, and per-kid stats.
+- **🌍 Shared 3D World** — each kid explores the neighborhood as their saved VRM
+  avatar. The world has a day/night cycle, spatial wind and birds, surface-aware
+  footsteps, animated landmarks, seasonal particles, sibling presence, and safe
+  quick-chat. Mayor Nova's **Lost Stars** adventure is a complete playable quest:
+  talk to the mayor, collect five stars, return for a celebration, town tokens,
+  and a permanent Star Fountain yard decoration. Three themed landmarks power a
+  cooperative seasonal festival, while the personal yard persists each kid's
+  chosen unlocked decoration. Keyboard, mouse, and touch joystick controls are
+  supported; Auto/High/Balanced/Low quality modes keep the world usable on
+  iPad-class devices.
 - **💬 Messages** — direct messaging both **kid ↔ grown-ups** and **kid ↔ kid**:
   a kid picks who to chat with (the grown-ups or a sibling), and grown-ups reply
   from their dashboard. Messages can include **photo attachments**. New messages
@@ -137,6 +147,19 @@ To build a static version you can open anywhere:
 npm run build
 npm run preview
 ```
+
+### Optimizing VRM characters
+
+Character textures can be safely resized and converted to embedded WebP without
+stripping VRM humanoid, expression, or spring-bone extensions:
+
+```bash
+npm run optimize:vrms
+```
+
+The batch optimizer writes atomically, validates the repacked GLB before
+replacing each model, and defaults to 1024px / WebP quality 80. Keep the original
+source exports outside `public/` if you expect to re-author them later.
 
 ## Deploy (GitHub Pages)
 
