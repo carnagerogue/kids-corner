@@ -54,6 +54,24 @@ import {
   QuestCollectibles,
   WorldLandmarks,
 } from "./WorldContent";
+import {
+  ACADEMY_QUESTS,
+  academyById,
+  chaptersDone,
+  completeChapter,
+  currentChapterIndex,
+  levelBar,
+  levelForXp,
+  levelTitle,
+  loadAcademy,
+  questStatus,
+  recordCorrect,
+  saveAcademy,
+  type AcademyChapter,
+  type AcademyProgress,
+  type AcademyQuestId,
+} from "./academyQuests";
+import { AcademyChallenge } from "./AcademyChallenge";
 import { surfaceAt, WorldAudioEngine } from "./worldAudio";
 import {
   loadQualityChoice,
@@ -689,6 +707,7 @@ function Rig({
   onNear,
   audio,
   daylight,
+  inputLock,
 }: {
   self: React.MutableRefObject<Pose>;
   propsRef: React.RefObject<THREE.Group>;
@@ -697,6 +716,7 @@ function Rig({
   openDoors: ReadonlySet<string>;
   onNear: (target: InteractionTarget | null) => void;
   audio: WorldAudioEngine;
+  inputLock: React.MutableRefObject<boolean>;
   daylight: React.MutableRefObject<number>;
 }) {
   const keys = useRef<Set<string>>(new Set());
@@ -722,7 +742,7 @@ function Rig({
       return el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA");
     };
     const down = (e: KeyboardEvent) => {
-      if (isTyping()) return;
+      if (inputLock.current || isTyping()) return;
       const d = keyToDir(e.key);
       if (d) {
         keys.current.add(d);
@@ -733,13 +753,20 @@ function Rig({
       const d = keyToDir(e.key);
       if (d) keys.current.delete(d);
     };
+    // Drop every held key when the window loses focus or is hidden — otherwise a
+    // key held during alt-tab never gets its keyup and the avatar walks forever.
+    const release = () => keys.current.clear();
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
+    window.addEventListener("blur", release);
+    document.addEventListener("visibilitychange", release);
     return () => {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", release);
+      document.removeEventListener("visibilitychange", release);
     };
-  }, []);
+  }, [inputLock]);
 
   useFrame((_, dt) => {
     const s = self.current;
@@ -751,20 +778,24 @@ function Rig({
     const rx = -fwd.z;
     const rz = fwd.x;
     move.set(0, 0, 0);
-    if (keys.current.has("up")) move.add(fwd);
-    if (keys.current.has("down")) move.sub(fwd);
-    if (keys.current.has("right")) {
-      move.x += rx;
-      move.z += rz;
-    }
-    if (keys.current.has("left")) {
-      move.x -= rx;
-      move.z -= rz;
-    }
-    if (Math.abs(touch.current.y) > 0.03) move.addScaledVector(fwd, touch.current.y);
-    if (Math.abs(touch.current.x) > 0.03) {
-      move.x += rx * touch.current.x;
-      move.z += rz * touch.current.x;
+    // Suppress avatar movement while a lesson/dialogue panel is open so reading
+    // or answering never walks the character around behind the panel.
+    if (!inputLock.current) {
+      if (keys.current.has("up")) move.add(fwd);
+      if (keys.current.has("down")) move.sub(fwd);
+      if (keys.current.has("right")) {
+        move.x += rx;
+        move.z += rz;
+      }
+      if (keys.current.has("left")) {
+        move.x -= rx;
+        move.z -= rz;
+      }
+      if (Math.abs(touch.current.y) > 0.03) move.addScaledVector(fwd, touch.current.y);
+      if (Math.abs(touch.current.x) > 0.03) {
+        move.x += rx * touch.current.x;
+        move.z += rz * touch.current.x;
+      }
     }
     const moving = move.lengthSq() > 1e-6;
     if (moving) {
@@ -1025,6 +1056,13 @@ export default function WorldView() {
     loadQualityChoice(),
   );
   const [openDoors, setOpenDoors] = useState<Set<string>>(() => new Set());
+  // Academy quest-chain progression (own persistence slice).
+  const [academy, setAcademy] = useState<AcademyProgress>(() => loadAcademy(kidId));
+  const [academyOpen, setAcademyOpen] = useState<AcademyQuestId | null>(null);
+  const [academyChapter, setAcademyChapter] = useState(0);
+  const [questLogOpen, setQuestLogOpen] = useState(false);
+  // True whenever any modal/panel is open — read by Rig to freeze avatar input.
+  const uiLock = useRef(false);
   const quality = useMemo(() => resolveQuality(qualityChoice), [qualityChoice]);
   const interactions = useMemo(
     () => [...interactionsFor(worldSave), ...cityDoorInteractions(openDoors)],
@@ -1042,11 +1080,18 @@ export default function WorldView() {
   useEffect(() => {
     const next = loadWorldSave(kidId);
     setWorldSave(next);
+    setAcademy(loadAcademy(kidId));
+    setAcademyOpen(null);
     const citySpawn = developmentCitySpawn();
     self.current = citySpawn
       ? { ...citySpawn, moving: false }
       : { x: 0, z: 4.25, heading: Math.PI, moving: false };
   }, [kidId]);
+
+  // Keep the input-lock ref in sync with whatever panel is open.
+  useEffect(() => {
+    uiLock.current = Boolean(dialogue || yardOpen || academyOpen || questLogOpen);
+  }, [dialogue, yardOpen, academyOpen, questLogOpen]);
 
   useEffect(() => () => audio.dispose(), [audio]);
 
@@ -1115,6 +1160,62 @@ export default function WorldView() {
     audio.celebration();
   }, [audio]);
 
+  const commitAcademy = useCallback(
+    (next: AcademyProgress) => {
+      setAcademy(next);
+      saveAcademy(kidId, next);
+    },
+    [kidId],
+  );
+
+  const openAcademy = useCallback(
+    (id: AcademyQuestId) => {
+      const quest = academyById(id);
+      if (!quest) return;
+      setAcademyChapter(currentChapterIndex(academy, quest));
+      setAcademyOpen(id);
+    },
+    [academy],
+  );
+
+  const onAcademyCorrect = useCallback(() => {
+    commitAcademy(recordCorrect(academy));
+  }, [academy, commitAcademy]);
+
+  const onAcademyChapterComplete = useCallback(
+    (chapter: AcademyChapter) => {
+      if (!academyOpen) return;
+      const quest = academyById(academyOpen);
+      if (!quest) return;
+      const idx = currentChapterIndex(academy, quest);
+      const { progress, firstForQuest } = completeChapter(academy, quest, idx);
+      commitAcademy(progress);
+      // Award the chapter's tokens. Completing a quest's FIRST chapter also powers
+      // that landmark's festival light — so the town lights up through learning.
+      let nextSave: WorldSave = {
+        ...worldSave,
+        townTokens: worldSave.townTokens + chapter.rewardTokens,
+      };
+      if (firstForQuest) {
+        nextSave = activateLandmarks(nextSave, [quest.questId], event).save;
+        shareActivatedLandmark(quest.questId, { kidId, name: kidName });
+      }
+      commitWorld(nextSave);
+      celebrate();
+    },
+    [
+      academyOpen,
+      academy,
+      worldSave,
+      event,
+      kidId,
+      kidName,
+      commitAcademy,
+      commitWorld,
+      celebrate,
+    ],
+  );
+
   const interact = useCallback(() => {
     if (!nearest) return;
     if (nearest.kind === "collectible") {
@@ -1153,18 +1254,9 @@ export default function WorldView() {
       return;
     }
     if (nearest.kind === "landmark") {
-      const landmark = LANDMARKS.find((item) => item.id === nearest.id);
-      if (!landmark) return;
-      const result = activateLandmarks(worldSave, [nearest.id], event);
-      commitWorld(result.save);
-      shareActivatedLandmark(nearest.id, { kidId, name: kidName });
-      setDialogue({
-        title: `${landmark.emoji} ${landmark.name}`,
-        text: worldSave.activatedLandmarks.includes(nearest.id)
-          ? landmark.description
-          : `${landmark.description} Its festival light is powered now!`,
-      });
-      if (result.festivalCompleted) celebrate();
+      // Landmarks are the three Academies — walking up opens that subject's
+      // story-driven learning quest (reading / math / science).
+      openAcademy(nearest.id);
       return;
     }
     if (nearest.kind === "door") {
@@ -1177,17 +1269,22 @@ export default function WorldView() {
       return;
     }
     setYardOpen(true);
-  }, [nearest, worldSave, commitWorld, kidId, kidName, celebrate, event]);
+  }, [nearest, worldSave, commitWorld, kidId, kidName, celebrate, openAcademy]);
 
   useEffect(() => {
     const press = (event: KeyboardEvent) => {
-      if ((event.key === "e" || event.key === "E") && document.activeElement?.tagName !== "SELECT") {
-        event.preventDefault();
-        interact();
-      }
       if (event.key === "Escape") {
         setDialogue(null);
         setYardOpen(false);
+        setAcademyOpen(null);
+        setQuestLogOpen(false);
+        return;
+      }
+      if (event.repeat) return; // holding E must not re-fire interact (review fix)
+      if (uiLock.current) return; // a panel is open — E does nothing in-world
+      if ((event.key === "e" || event.key === "E") && document.activeElement?.tagName !== "SELECT") {
+        event.preventDefault();
+        interact();
       }
     };
     window.addEventListener("keydown", press);
@@ -1234,6 +1331,14 @@ export default function WorldView() {
   const presentCount = 1 + others.length;
   const questCount = worldSave.quest.collected.length;
   const festivalCount = worldSave.activatedLandmarks.length;
+  const level = levelForXp(academy.xp);
+  const xpBar = levelBar(academy.xp);
+  const activeAcademyQuest = academyOpen ? academyById(academyOpen) : null;
+  const promptLabel =
+    nearest && nearest.kind === "landmark"
+      ? `Learn at ${academyById(nearest.id as AcademyQuestId)?.title ?? nearest.label}`
+      : nearest?.label;
+  const anyPanelOpen = Boolean(dialogue || yardOpen || academyOpen || questLogOpen);
 
   return (
     <div className="world">
@@ -1268,6 +1373,7 @@ export default function WorldView() {
           onNear={setNearest}
           audio={audio}
           daylight={daylight}
+          inputLock={uiLock}
         />
         {selfUrl && (
           <WorldAvatar
@@ -1324,6 +1430,10 @@ export default function WorldView() {
       <div className="world-tools">
         <span className="world-tools__time">🕒 {clockLabel}</span>
         <span className="world-tools__tokens">🪙 {worldSave.townTokens}</span>
+        <span className="world-tools__level" title={`${xpBar.into}/${xpBar.span} XP to next level`}>
+          🎓 Lv {level}
+        </span>
+        <button onClick={() => setQuestLogOpen((open) => !open)}>📜 Quests</button>
         <button onClick={toggleSound}>{soundOn ? "🔊 Sound" : "🔇 Sound"}</button>
         <label>
           <span className="sr-only">World quality</span>
@@ -1339,13 +1449,13 @@ export default function WorldView() {
         </label>
       </div>
 
-      {nearest && !dialogue && !yardOpen && (
+      {nearest && !anyPanelOpen && (
         <button className="world-interact" onClick={interact}>
-          <kbd>E</kbd> {nearest.label}
+          <kbd>E</kbd> {promptLabel}
         </button>
       )}
 
-      <TouchControls input={touch} onInteract={interact} interactLabel={nearest?.label} />
+      <TouchControls input={touch} onInteract={interact} interactLabel={promptLabel} />
 
       {dialogue && (
         <div className="world-dialogue" role="dialog" aria-modal="true" aria-labelledby="world-dialogue-title">
@@ -1402,6 +1512,79 @@ export default function WorldView() {
                 </button>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {activeAcademyQuest && (
+        <AcademyChallenge
+          quest={activeAcademyQuest}
+          chapterIndex={academyChapter}
+          level={level}
+          onCorrect={onAcademyCorrect}
+          onChapterComplete={onAcademyChapterComplete}
+          onClose={() => setAcademyOpen(null)}
+        />
+      )}
+
+      {questLogOpen && (
+        <div
+          className="academy academy--log"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="questlog-title"
+        >
+          <div className="academy__card">
+            <button
+              className="academy__close"
+              onClick={() => setQuestLogOpen(false)}
+              aria-label="Close quest log"
+            >
+              ×
+            </button>
+            <div className="academy__head">
+              <h3 id="questlog-title">📜 Quest Log</h3>
+              <span className="academy__lv">
+                🎓 Lv {level} · {levelTitle(level)}
+              </span>
+            </div>
+            <div className="academy__xp">
+              <div className="academy__xpbar">
+                <span style={{ width: `${xpBar.pct}%` }} />
+              </div>
+              <span className="academy__xptext">
+                {xpBar.into}/{xpBar.span} XP to Lv {level + 1}
+              </span>
+            </div>
+            <ul className="academy__quests">
+              {ACADEMY_QUESTS.map((quest) => {
+                const status = questStatus(academy, quest);
+                const done = chaptersDone(academy, quest.questId);
+                const total = quest.chapters.length;
+                return (
+                  <li key={quest.questId} className={`academy__quest is-${status}`}>
+                    <span className="academy__questemoji">{quest.emoji}</span>
+                    <span className="academy__questmeta">
+                      <strong>{quest.title}</strong>
+                      <small>
+                        {status === "not-started" && `Visit ${quest.giver} to begin`}
+                        {status === "in-progress" &&
+                          `Chapter ${done + 1} of ${total} · with ${quest.giver}`}
+                        {status === "complete" &&
+                          `Complete! All ${total} chapters restored ⭐`}
+                      </small>
+                      <span className="academy__questbar">
+                        <span style={{ width: `${Math.round((done / total) * 100)}%` }} />
+                      </span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="academy__hinttext">
+              Walk up to 📚 Story Grove, 🛠️ Maker Yard, or 🔭 Sky Lab and press{" "}
+              <kbd>E</kbd> to learn.
+            </p>
           </div>
         </div>
       )}
