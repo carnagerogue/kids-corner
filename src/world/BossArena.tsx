@@ -16,7 +16,7 @@ type Props = {
   level: number;
   dateStr: string;
   kidId: string;
-  onCorrect: () => void;
+  onAnswer: (correct: boolean) => void;
   onWin: () => void;
   onClose: () => void;
 };
@@ -29,7 +29,7 @@ export function BossArena({
   level,
   dateStr,
   kidId,
-  onCorrect,
+  onAnswer,
   onWin,
   onClose,
 }: Props) {
@@ -63,15 +63,15 @@ export function BossArena({
 
   const pick = (i: number) => {
     if (solved || phase !== "raid") return;
-    if (i === question.answer) {
-      setPicked(i);
+    const correct = i === question.answer;
+    onAnswer(correct);
+    setPicked(i);
+    if (correct) {
       setSolved(true);
-      onCorrect();
       const mine = myHits + 1;
       setMyHits(mine);
       recordBossHit(dateStr, kidId, mine);
     } else {
-      setPicked(i);
       setWrong((prev) => new Set(prev).add(i));
       const remaining = hearts - 1;
       setHearts(remaining);

@@ -81,6 +81,7 @@ import {
   loadAcademy,
   ownAura,
   questStatus,
+  recordAnswer,
   recordBossWin,
   recordCorrect,
   recordDailyEvent,
@@ -1397,11 +1398,16 @@ export default function WorldView() {
     [academy],
   );
 
-  const onAcademyCorrect = useCallback(() => {
-    commitAcademy(
-      recordDailyEvent(recordCorrect(academy), "correct", 1, todayStr()),
-    );
-  }, [academy, commitAcademy]);
+  const onAcademyAnswer = useCallback(
+    (correct: boolean) => {
+      const quest = academyOpen ? academyById(academyOpen) : null;
+      let next = quest ? recordAnswer(academy, quest.subject, correct) : academy;
+      if (correct)
+        next = recordDailyEvent(recordCorrect(next), "correct", 1, todayStr());
+      commitAcademy(next);
+    },
+    [academyOpen, academy, commitAcademy],
+  );
 
   const onAcademyChapterComplete = useCallback(
     (chapter: AcademyChapter) => {
@@ -1459,11 +1465,26 @@ export default function WorldView() {
     [academy],
   );
 
-  const onBattleCorrect = useCallback(() => {
-    commitAcademy(
-      recordDailyEvent(recordCorrect(academy), "correct", 1, todayStr()),
-    );
-  }, [academy, commitAcademy]);
+  const onBattleAnswer = useCallback(
+    (correct: boolean) => {
+      const subject = battle?.creature.subject;
+      let next = subject ? recordAnswer(academy, subject, correct) : academy;
+      if (correct)
+        next = recordDailyEvent(recordCorrect(next), "correct", 1, todayStr());
+      commitAcademy(next);
+    },
+    [battle, academy, commitAcademy],
+  );
+
+  const onBossAnswer = useCallback(
+    (correct: boolean) => {
+      if (correct)
+        commitAcademy(
+          recordDailyEvent(recordCorrect(academy), "correct", 1, todayStr()),
+        );
+    },
+    [academy, commitAcademy],
+  );
 
   const onBattleWin = useCallback(() => {
     if (!battle) return;
@@ -1960,7 +1981,7 @@ export default function WorldView() {
           quest={activeAcademyQuest}
           chapterIndex={academyChapter}
           level={level}
-          onCorrect={onAcademyCorrect}
+          onAnswer={onAcademyAnswer}
           onChapterComplete={onAcademyChapterComplete}
           onClose={() => setAcademyOpen(null)}
         />
@@ -1972,7 +1993,7 @@ export default function WorldView() {
           questions={battle.questions}
           level={level}
           alreadyFriend={isBefriended(academy, battle.creature.id)}
-          onCorrect={onBattleCorrect}
+          onAnswer={onBattleAnswer}
           onWin={onBattleWin}
           onClose={() => setBattle(null)}
         />
@@ -1985,7 +2006,7 @@ export default function WorldView() {
           level={level}
           dateStr={todayStr()}
           kidId={kidId}
-          onCorrect={onBattleCorrect}
+          onAnswer={onBossAnswer}
           onWin={onBossWin}
           onClose={() => setBoss(null)}
         />

@@ -14,8 +14,8 @@ type Props = {
   quest: AcademyQuest;
   chapterIndex: number;
   level: number;
-  /** Called once when a question is answered correctly (award XP). */
-  onCorrect: () => void;
+  /** Called on every answer attempt (true = correct). Awards XP + tracks accuracy. */
+  onAnswer: (correct: boolean) => void;
   /** Called once when the chapter's last question is solved (award tokens + advance). */
   onChapterComplete: (chapter: AcademyChapter) => void;
   onClose: () => void;
@@ -25,7 +25,7 @@ export function AcademyChallenge({
   quest,
   chapterIndex,
   level,
-  onCorrect,
+  onAnswer,
   onChapterComplete,
   onClose,
 }: Props) {
@@ -59,14 +59,11 @@ export function AcademyChallenge({
 
   const pick = (i: number) => {
     if (solved) return;
-    if (i === question.answer) {
-      setPicked(i);
-      setSolved(true);
-      onCorrect();
-    } else {
-      setPicked(i);
-      setWrong((prev) => new Set(prev).add(i));
-    }
+    const correct = i === question.answer;
+    onAnswer(correct);
+    setPicked(i);
+    if (correct) setSolved(true);
+    else setWrong((prev) => new Set(prev).add(i));
   };
 
   const next = () => {

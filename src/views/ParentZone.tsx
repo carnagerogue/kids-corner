@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useApp } from "../store/AppContext";
 import { ParentAvatarControls } from "../features/avatar/ParentAvatarControls";
+import { WorldLearningReport } from "./WorldLearningReport";
 import { KID_EMOJIS, KID_PALETTE } from "../data/kids";
 import { APP_CATALOG } from "../data/applications";
 import { RESOURCES, RESOURCE_CATEGORIES } from "../data/resources";
@@ -201,7 +202,12 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
 
       <div className="gpanel" key={tab}>
         {tab === "review" && <ParentReview onZoom={setZoom} />}
-        {tab === "progress" && <ParentProgress onZoom={setZoom} />}
+        {tab === "progress" && (
+          <>
+            <ParentProgress onZoom={setZoom} />
+            <WorldLearningReport />
+          </>
+        )}
         {tab === "messages" && <ParentMessages />}
         {tab === "kids" && (
           <>

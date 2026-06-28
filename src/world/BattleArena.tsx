@@ -15,8 +15,8 @@ type Props = {
   questions: AcademyQuestion[];
   level: number;
   alreadyFriend: boolean;
-  /** Award XP for a correct answer (called once per solved question). */
-  onCorrect: () => void;
+  /** Called on every answer attempt (true = correct). Awards XP + tracks accuracy. */
+  onAnswer: (correct: boolean) => void;
   /** Befriend + award the win bonus + tokens. */
   onWin: () => void;
   onClose: () => void;
@@ -29,7 +29,7 @@ export function BattleArena({
   questions,
   level,
   alreadyFriend,
-  onCorrect,
+  onAnswer,
   onWin,
   onClose,
 }: Props) {
@@ -45,12 +45,12 @@ export function BattleArena({
 
   const pick = (i: number) => {
     if (solved || phase !== "battle") return;
-    if (i === question.answer) {
-      setPicked(i);
+    const correct = i === question.answer;
+    onAnswer(correct);
+    setPicked(i);
+    if (correct) {
       setSolved(true);
-      onCorrect();
     } else {
-      setPicked(i);
       setWrong((prev) => new Set(prev).add(i));
       const remaining = hearts - 1;
       setHearts(remaining);

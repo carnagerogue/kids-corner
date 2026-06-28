@@ -7321,6 +7321,116 @@ body.fun-cursor-on * {
   font-size: 1.05rem;
   font-weight: 900;
 }
+
+/* --- Parent World Learning Report -------------------------------------- */
+.wreport {
+  margin-top: 18px;
+}
+.wreport__intro {
+  margin: 0 0 12px;
+  color: #6b7191;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.wreport__kid {
+  margin-bottom: 12px;
+  padding: 14px 15px;
+  border-radius: 16px;
+  border: 2px solid #ececf5;
+  border-left: 5px solid var(--this-kid, #6a5cff);
+  background: #fff;
+}
+.wreport__head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.wreport__emoji {
+  font-size: 1.9rem;
+}
+.wreport__id {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.wreport__id strong {
+  color: #2f2a55;
+  font-size: 1.04rem;
+}
+.wreport__id span {
+  color: #6b7191;
+  font-size: 0.82rem;
+}
+.wreport__xp {
+  flex: none;
+  font-weight: 900;
+  color: var(--this-kid, #5a4fd0);
+}
+.wreport__empty {
+  margin: 10px 0 0;
+  color: #9aa0b5;
+  font-style: italic;
+  font-size: 0.86rem;
+}
+.wreport__subjects {
+  margin: 12px 0 4px;
+  display: grid;
+  gap: 7px;
+}
+.wreport__subject {
+  display: grid;
+  grid-template-columns: 96px 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+.wreport__slabel {
+  font-weight: 800;
+  font-size: 0.82rem;
+  color: #4a4f6b;
+}
+.wreport__bar {
+  height: 11px;
+  border-radius: 999px;
+  background: #eceaf6;
+  overflow: hidden;
+}
+.wreport__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #41c98a, #6ad6a4);
+  transition: width 200ms ease;
+}
+.wreport__bar > span.is-low {
+  background: linear-gradient(90deg, #ef6a6a, #ff9a6a);
+}
+.wreport__pct {
+  font-weight: 800;
+  font-size: 0.82rem;
+  color: #3a4060;
+  white-space: nowrap;
+}
+.wreport__pct small {
+  color: #9aa0b5;
+  font-weight: 600;
+}
+.wreport__flag {
+  font-style: normal;
+  color: #d6553f;
+  font-weight: 800;
+}
+.wreport__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 11px;
+  padding-top: 10px;
+  border-top: 1px solid #eef0f6;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #5b5f7e;
+}
 .world-yard__choices {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

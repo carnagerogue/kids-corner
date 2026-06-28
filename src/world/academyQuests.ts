@@ -74,6 +74,8 @@ export type AcademyProgress = {
   companion: string | null;
   /** ids of achievements already earned (so unlocks notify only once). */
   achievements: string[];
+  /** per-subject accuracy: tries + correct, for the parent learning report. */
+  subjects: Partial<Record<Subject, { correct: number; tries: number }>>;
 };
 
 export const XP_PER_CORRECT = 10;
@@ -96,6 +98,7 @@ const DEFAULT_PROGRESS: AcademyProgress = {
   aura: null,
   companion: null,
   achievements: [],
+  subjects: {},
 };
 
 const LEVEL_XP = 100; // xp per level — full quest line ≈ level 6-7
@@ -128,6 +131,26 @@ export function levelTitle(level: number): string {
 /** Record one correct answer: +XP, +1 correct. Returns a NEW progress object. */
 export function recordCorrect(p: AcademyProgress): AcademyProgress {
   return { ...p, xp: p.xp + XP_PER_CORRECT, correct: p.correct + 1 };
+}
+
+/** Record a single answer attempt against a subject (for the parent report's
+ * per-subject accuracy). Counts the try always, and the correct when right. */
+export function recordAnswer(
+  p: AcademyProgress,
+  subject: Subject,
+  correct: boolean,
+): AcademyProgress {
+  const cur = p.subjects[subject] ?? { correct: 0, tries: 0 };
+  return {
+    ...p,
+    subjects: {
+      ...p.subjects,
+      [subject]: {
+        correct: cur.correct + (correct ? 1 : 0),
+        tries: cur.tries + 1,
+      },
+    },
+  };
 }
 
 /** Number of chapters finished for a quest (clamped, missing → 0). */
@@ -359,6 +382,8 @@ export function loadAcademy(kidId: KidId): AcademyProgress {
       aura: typeof value.aura === "string" ? value.aura : null,
       companion: typeof value.companion === "string" ? value.companion : null,
       achievements: Array.isArray(value.achievements) ? value.achievements : [],
+      subjects:
+        value.subjects && typeof value.subjects === "object" ? value.subjects : {},
       xp: typeof value.xp === "number" && value.xp >= 0 ? value.xp : 0,
       correct: typeof value.correct === "number" && value.correct >= 0 ? value.correct : 0,
     };
