@@ -71,9 +71,26 @@ export function WordScramble({
   };
   const hint = () => {
     if (status !== "idle") return;
-    const next = word.word[placed.length];
-    const tile = tiles.find((t) => t.char === next && !placed.includes(t.id));
-    if (tile) setPlaced((p) => [...p, tile.id]);
+    // Longest already-correct prefix of the current answer.
+    let k = 0;
+    while (
+      k < placed.length &&
+      tiles.find((t) => t.id === placed[k])?.char === word.word[k]
+    ) {
+      k++;
+    }
+    if (k >= word.word.length) return; // already fully correct
+    // Rebuild the answer as the correct first (k+1) letters, dropping any
+    // wrong-order tiles — so a hint always advances toward the solution.
+    const used = new Set<number>();
+    const next: number[] = [];
+    for (let pos = 0; pos <= k; pos++) {
+      const tile = tiles.find((t) => t.char === word.word[pos] && !used.has(t.id));
+      if (!tile) break;
+      used.add(tile.id);
+      next.push(tile.id);
+    }
+    setPlaced(next);
   };
   const skip = () => {
     if (status === "idle") advance();

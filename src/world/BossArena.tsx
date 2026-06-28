@@ -52,17 +52,19 @@ export function BossArena({
 
   // Win the moment the shared shield is cracked (once).
   useEffect(() => {
-    if (!won.current && phase === "raid" && progress >= bossHp) {
+    // Require at least one of THIS player's own answers so a pre-cracked daily
+    // shield (siblings, or a prior win) can't auto-win with zero contribution.
+    if (!won.current && phase === "raid" && progress >= bossHp && myHits > 0) {
       won.current = true;
       setPhase("win");
       onWin();
     }
-  }, [progress, bossHp, phase, onWin]);
+  }, [progress, bossHp, phase, myHits, onWin]);
 
   const question = questions[Math.min(qIndex, questions.length - 1)];
 
   const pick = (i: number) => {
-    if (solved || phase !== "raid") return;
+    if (solved || phase !== "raid" || wrong.has(i)) return; // ignore re-taps on a wrong choice
     const correct = i === question.answer;
     onAnswer(correct);
     setPicked(i);

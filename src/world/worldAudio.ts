@@ -15,6 +15,7 @@ export class WorldAudioEngine {
   private master: GainNode | null = null;
   private wind: GainNode | null = null;
   private birdTimer = 0;
+  private suspendTimer = 0;
   private enabled = false;
   private toggleSeq = 0;
 
@@ -31,7 +32,8 @@ export class WorldAudioEngine {
       if (this.master) this.master.gain.setTargetAtTime(0, this.ctx?.currentTime ?? 0, 0.05);
       // Let the fade finish, then suspend the context so a muted World stops
       // rendering the wind loop and burning CPU/battery.
-      window.setTimeout(() => {
+      window.clearTimeout(this.suspendTimer);
+      this.suspendTimer = window.setTimeout(() => {
         if (!this.enabled && seq === this.toggleSeq) void this.ctx?.suspend();
       }, 200);
       return;
@@ -144,6 +146,7 @@ export class WorldAudioEngine {
 
   dispose(): void {
     window.clearTimeout(this.birdTimer);
+    window.clearTimeout(this.suspendTimer);
     this.ctx?.close();
     this.ctx = null;
     this.master = null;

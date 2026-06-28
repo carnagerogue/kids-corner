@@ -21,6 +21,7 @@ export function MathDash({
   const [flash, setFlash] = useState<null | boolean>(null);
   const scoreRef = useRef(0);
   const finished = useRef(false);
+  const answered = useRef(false); // one score per displayed problem
 
   // Tick down once per second.
   useEffect(() => {
@@ -38,7 +39,8 @@ export function MathDash({
   }, [timeLeft, onFinish]);
 
   const pick = (choice: number) => {
-    if (timeLeft <= 0) return;
+    if (timeLeft <= 0 || answered.current) return; // one answer per problem
+    answered.current = true;
     const correct = choice === problem.answer;
     if (correct) {
       scoreRef.current += 1;
@@ -47,6 +49,16 @@ export function MathDash({
     setFlash(correct);
     setProblem(genMathProblem(level));
   };
+
+  // Unlock for the next problem, and let the wrong-flash fade rather than stick.
+  useEffect(() => {
+    answered.current = false;
+  }, [problem]);
+  useEffect(() => {
+    if (flash === null) return;
+    const id = window.setTimeout(() => setFlash(null), 280);
+    return () => window.clearTimeout(id);
+  }, [flash]);
 
   const pct = Math.max(0, (timeLeft / DURATION) * 100);
 

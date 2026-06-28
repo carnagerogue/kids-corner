@@ -58,7 +58,7 @@ export function AcademyChallenge({
   const isLastQuestion = qIndex === chapter.questions.length - 1;
 
   const pick = (i: number) => {
-    if (solved) return;
+    if (solved || wrong.has(i)) return; // ignore re-taps on a known-wrong choice
     const correct = i === question.answer;
     onAnswer(correct);
     setPicked(i);

@@ -98,6 +98,7 @@ import { BossArena } from "./BossArena";
 import { WorldShop } from "./WorldShop";
 import { WorldArcade } from "./WorldArcade";
 import { AwardsPanel } from "./AwardsPanel";
+import { WorldMenu } from "./WorldMenu";
 import {
   achievementById,
   earnedAchievements,
@@ -1226,6 +1227,7 @@ export default function WorldView() {
   const [shopOpen, setShopOpen] = useState(false);
   const [arcadeOpen, setArcadeOpen] = useState(false);
   const [awardsOpen, setAwardsOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [stats, setStats] = useState<PlayerStats[]>([]);
   const [badgeToast, setBadgeToast] = useState<Achievement | null>(null);
   const [levelUp, setLevelUp] = useState<number | null>(null);
@@ -1267,6 +1269,10 @@ export default function WorldView() {
     setShopOpen(false);
     setArcadeOpen(false);
     setAwardsOpen(false);
+    setMenuOpen(false);
+    setDialogue(null);
+    setYardOpen(false);
+    setQuestLogOpen(false);
     setLevelUp(null);
     setBadgeToast(null);
     const citySpawn = developmentCitySpawn();
@@ -1286,7 +1292,8 @@ export default function WorldView() {
         boss ||
         shopOpen ||
         arcadeOpen ||
-        awardsOpen,
+        awardsOpen ||
+        menuOpen,
     );
   }, [
     dialogue,
@@ -1298,6 +1305,7 @@ export default function WorldView() {
     shopOpen,
     arcadeOpen,
     awardsOpen,
+    menuOpen,
   ]);
 
   useEffect(() => () => audio.dispose(), [audio]);
@@ -1352,12 +1360,13 @@ export default function WorldView() {
         // bail when the merge changed nothing so we don't churn state/localStorage
         // on every snapshot (the updater used to do both, impurely).
         const previous = worldSaveRef.current;
-        let next = mergeCollectedStars(previous, Object.keys(shared.stars));
-        next = activateLandmarks(
-          next,
+        const merged = mergeCollectedStars(previous, Object.keys(shared.stars));
+        const landmarkResult = activateLandmarks(
+          merged,
           Object.keys(shared.landmarks) as LandmarkId[],
           currentSeasonalEvent(),
-        ).save;
+        );
+        const next = landmarkResult.save;
         if (
           next.quest.phase === previous.quest.phase &&
           next.quest.collected.length === previous.quest.collected.length &&
@@ -1371,6 +1380,11 @@ export default function WorldView() {
         worldSaveRef.current = next;
         setWorldSave(next);
         saveWorldSave(kidId, next);
+        // A sibling lighting the final landmark over sync fires our festival too.
+        if (landmarkResult.festivalCompleted) {
+          setCelebrationId((value) => value + 1);
+          audio.celebration();
+        }
       }),
     [kidId, syncCode],
   );
@@ -1420,7 +1434,9 @@ export default function WorldView() {
       const quest = academyById(academyOpen);
       if (!quest) return;
       const idx = currentChapterIndex(academy, quest);
-      const { progress, firstForQuest } = completeChapter(academy, quest, idx);
+      const result = completeChapter(academy, quest, idx);
+      if (result.progress === academy) return; // no advance → don't double-pay tokens
+      const { progress, firstForQuest } = result;
       commitAcademy(recordDailyEvent(progress, "chapter", 1, todayStr()));
       // Award the chapter's tokens. Completing a quest's FIRST chapter also powers
       // that landmark's festival light — so the town lights up through learning.
@@ -1508,9 +1524,16 @@ export default function WorldView() {
 
   const onBossWin = useCallback(() => {
     if (!boss) return;
-    commitAcademy(
-      recordDailyEvent(recordBossWin(academy), "battle-win", 1, todayStr()),
-    );
+    const today = todayStr();
+    if (academy.lastBossWin === today) {
+      // The daily raid rewards once per day — replays still celebrate, no payout.
+      celebrate();
+      return;
+    }
+    let next = recordBossWin(academy);
+    next = { ...next, lastBossWin: today };
+    next = recordDailyEvent(next, "battle-win", 1, today);
+    commitAcademy(next);
     commitWorld({ ...worldSave, townTokens: worldSave.townTokens + 40 });
     celebrate();
   }, [boss, academy, worldSave, commitAcademy, commitWorld, celebrate]);
@@ -1614,6 +1637,8 @@ export default function WorldView() {
   }, [
     syncReady,
     kidId,
+    kidName,
+    kid?.color,
     academy.xp,
     academy.achievements.length,
     academy.bossWins,
@@ -1706,6 +1731,7 @@ export default function WorldView() {
         setShopOpen(false);
         setArcadeOpen(false);
         setAwardsOpen(false);
+        setMenuOpen(false);
         return;
       }
       if (event.repeat) return; // holding E must not re-fire interact (review fix)
@@ -1799,7 +1825,8 @@ export default function WorldView() {
       boss ||
       shopOpen ||
       arcadeOpen ||
-      awardsOpen,
+      awardsOpen ||
+      menuOpen,
   );
 
   return (
@@ -1905,12 +1932,9 @@ export default function WorldView() {
         <span className="world-tools__level" title={`${xpBar.into}/${xpBar.span} XP to next level`}>
           🎓 Lv {level}
         </span>
-        <button onClick={() => setQuestLogOpen((open) => !open)}>
-          📜 Quests{dailyClaimable(academy, todayStr()) ? " 🎁" : ""}
+        <button onClick={() => setMenuOpen(true)}>
+          ☰ Menu{dailyClaimable(academy, todayStr()) ? " 🎁" : ""}
         </button>
-        <button onClick={() => setShopOpen(true)}>🛍️ Shop</button>
-        <button onClick={() => setArcadeOpen(true)}>🎮 Arcade</button>
-        <button onClick={() => setAwardsOpen(true)}>🏅 Awards</button>
         <button onClick={toggleSound}>{soundOn ? "🔊 Sound" : "🔇 Sound"}</button>
         <label>
           <span className="sr-only">World quality</span>
@@ -2040,6 +2064,32 @@ export default function WorldView() {
           onEquipAura={onEquipAura}
           onEquipCompanion={onEquipCompanion}
           onClose={() => setShopOpen(false)}
+        />
+      )}
+
+      {menuOpen && (
+        <WorldMenu
+          level={level}
+          title={levelTitle(level)}
+          tokens={worldSave.townTokens}
+          dailyReady={dailyClaimable(academy, todayStr())}
+          onQuests={() => {
+            setMenuOpen(false);
+            setQuestLogOpen(true);
+          }}
+          onArcade={() => {
+            setMenuOpen(false);
+            setArcadeOpen(true);
+          }}
+          onShop={() => {
+            setMenuOpen(false);
+            setShopOpen(true);
+          }}
+          onAwards={() => {
+            setMenuOpen(false);
+            setAwardsOpen(true);
+          }}
+          onClose={() => setMenuOpen(false)}
         />
       )}
 

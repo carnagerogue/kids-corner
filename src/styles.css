@@ -7653,6 +7653,52 @@ body.fun-cursor-on * {
   opacity: 0.5;
   cursor: default;
 }
+
+/* --- World menu hub --------------------------------------------------- */
+.worldmenu__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 11px;
+  margin-top: 6px;
+}
+.worldmenu__tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+  padding: 18px 12px;
+  border: 2px solid #e6e3f3;
+  border-radius: 16px;
+  background: #fff;
+  cursor: pointer;
+  transition: transform 80ms ease, border-color 120ms ease;
+}
+.worldmenu__tile:hover {
+  transform: translateY(-2px);
+  border-color: #b9b2f2;
+}
+.worldmenu__icon {
+  position: relative;
+  font-size: 2.2rem;
+}
+.worldmenu__badge {
+  position: absolute;
+  top: -6px;
+  right: -16px;
+  font-size: 1rem;
+  font-style: normal;
+}
+.worldmenu__tile strong {
+  color: #322a5c;
+  font-size: 1.02rem;
+}
+.worldmenu__tile small {
+  color: #7b7f9c;
+  font-size: 0.76rem;
+  line-height: 1.25;
+}
 .world-yard__choices {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -35,7 +35,8 @@ export function WorldLearningReport() {
       <h3 className="section-title">🌍 World Learning Report</h3>
       <p className="wreport__intro">
         How each child is doing in the 3D World — accuracy by subject, quests
-        finished, and badges earned. A bar turns red when accuracy dips below 70%.
+        finished, and badges earned. After a few tries, a subject bar turns red
+        when accuracy is below 70%.
       </p>
 
       {kids.map((kid) => {
@@ -51,7 +52,9 @@ export function WorldLearningReport() {
           (n, s) => n + (academy.subjects[s.key]?.correct ?? 0),
           0,
         );
-        const overall = tries ? Math.round((correct / tries) * 100) : null;
+        const overall = tries
+          ? Math.min(100, Math.round((correct / tries) * 100))
+          : null;
         const questsDone = ACADEMY_QUESTS.filter(
           (q) => (academy.chaptersDone[q.questId] ?? 0) >= q.chapters.length,
         ).length;
@@ -82,7 +85,9 @@ export function WorldLearningReport() {
                 {SUBJECTS.map((s) => {
                   const st = academy.subjects[s.key];
                   const t = st?.tries ?? 0;
-                  const pct = t ? Math.round(((st?.correct ?? 0) / t) * 100) : 0;
+                  const pct = t
+                    ? Math.min(100, Math.round(((st?.correct ?? 0) / t) * 100))
+                    : 0;
                   const low = t >= 4 && pct < 70;
                   return (
                     <div key={s.key} className="wreport__subject">
@@ -122,7 +127,7 @@ export function WorldLearningReport() {
               </span>
               <span>🔥 {streak} day streak</span>
               <span>🌈 {academy.bossWins} raids</span>
-              <span>✅ {academy.correct} answered</span>
+              <span>✅ {academy.correct} correct</span>
             </div>
           </div>
         );

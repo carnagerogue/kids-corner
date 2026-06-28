@@ -241,8 +241,10 @@ export function recordBossHit(
   db = getDb();
   const root = worldRootPath();
   if (!db || !root) return;
+  // Per-session key so two tabs/devices of the same child each contribute
+  // (the raid sums all contributors) instead of clobbering one shared slot.
   set(
-    ref(db, `${root}/boss/${sanitize(dateStr)}/hits/${sanitize(kidId)}`),
+    ref(db, `${root}/boss/${sanitize(dateStr)}/hits/${sanitize(kidId)}-${sessionId}`),
     hits,
   );
 }

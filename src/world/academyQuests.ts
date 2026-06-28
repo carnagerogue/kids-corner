@@ -64,6 +64,8 @@ export type AcademyProgress = {
   daily: DailyState;
   /** lifetime co-op boss raids completed. */
   bossWins: number;
+  /** date of the last boss-raid reward claim (one reward per day). */
+  lastBossWin: string;
   /** consecutive days a daily quest was claimed. */
   streak: number;
   /** date of the last daily claim (for streak continuity). */
@@ -92,6 +94,7 @@ const DEFAULT_PROGRESS: AcademyProgress = {
   befriended: [],
   daily: { date: "", progress: 0, claimed: false },
   bossWins: 0,
+  lastBossWin: "",
   streak: 0,
   lastClaim: "",
   ownedAuras: [],
@@ -123,7 +126,8 @@ const LEVEL_TITLES = [
   "Champion", // 6
 ];
 export function levelTitle(level: number): string {
-  return LEVEL_TITLES[Math.min(level, LEVEL_TITLES.length) - 1] ?? "Master";
+  if (level > LEVEL_TITLES.length) return "Master"; // levels past 6 are "Master"
+  return LEVEL_TITLES[Math.max(0, level - 1)] ?? "Master";
 }
 
 // --- Pure progress transitions ----------------------------------------------
@@ -376,6 +380,7 @@ export function loadAcademy(kidId: KidId): AcademyProgress {
             }
           : { date: "", progress: 0, claimed: false },
       bossWins: typeof value.bossWins === "number" && value.bossWins >= 0 ? value.bossWins : 0,
+      lastBossWin: typeof value.lastBossWin === "string" ? value.lastBossWin : "",
       streak: typeof value.streak === "number" && value.streak >= 0 ? value.streak : 0,
       lastClaim: typeof value.lastClaim === "string" ? value.lastClaim : "",
       ownedAuras: Array.isArray(value.ownedAuras) ? value.ownedAuras : [],

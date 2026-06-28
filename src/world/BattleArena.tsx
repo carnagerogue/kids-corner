@@ -44,7 +44,7 @@ export function BattleArena({
   const isLast = qIndex === creature.puzzleLength - 1;
 
   const pick = (i: number) => {
-    if (solved || phase !== "battle") return;
+    if (solved || phase !== "battle" || wrong.has(i)) return; // ignore re-taps on a wrong choice
     const correct = i === question.answer;
     onAnswer(correct);
     setPicked(i);
@@ -112,7 +112,10 @@ export function BattleArena({
             <div className="battle__status">
               <span className="battle__meter" aria-label={`${qIndex} of ${creature.puzzleLength} puzzles solved`}>
                 {Array.from({ length: creature.puzzleLength }, (_, i) => (
-                  <span key={i} className={`battle__pip${i < qIndex ? " is-solved" : ""}`} />
+                  <span
+                    key={i}
+                    className={`battle__pip${i < qIndex || (i === qIndex && solved) ? " is-solved" : ""}`}
+                  />
                 ))}
               </span>
               <span className="battle__hearts" aria-label={`${hearts} hearts left`}>

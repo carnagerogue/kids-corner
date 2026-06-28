@@ -23,16 +23,18 @@ export function WorldArcade({
   const [mode, setMode] = useState<Mode>("menu");
   const [result, setResult] = useState<Result | null>(null);
 
+  // Modest rewards: a fun practice bonus, not the dominant XP/token source
+  // (structured lessons + battles stay the main path).
   const finishScramble = (solved: number, total: number) => {
-    const t = solved * 5;
-    const xp = solved * 6;
+    const t = solved * 4;
+    const xp = solved * 4;
     onReward(t, xp);
     setResult({ game: "Word Scramble", score: `${solved}/${total} words`, tokens: t, xp });
     setMode("result");
   };
   const finishDash = (score: number) => {
-    const t = score * 2;
-    const xp = score * 3;
+    const t = score * 1;
+    const xp = score * 2;
     onReward(t, xp);
     setResult({ game: "Math Dash", score: `${score} solved`, tokens: t, xp });
     setMode("result");

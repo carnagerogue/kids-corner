@@ -34,14 +34,18 @@ export function AwardsPanel({ earned, rows, selfKidId, syncReady, onClose }: Pro
           </span>
         </div>
 
-        <div className="awards__tabs">
+        <div className="awards__tabs" role="tablist" aria-label="Awards sections">
           <button
+            role="tab"
+            aria-selected={tab === "badges"}
             className={`awards__tab${tab === "badges" ? " is-on" : ""}`}
             onClick={() => setTab("badges")}
           >
             🎖️ Badges
           </button>
           <button
+            role="tab"
+            aria-selected={tab === "ranks"}
             className={`awards__tab${tab === "ranks" ? " is-on" : ""}`}
             onClick={() => setTab("ranks")}
           >
