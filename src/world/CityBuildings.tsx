@@ -1,0 +1,291 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Html } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { resolveAssetUrl } from "../features/avatar/AvatarManifest";
+import type { InteractionTarget } from "./worldGame";
+
+const WIDTH = 6.35;
+const DEPTH = 6.35;
+const WALL_HEIGHT = 3.25;
+const WALL_THICKNESS = 0.18;
+const DOOR_WIDTH = 1.35;
+const AVATAR_RADIUS = 0.32;
+
+export type CityBuildingDef = {
+  id: string;
+  name: string;
+  emoji: string;
+  x: number;
+  z: number;
+  rotation: number;
+  color: string;
+  accent: string;
+  interior: "cafe" | "books" | "studio" | "community";
+};
+
+// The four middle lots are the landmark district. These twelve street-fronted
+// lots form a mixed-use perimeter with entrances facing the nearest road.
+export const CITY_BUILDINGS: CityBuildingDef[] = [
+  { id: "corner-market", name: "Corner Market", emoji: "🛒", x: -24, z: -24, rotation: 0, color: "#f4c987", accent: "#e36d54", interior: "cafe" },
+  { id: "wellness-center", name: "Wellness Center", emoji: "🌿", x: -24, z: -8, rotation: Math.PI / 2, color: "#cae7d4", accent: "#4aa879", interior: "community" },
+  { id: "rainbow-books", name: "Rainbow Books", emoji: "📚", x: -24, z: 8, rotation: Math.PI / 2, color: "#dbd1f3", accent: "#755fc2", interior: "books" },
+  { id: "park-apartments", name: "Park Apartments", emoji: "🏠", x: -24, z: 24, rotation: Math.PI, color: "#f1cfc5", accent: "#bd6f61", interior: "community" },
+  { id: "sunbeam-cafe", name: "Sunbeam Café", emoji: "🥐", x: -8, z: -24, rotation: 0, color: "#ffe1a4", accent: "#df843a", interior: "cafe" },
+  { id: "discovery-museum", name: "Discovery Museum", emoji: "🦕", x: 8, z: -24, rotation: 0, color: "#c9e4ed", accent: "#377f9d", interior: "community" },
+  { id: "art-house", name: "Art House", emoji: "🎨", x: 24, z: -24, rotation: 0, color: "#f2c8df", accent: "#b9578c", interior: "studio" },
+  { id: "fresh-grocer", name: "Fresh Grocer", emoji: "🍎", x: 24, z: -8, rotation: -Math.PI / 2, color: "#d8e9b2", accent: "#6b9e38", interior: "cafe" },
+  { id: "maker-supply", name: "Maker Supply", emoji: "🧰", x: 24, z: 8, rotation: -Math.PI / 2, color: "#f5c69c", accent: "#c96c36", interior: "studio" },
+  { id: "garden-homes", name: "Garden Homes", emoji: "🌼", x: 24, z: 24, rotation: Math.PI, color: "#cde3cb", accent: "#57966a", interior: "community" },
+  { id: "little-library", name: "Little Library", emoji: "📖", x: -8, z: 24, rotation: Math.PI, color: "#d7d0ef", accent: "#725fb5", interior: "books" },
+  { id: "recreation-hall", name: "Recreation Hall", emoji: "🏀", x: 8, z: 24, rotation: Math.PI, color: "#c9e2f2", accent: "#407da2", interior: "community" },
+];
+
+function worldFromLocal(building: CityBuildingDef, lx: number, lz: number) {
+  const c = Math.cos(building.rotation);
+  const s = Math.sin(building.rotation);
+  return {
+    x: building.x + c * lx + s * lz,
+    z: building.z - s * lx + c * lz,
+  };
+}
+
+export function cityDoorInteractions(openDoors: ReadonlySet<string>): InteractionTarget[] {
+  return CITY_BUILDINGS.map((building) => {
+    const position = worldFromLocal(building, 0, DEPTH / 2 + 0.8);
+    return {
+      id: building.id,
+      kind: "door" as const,
+      label: `${openDoors.has(building.id) ? "Close" : "Open"} ${building.name}`,
+      position: [position.x, 0, position.z] as const,
+      radius: 2.15,
+    };
+  });
+}
+
+/** Development playtest spawn immediately outside a named storefront. */
+export function cityBuildingEntry(id: string) {
+  const building = CITY_BUILDINGS.find((item) => item.id === id);
+  if (!building) return null;
+  const position = worldFromLocal(building, 0, DEPTH / 2 + 1.25);
+  return {
+    x: position.x,
+    z: position.z,
+    heading: Math.atan2(building.x - position.x, building.z - position.z),
+  };
+}
+
+function pushOutOfRect(
+  point: { x: number; z: number },
+  cx: number,
+  cz: number,
+  halfWidth: number,
+  halfDepth: number,
+) {
+  const dx = point.x - cx;
+  const dz = point.z - cz;
+  const limitX = halfWidth + AVATAR_RADIUS;
+  const limitZ = halfDepth + AVATAR_RADIUS;
+  if (Math.abs(dx) >= limitX || Math.abs(dz) >= limitZ) return;
+  const penetrationX = limitX - Math.abs(dx);
+  const penetrationZ = limitZ - Math.abs(dz);
+  if (penetrationX < penetrationZ) {
+    point.x = cx + (dx < 0 ? -limitX : limitX);
+  } else {
+    point.z = cz + (dz < 0 ? -limitZ : limitZ);
+  }
+}
+
+/** Collide against wall segments, not solid footprints, so open doorways lead
+ * into genuinely walkable rooms instead of teleporting through a sealed prop. */
+export function resolveCityBuildingCollisions(
+  pose: { x: number; z: number },
+  openDoors: ReadonlySet<string>,
+) {
+  const halfW = WIDTH / 2;
+  const halfD = DEPTH / 2;
+  const doorHalf = DOOR_WIDTH / 2;
+  for (const building of CITY_BUILDINGS) {
+    const c = Math.cos(building.rotation);
+    const s = Math.sin(building.rotation);
+    const dx = pose.x - building.x;
+    const dz = pose.z - building.z;
+    const local = { x: c * dx - s * dz, z: s * dx + c * dz };
+    if (Math.abs(local.x) > halfW + 1 || Math.abs(local.z) > halfD + 1) continue;
+
+    const frontSegmentWidth = (WIDTH - DOOR_WIDTH) / 2;
+    const frontCenter = (halfW + doorHalf) / 2;
+    pushOutOfRect(local, -frontCenter, halfD, frontSegmentWidth / 2, WALL_THICKNESS / 2);
+    pushOutOfRect(local, frontCenter, halfD, frontSegmentWidth / 2, WALL_THICKNESS / 2);
+    if (!openDoors.has(building.id)) {
+      pushOutOfRect(local, 0, halfD, doorHalf, WALL_THICKNESS / 2);
+    }
+    pushOutOfRect(local, 0, -halfD, halfW, WALL_THICKNESS / 2);
+    pushOutOfRect(local, -halfW, 0, WALL_THICKNESS / 2, halfD);
+    pushOutOfRect(local, halfW, 0, WALL_THICKNESS / 2, halfD);
+
+    pose.x = building.x + c * local.x + s * local.z;
+    pose.z = building.z - s * local.x + c * local.z;
+  }
+}
+
+type Kit = { door: THREE.Object3D; window: THREE.Object3D };
+
+function normalizeDetail(source: THREE.Object3D, height: number) {
+  const object = source.clone(true);
+  object.updateWorldMatrix(true, true);
+  let box = new THREE.Box3().setFromObject(object);
+  object.scale.setScalar(height / Math.max(0.001, box.max.y - box.min.y));
+  object.updateWorldMatrix(true, true);
+  box = new THREE.Box3().setFromObject(object);
+  object.position.set(
+    -(box.min.x + box.max.x) / 2,
+    -box.min.y,
+    -(box.min.z + box.max.z) / 2,
+  );
+  object.traverse((child) => {
+    if (child instanceof THREE.Mesh) {
+      child.castShadow = true;
+      child.receiveShadow = true;
+    }
+  });
+  return object;
+}
+
+function Interior({ type, accent }: { type: CityBuildingDef["interior"]; accent: string }) {
+  if (type === "books") {
+    return (
+      <group>
+        {[-2.2, 0, 2.2].map((x) => (
+          <mesh key={x} position={[x, 0.9, -2.55]} castShadow>
+            <boxGeometry args={[1.35, 1.8, 0.35]} />
+            <meshStandardMaterial color={x === 0 ? accent : "#8b684d"} roughness={0.9} />
+          </mesh>
+        ))}
+        <mesh position={[0, 0.38, 0.15]} castShadow><boxGeometry args={[2.2, 0.75, 0.9]} /><meshStandardMaterial color="#c89963" /></mesh>
+      </group>
+    );
+  }
+  if (type === "studio") {
+    return (
+      <group>
+        {[-1.65, 1.65].map((x) => (
+          <group key={x} position={[x, 0, -0.6]}>
+            <mesh position={[0, 0.72, 0]} castShadow><boxGeometry args={[1.5, 0.16, 1.2]} /><meshStandardMaterial color="#d6b07a" /></mesh>
+            <mesh position={[0, 1.18, 0]} rotation={[0, 0.2, 0]}><boxGeometry args={[0.75, 0.7, 0.08]} /><meshStandardMaterial color={accent} /></mesh>
+          </group>
+        ))}
+      </group>
+    );
+  }
+  if (type === "cafe") {
+    return (
+      <group>
+        {[-1.65, 1.65].map((x) => (
+          <group key={x} position={[x, 0, -0.65]}>
+            <mesh position={[0, 0.7, 0]} castShadow><cylinderGeometry args={[0.72, 0.72, 0.12, 18]} /><meshStandardMaterial color="#d7a266" /></mesh>
+            <mesh position={[0, 0.36, 0]}><cylinderGeometry args={[0.1, 0.16, 0.7, 10]} /><meshStandardMaterial color="#5c4b45" /></mesh>
+          </group>
+        ))}
+        <mesh position={[0, 0.55, -2.5]} castShadow><boxGeometry args={[3.2, 1.1, 0.45]} /><meshStandardMaterial color={accent} /></mesh>
+      </group>
+    );
+  }
+  return (
+    <group>
+      <mesh position={[0, 0.08, -0.4]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[4.2, 3.3]} /><meshStandardMaterial color={accent} roughness={1} /></mesh>
+      {[-1.6, 1.6].map((x) => <mesh key={x} position={[x, 0.45, -1.25]} castShadow><boxGeometry args={[1.2, 0.85, 0.55]} /><meshStandardMaterial color="#7ca4b8" /></mesh>)}
+    </group>
+  );
+}
+
+function EnterableBuilding({
+  building,
+  open,
+  kit,
+  shadows,
+}: {
+  building: CityBuildingDef;
+  open: boolean;
+  kit: Kit | null;
+  shadows: boolean;
+}) {
+  const hinge = useRef<THREE.Group>(null);
+  useFrame((_, dt) => {
+    if (!hinge.current) return;
+    const target = open ? -Math.PI * 0.48 : 0;
+    hinge.current.rotation.y = THREE.MathUtils.damp(hinge.current.rotation.y, target, 8, dt);
+  });
+  const door = useMemo(() => kit ? normalizeDetail(kit.door, 2.15) : null, [kit]);
+  const windows = useMemo(
+    () => kit ? Array.from({ length: 4 }, () => normalizeDetail(kit.window, 1.05)) : [],
+    [kit],
+  );
+  const halfW = WIDTH / 2;
+  const halfD = DEPTH / 2;
+  const frontWidth = (WIDTH - DOOR_WIDTH) / 2;
+  const frontCenter = (halfW + DOOR_WIDTH / 2) / 2;
+
+  return (
+    <group position={[building.x, 0, building.z]} rotation={[0, building.rotation, 0]}>
+      <mesh position={[0, 0.05, 0]} receiveShadow><boxGeometry args={[7.5, 0.1, 7.5]} /><meshStandardMaterial color="#c9ccd0" roughness={1} /></mesh>
+      <mesh position={[0, 0.13, 0]} receiveShadow><boxGeometry args={[WIDTH - 0.25, 0.12, DEPTH - 0.25]} /><meshStandardMaterial color="#e8dfca" roughness={0.95} /></mesh>
+
+      <mesh position={[-frontCenter, WALL_HEIGHT / 2, halfD]} castShadow={shadows}><boxGeometry args={[frontWidth, WALL_HEIGHT, WALL_THICKNESS]} /><meshStandardMaterial color={building.color} /></mesh>
+      <mesh position={[frontCenter, WALL_HEIGHT / 2, halfD]} castShadow={shadows}><boxGeometry args={[frontWidth, WALL_HEIGHT, WALL_THICKNESS]} /><meshStandardMaterial color={building.color} /></mesh>
+      <mesh position={[0, WALL_HEIGHT - 0.42, halfD]} castShadow={shadows}><boxGeometry args={[DOOR_WIDTH, 0.84, WALL_THICKNESS]} /><meshStandardMaterial color={building.color} /></mesh>
+      <mesh position={[0, WALL_HEIGHT / 2, -halfD]} castShadow={shadows}><boxGeometry args={[WIDTH, WALL_HEIGHT, WALL_THICKNESS]} /><meshStandardMaterial color={building.color} /></mesh>
+      <mesh position={[-halfW, WALL_HEIGHT / 2, 0]} castShadow={shadows}><boxGeometry args={[WALL_THICKNESS, WALL_HEIGHT, DEPTH]} /><meshStandardMaterial color={building.color} /></mesh>
+      <mesh position={[halfW, WALL_HEIGHT / 2, 0]} castShadow={shadows}><boxGeometry args={[WALL_THICKNESS, WALL_HEIGHT, DEPTH]} /><meshStandardMaterial color={building.color} /></mesh>
+
+      <mesh position={[0, 2.72, halfD + 0.13]} castShadow><boxGeometry args={[2.65, 0.5, 0.14]} /><meshStandardMaterial color={building.accent} /></mesh>
+      <Html position={[0, 2.73, halfD + 0.23]} center distanceFactor={12} occlude={false}>
+        <div className="world-building-sign">{building.emoji} {building.name}</div>
+      </Html>
+
+      {windows.map((window, index) => (
+        <primitive key={index} object={window} position={[index < 2 ? -2.05 : 2.05, index % 2 ? 2.05 : 1.1, halfD + 0.13]} />
+      ))}
+
+      <group ref={hinge} position={[-DOOR_WIDTH / 2, 0, halfD + 0.13]}>
+        {door ? (
+          <primitive object={door} position={[DOOR_WIDTH / 2, 0, 0]} />
+        ) : (
+          <mesh position={[DOOR_WIDTH / 2, 1.05, 0]} castShadow><boxGeometry args={[DOOR_WIDTH, 2.1, 0.12]} /><meshStandardMaterial color="#8b5d3b" /></mesh>
+        )}
+      </group>
+
+      <Interior type={building.interior} accent={building.accent} />
+      {open && <pointLight position={[0, 2.4, 0]} color="#fff1cf" intensity={1.2} distance={8} />}
+      <mesh position={[0, WALL_HEIGHT + 0.1, 0]} castShadow={shadows} receiveShadow>
+        <boxGeometry args={[WIDTH + 0.28, 0.2, DEPTH + 0.28]} />
+        <meshStandardMaterial color="#4f5661" transparent opacity={open ? 0.16 : 1} depthWrite={!open} />
+      </mesh>
+      <mesh position={[0, 1.15, halfD + 0.02]}><boxGeometry args={[DOOR_WIDTH + 0.35, 2.45, 0.05]} /><meshBasicMaterial color={building.accent} transparent opacity={open ? 0.16 : 0} depthWrite={false} /></mesh>
+    </group>
+  );
+}
+
+export function CityBuildings({ openDoors, shadows }: { openDoors: ReadonlySet<string>; shadows: boolean }) {
+  const [kit, setKit] = useState<Kit | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const loader = new GLTFLoader();
+    Promise.all([
+      loader.loadAsync(resolveAssetUrl("/assets/world/city-modular/door-brown-window.glb")),
+      loader.loadAsync(resolveAssetUrl("/assets/world/city-modular/window-white-wide.glb")),
+    ]).then(([door, window]) => {
+      if (alive) setKit({ door: door.scene, window: window.scene });
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  return (
+    <group>
+      {CITY_BUILDINGS.map((building) => (
+        <EnterableBuilding key={building.id} building={building} open={openDoors.has(building.id)} kit={kit} shadows={shadows} />
+      ))}
+    </group>
+  );
+}

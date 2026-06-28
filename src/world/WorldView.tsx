@@ -62,6 +62,12 @@ import {
   type QualityChoice,
 } from "./worldQuality";
 import { followOrbitTarget } from "./cameraFollow";
+import {
+  CityBuildings,
+  cityBuildingEntry,
+  cityDoorInteractions,
+  resolveCityBuildingCollisions,
+} from "./CityBuildings";
 import { SYNC_EVENT } from "../sync";
 
 const BOUND = 8; // play-area half-extent (props ring the outside)
@@ -103,6 +109,12 @@ function spawnFor(kidId: string): { x: number; z: number } {
 
 const clamp = (v: number, lo: number, hi: number) =>
   v < lo ? lo : v > hi ? hi : v;
+
+function developmentCitySpawn() {
+  if (!import.meta.env.DEV) return null;
+  const buildingId = new URLSearchParams(window.location.search).get("cityDoor");
+  return buildingId ? cityBuildingEntry(buildingId) : null;
+}
 
 // --- CC0 prop loading (trees, houses, rocks…) ----------------------------
 // Each GLB is loaded once, normalized so its tallest side = `height` with feet
@@ -327,9 +339,6 @@ function PreloadedMap({ map }: { map: WorldMapDef }) {
 const TILE = 8; // world size of one road tile (≈5 avatar-widths, a 2-lane road)
 const GRID = 7; // 7×7 cells → 56×56-unit neighbourhood
 
-/** Solid building footprints (circles) the avatar can't walk through. Populated
- * by SuburbTown when it lays out the town; read by the controller for collision. */
-const BUILDING_COLLIDERS: { x: number; z: number; r: number }[] = [];
 const LANDMARK_COLLIDERS = [
   { x: -8, z: -8, r: 2.15 },
   { x: 8, z: -8, r: 2.15 },
@@ -448,16 +457,15 @@ function buildInstancedTown(placed: Placed[], shadows: boolean): THREE.Group {
 function SuburbTown({
   groupRef,
   shadows,
+  openDoors,
 }: {
   groupRef: React.RefObject<THREE.Group>;
   shadows: boolean;
+  openDoors: ReadonlySet<string>;
 }) {
   const [src, setSrc] = useState<{
     road: (n: string) => THREE.Object3D | undefined;
-    builds: THREE.Object3D[];
-    tree: THREE.Object3D;
     bench: THREE.Object3D;
-    flowers: THREE.Object3D;
   } | null>(null);
 
   useEffect(() => {
@@ -465,14 +473,9 @@ function SuburbTown({
     const L = (u: string) => new GLTFLoader().loadAsync(resolveAssetUrl(u));
     Promise.all([
       L("/assets/world/road-kit.glb"),
-      L("/assets/world/house-modern.glb"),
-      L("/assets/world/house.glb"),
-      L("/assets/world/shop.glb"),
-      L("/assets/world/tree.glb"),
       L("/assets/world/bench.glb"),
-      L("/assets/world/flowers.glb"),
     ])
-      .then(([rk, h1, h2, sh, tr, bn, fl]) => {
+      .then(([rk, bn]) => {
         if (!alive) return;
         const named = new Map<string, THREE.Object3D>();
         rk.scene.traverse((o) => {
@@ -481,10 +484,7 @@ function SuburbTown({
         });
         setSrc({
           road: (n) => named.get(n),
-          builds: [h1.scene, h2.scene, sh.scene],
-          tree: tr.scene,
           bench: bn.scene,
-          flowers: fl.scene,
         });
       })
       .catch(() => {});
@@ -496,14 +496,12 @@ function SuburbTown({
   const placed = useMemo<Placed[]>(() => {
     if (!src) return [];
     const out: Placed[] = [];
-    BUILDING_COLLIDERS.length = 0;
     const off = ((GRID - 1) / 2) * TILE; // recenter grid on origin
     const cellX = (c: number) => c * TILE - off;
     const cellZ = (r: number) => r * TILE - off;
     const isRoad = (i: number) => i % 2 === 1; // streets on odd rows/cols
     const reservedLots = new Set(["-8,-8", "8,-8", "8,8", "-8,8"]);
 
-    let plot = 0;
     for (let c = 0; c < GRID; c++) {
       for (let r = 0; r < GRID; r++) {
         const x = cellX(c);
@@ -517,23 +515,6 @@ function SuburbTown({
             flat: true,
           });
           if (t) out.push({ obj: t, x, z, rot: 0 });
-          // A painted crosswalk on each of the four approaches.
-          for (let k = 0; k < 4; k++) {
-            const cw = fit(src.road("road_crossing"), {
-              footprint: TILE * 0.95,
-              flat: true,
-            });
-            if (cw) {
-              const a = (k * Math.PI) / 2;
-              out.push({
-                obj: cw,
-                x: x + Math.sin(a) * (TILE * 0.42),
-                z: z + Math.cos(a) * (TILE * 0.42),
-                rot: a,
-                y: 0.12, // lift the flat crosswalk decal above the road surface
-              });
-            }
-          }
         } else if (roadC || roadR) {
           // Straight road with painted lane lines.
           const t = fit(src.road("road_square"), { footprint: TILE, flat: true });
@@ -541,17 +522,8 @@ function SuburbTown({
         } else {
           // Four lots are gameplay spaces: three landmarks and the kid's yard.
           if (reservedLots.has(`${x},${z}`)) continue;
-          // Building lot: a building (varied) facing the nearest street, a tree,
-          // a flower bed — and a solid collider so the kid walks around it.
-          const proto = src.builds[plot % src.builds.length];
-          plot++;
-          const h = fit(proto, { height: 5 });
-          if (h) out.push({ obj: h, x, z, rot: Math.atan2(-x, -z) });
-          BUILDING_COLLIDERS.push({ x, z, r: 3.1 });
-          const tr2 = fit(src.tree, { height: 4.5 });
-          if (tr2) out.push({ obj: tr2, x: x + 2.7, z: z + 2.7, rot: 0 });
-          const fl = fit(src.flowers, { height: 0.6 });
-          if (fl) out.push({ obj: fl, x: x - 2.5, z: z + 2.5, rot: 0 });
+          // Enterable buildings are rendered separately so their doors and
+          // cutaway roofs can animate. Keep this pass for roads/street props.
         }
       }
     }
@@ -582,6 +554,7 @@ function SuburbTown({
   return (
     <group ref={groupRef}>
       <primitive object={instancedTown} />
+      <CityBuildings openDoors={openDoors} shadows={shadows} />
     </group>
   );
 }
@@ -591,11 +564,14 @@ function SuburbTown({
 function VillageProps({
   groupRef,
   shadows,
+  openDoors,
 }: {
   groupRef: React.RefObject<THREE.Group>;
   shadows: boolean;
+  openDoors: ReadonlySet<string>;
 }) {
-  if (SUBURB) return <SuburbTown groupRef={groupRef} shadows={shadows} />;
+  if (SUBURB)
+    return <SuburbTown groupRef={groupRef} shadows={shadows} openDoors={openDoors} />;
   return (
     <group ref={groupRef}>
       {WORLD_MAP ? (
@@ -709,6 +685,7 @@ function Rig({
   propsRef,
   touch,
   interactions,
+  openDoors,
   onNear,
   audio,
   daylight,
@@ -717,6 +694,7 @@ function Rig({
   propsRef: React.RefObject<THREE.Group>;
   touch: React.MutableRefObject<TouchInput>;
   interactions: InteractionTarget[];
+  openDoors: ReadonlySet<string>;
   onNear: (target: InteractionTarget | null) => void;
   audio: WorldAudioEngine;
   daylight: React.MutableRefObject<number>;
@@ -795,8 +773,8 @@ function Rig({
       s.z = clamp(s.z + move.z * SPEED * dt, -ROAM, ROAM);
       // Wall collision: if the step would enter a building, push back to its
       // edge (slides along the wall instead of passing through).
-      for (const col of BUILDING_COLLIDERS) pushOutsideCollider(s, col);
       for (const col of LANDMARK_COLLIDERS) pushOutsideCollider(s, col);
+      resolveCityBuildingCollisions(s, openDoors);
       // Face the way we move (VRM forward is +Z in this pipeline).
       s.heading = Math.atan2(move.x, move.z);
       updateSelf({ x: s.x, z: s.z, heading: s.heading, moving: true });
@@ -824,7 +802,9 @@ function Rig({
         nearestDistance = distance;
       }
     }
-    const nextNearId = nearest ? `${nearest.kind}:${nearest.id}` : null;
+    const nextNearId = nearest
+      ? `${nearest.kind}:${nearest.id}:${nearest.label}`
+      : null;
     if (nextNearId !== lastNearId.current) {
       lastNearId.current = nextNearId;
       onNear(nearest);
@@ -1012,6 +992,8 @@ export default function WorldView() {
 
   const self = useRef<Pose>(
     (() => {
+      const citySpawn = developmentCitySpawn();
+      if (citySpawn) return { ...citySpawn, moving: false };
       const sp = WORLD_MAP
         ? WORLD_MAP.spawn
         : SUBURB
@@ -1042,8 +1024,12 @@ export default function WorldView() {
   const [qualityChoice, setQualityChoice] = useState<QualityChoice>(() =>
     loadQualityChoice(),
   );
+  const [openDoors, setOpenDoors] = useState<Set<string>>(() => new Set());
   const quality = useMemo(() => resolveQuality(qualityChoice), [qualityChoice]);
-  const interactions = useMemo(() => interactionsFor(worldSave), [worldSave]);
+  const interactions = useMemo(
+    () => [...interactionsFor(worldSave), ...cityDoorInteractions(openDoors)],
+    [worldSave, openDoors],
+  );
 
   const commitWorld = useCallback(
     (next: WorldSave) => {
@@ -1056,7 +1042,10 @@ export default function WorldView() {
   useEffect(() => {
     const next = loadWorldSave(kidId);
     setWorldSave(next);
-    self.current = { x: 0, z: 4.25, heading: Math.PI, moving: false };
+    const citySpawn = developmentCitySpawn();
+    self.current = citySpawn
+      ? { ...citySpawn, moving: false }
+      : { x: 0, z: 4.25, heading: Math.PI, moving: false };
   }, [kidId]);
 
   useEffect(() => () => audio.dispose(), [audio]);
@@ -1178,6 +1167,15 @@ export default function WorldView() {
       if (result.festivalCompleted) celebrate();
       return;
     }
+    if (nearest.kind === "door") {
+      setOpenDoors((current) => {
+        const next = new Set(current);
+        if (next.has(nearest.id)) next.delete(nearest.id);
+        else next.add(nearest.id);
+        return next;
+      });
+      return;
+    }
     setYardOpen(true);
   }, [nearest, worldSave, commitWorld, kidId, kidName, celebrate, event]);
 
@@ -1254,7 +1252,7 @@ export default function WorldView() {
           }}
         />
         <group ref={propsRef}>
-          <VillageProps groupRef={townRef} shadows={quality.shadows} />
+          <VillageProps groupRef={townRef} shadows={quality.shadows} openDoors={openDoors} />
           <WorldLandmarks save={worldSave} />
         </group>
         <MayorNova />
@@ -1266,6 +1264,7 @@ export default function WorldView() {
           propsRef={propsRef}
           touch={touch}
           interactions={interactions}
+          openDoors={openDoors}
           onNear={setNearest}
           audio={audio}
           daylight={daylight}
