@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useApp } from "../store/AppContext";
-import { getKid, kidList, unreadFor } from "../store/selectors";
+import {
+  canMessageParticipant,
+  friendStateFor,
+  getKid,
+  kidList,
+  unreadFor,
+} from "../store/selectors";
 import { MessageThread } from "../components/MessageThread";
 import type { ParticipantId } from "../types";
 
@@ -36,20 +42,47 @@ export function MessagesView() {
       <div className="convopick">
         {others.map((id) => {
           const unread = unreadFor(state, me, id);
+          const canMessage = canMessageParticipant(state, me, id);
+          const friendState = id === "parent" ? "friends" : friendStateFor(state, me, id);
           return (
             <button
               key={id}
-              className={`convopick__btn ${sel === id ? "is-active" : ""}`}
+              className={`convopick__btn ${sel === id ? "is-active" : ""} ${
+                !canMessage ? "is-locked" : ""
+              }`}
               onClick={() => setSel(id)}
+              title={
+                canMessage
+                  ? "Open chat"
+                  : "You need to be friends before you can message."
+              }
             >
               {label(id)}
+              {!canMessage && (
+                <span className="convopick__lock">
+                  {friendState === "request-sent"
+                    ? "pending"
+                    : friendState === "request-received"
+                      ? "accept first"
+                      : "locked"}
+                </span>
+              )}
               {unread > 0 && <span className="convopick__pip">{unread}</span>}
             </button>
           );
         })}
       </div>
 
-      <MessageThread me={me} other={sel} />
+      {canMessageParticipant(state, me, sel) ? (
+        <MessageThread me={me} other={sel} />
+      ) : (
+        <div className="thread thread--locked">
+          <p className="thread__empty">
+            You need to be friends before you can message. Visit the Family Wall
+            to send or answer a friend request.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import type {
   AppState,
   ChoreAssignment,
   FamilyGoal,
+  Friendship,
   Loadout3D,
   Reaction,
   Kid,
@@ -53,6 +54,78 @@ const SESSION_KEY = "kids-corner:session";
 
 /** Keep at most this many submissions to bound storage growth. */
 const MAX_SUBMISSIONS = 240;
+
+function friendshipId(a: KidId, b: KidId): string {
+  return [a, b].sort().join("__");
+}
+
+function defaultFriendships(ids: KidId[]): Friendship[] {
+  const live = new Set(ids);
+  const seeded: Friendship[] = [];
+  const now = 1_735_689_600_000;
+  if (live.has("claire") && live.has("coby")) {
+    seeded.push({
+      id: friendshipId("claire", "coby"),
+      kidA: "claire",
+      kidB: "coby",
+      status: "friends",
+      requestedBy: "claire",
+      updatedAt: now,
+    });
+  }
+  if (live.has("hailee") && live.has("coby")) {
+    seeded.push({
+      id: friendshipId("hailee", "coby"),
+      kidA: "coby",
+      kidB: "hailee",
+      status: "pending",
+      requestedBy: "hailee",
+      updatedAt: now + 1,
+    });
+  }
+  return seeded;
+}
+
+function loadFriendships(raw: unknown, ids: KidId[]): Friendship[] {
+  const live = new Set(ids);
+  if (!Array.isArray(raw)) return defaultFriendships(ids);
+  const byId = new Map<string, Friendship>();
+  for (const item of raw) {
+    const f = item as Partial<Friendship> | undefined;
+    if (
+      !f ||
+      typeof f.kidA !== "string" ||
+      typeof f.kidB !== "string" ||
+      f.kidA === f.kidB ||
+      !live.has(f.kidA) ||
+      !live.has(f.kidB)
+    ) {
+      continue;
+    }
+    const status = f.status;
+    if (
+      status !== "pending" &&
+      status !== "friends" &&
+      status !== "declined" &&
+      status !== "blocked" &&
+      status !== "removed"
+    ) {
+      continue;
+    }
+    const id = friendshipId(f.kidA, f.kidB);
+    byId.set(id, {
+      id,
+      kidA: [f.kidA, f.kidB].sort()[0],
+      kidB: [f.kidA, f.kidB].sort()[1],
+      status,
+      ...(typeof f.requestedBy === "string" && live.has(f.requestedBy)
+        ? { requestedBy: f.requestedBy }
+        : {}),
+      updatedAt: typeof f.updatedAt === "number" ? f.updatedAt : 0,
+    });
+  }
+  return [...byId.values()];
+}
 
 export function todayKey(d: Date = new Date()): string {
   // Local-date key (YYYY-MM-DD), not UTC, so "today" matches the wall clock.
@@ -211,6 +284,7 @@ export function defaultState(): AppState {
     messages: [],
     announcements: [],
     reactions: [],
+    friendships: defaultFriendships(DEFAULT_KIDS.map((k) => k.id)),
     familyGoal: null,
     rewardRates: { ...DEFAULT_REWARD_RATES },
     appVisibility,
@@ -391,6 +465,8 @@ export function loadState(): AppState {
           .slice(-500)
       : [];
 
+    const friendships = loadFriendships(parsed.friendships, ids);
+
     const fg = parsed.familyGoal as FamilyGoal | null | undefined;
     const familyGoal =
       fg && typeof fg.target === "number" && typeof fg.since === "string"
@@ -442,6 +518,7 @@ export function loadState(): AppState {
       messages,
       announcements,
       reactions,
+      friendships,
       familyGoal,
       rewardRates: loadRewardRates(parsed.rewardRates),
       appVisibility,

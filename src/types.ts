@@ -287,6 +287,26 @@ export type Reaction = {
   deleted?: boolean;
 };
 
+// --- Kid friendships / social permissions ---------------------------------
+
+export type FriendshipStatus =
+  | "pending"
+  | "friends"
+  | "declined"
+  | "blocked"
+  | "removed";
+
+/** Relationship between two kids. Parents can still review/moderate all data. */
+export type Friendship = {
+  id: string;
+  kidA: KidId;
+  kidB: KidId;
+  status: FriendshipStatus;
+  /** Who sent the latest request. Omitted for removed/blocked relationships. */
+  requestedBy?: KidId;
+  updatedAt: number;
+};
+
 /** A collective goal the whole family works toward. */
 export type FamilyGoal = {
   /** Approved tasks (across all kids) needed to win. */
@@ -358,6 +378,11 @@ export type AppState = {
   announcements: Announcement[];
   /** Sticker reactions to finished-task photos (the family wall). */
   reactions: Reaction[];
+  /**
+   * Kid-to-kid social graph. Static/local builds can only enforce this in the
+   * client; a production backend must repeat these permission checks server-side.
+   */
+  friendships: Friendship[];
   /** The current shared family goal, if a grown-up set one. */
   familyGoal: FamilyGoal | null;
   /** Grown-up-editable bonus coins per approved task (mission / assignment). */

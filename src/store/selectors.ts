@@ -236,6 +236,60 @@ export function activeAnnouncements(state: AppState): Announcement[] {
 
 // --- Family wall (reactions) + shared goal --------------------------------
 
+function friendshipId(a: KidId, b: KidId): string {
+  return [a, b].sort().join("__");
+}
+
+export type FriendState =
+  | "self"
+  | "none"
+  | "request-sent"
+  | "request-received"
+  | "friends"
+  | "blocked"
+  | "removed";
+
+export function friendStateFor(
+  state: AppState,
+  viewer: KidId,
+  other: KidId,
+): FriendState {
+  if (viewer === other) return "self";
+  const rel = (state.friendships ?? []).find(
+    (f) => f.id === friendshipId(viewer, other),
+  );
+  if (!rel) return "none";
+  if (rel.status === "friends") return "friends";
+  if (rel.status === "blocked") return "blocked";
+  if (rel.status === "pending") {
+    return rel.requestedBy === viewer ? "request-sent" : "request-received";
+  }
+  return "removed";
+}
+
+export function areFriends(state: AppState, a: KidId, b: KidId): boolean {
+  return a === b || friendStateFor(state, a, b) === "friends";
+}
+
+export function canMessageParticipant(
+  state: AppState,
+  me: ParticipantId,
+  other: ParticipantId,
+): boolean {
+  if (me === other) return false;
+  if (me === "parent" || other === "parent") return true;
+  return areFriends(state, me, other);
+}
+
+export function canViewSubmission(
+  state: AppState,
+  viewer: KidId | "parent",
+  submission: Submission,
+): boolean {
+  if (viewer === "parent") return true;
+  return submission.kidId === viewer || areFriends(state, viewer, submission.kidId);
+}
+
 /** The stickers kids can react with. */
 export const REACTION_STICKERS = ["👏", "🔥", "🌟", "❤️", "😂"];
 
@@ -243,6 +297,47 @@ export const REACTION_STICKERS = ["👏", "🔥", "🌟", "❤️", "😂"];
 export function sharedPhotos(state: AppState, limit = 12): Submission[] {
   return state.submissions
     .filter((s) => s.status === "approved" && s.photo)
+    .sort(
+      (a, b) =>
+        (b.reviewedAt ?? b.submittedAt) - (a.reviewedAt ?? a.submittedAt),
+    )
+    .slice(0, limit);
+}
+
+/** Approved-task photos a kid is allowed to see: self + accepted friends only. */
+export function wallPhotosForViewer(
+  state: AppState,
+  viewer: KidId | "parent",
+  limit = 24,
+): Submission[] {
+  return state.submissions
+    .filter(
+      (s) =>
+        s.status === "approved" &&
+        s.photo &&
+        canViewSubmission(state, viewer, s),
+    )
+    .sort(
+      (a, b) =>
+        (b.reviewedAt ?? b.submittedAt) - (a.reviewedAt ?? a.submittedAt),
+    )
+    .slice(0, limit);
+}
+
+/** Recent approved photos hidden from a kid because friendship is not accepted. */
+export function lockedWallPhotosForViewer(
+  state: AppState,
+  viewer: KidId,
+  limit = 6,
+): Submission[] {
+  return state.submissions
+    .filter(
+      (s) =>
+        s.status === "approved" &&
+        s.photo &&
+        s.kidId !== viewer &&
+        !areFriends(state, viewer, s.kidId),
+    )
     .sort(
       (a, b) =>
         (b.reviewedAt ?? b.submittedAt) - (a.reviewedAt ?? a.submittedAt),

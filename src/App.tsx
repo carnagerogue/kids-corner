@@ -16,6 +16,7 @@ import { MissionBoard } from "./views/MissionBoard";
 import { AvatarStudio } from "./views/AvatarStudio";
 import { TrophyRoom } from "./views/TrophyRoom";
 import { MessagesView } from "./views/MessagesView";
+import { FamilyWallView } from "./views/FamilyWallView";
 import { ParentZone } from "./views/ParentZone";
 import type { KidId } from "./types";
 
@@ -29,6 +30,7 @@ export type TabId =
   | "avatar"
   | "world"
   | "trophies"
+  | "family-wall"
   | "messages"
   | "parent";
 
@@ -40,6 +42,7 @@ export const TABS: { id: TabId; label: string; emoji: string }[] = [
   { id: "avatar", label: "Avatar", emoji: "🧢" },
   { id: "world", label: "World", emoji: "🌍" },
   { id: "trophies", label: "Trophies", emoji: "🏆" },
+  { id: "family-wall", label: "Family Wall", emoji: "💞" },
   { id: "messages", label: "Messages", emoji: "💬" },
 ];
 
@@ -134,6 +137,7 @@ export function App() {
           </Suspense>
         )}
         {tab === "trophies" && <TrophyRoom />}
+        {tab === "family-wall" && <FamilyWallView onTab={setTab} />}
         {tab === "messages" && <MessagesView />}
         {tab === "parent" && <ParentZone onExit={() => setTab("home")} />}
       </main>

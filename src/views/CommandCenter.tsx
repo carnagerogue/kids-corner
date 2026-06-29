@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { createPortal } from "react-dom";
 import { useApp } from "../store/AppContext";
 import { getLevelInfo } from "../data/levels";
 import {
@@ -16,9 +15,9 @@ import {
   getDay,
   getKid,
   getKidXp,
+  kidList,
   primaryAppFor,
-  reactionSummary,
-  sharedPhotos,
+  wallPhotosForViewer,
 } from "../store/selectors";
 import { Avatar3DThumb } from "../features/avatar/Avatar3DThumb";
 import { todayKey } from "../store/storage";
@@ -274,7 +273,7 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
         <CrewCard kidId={state.activeKid} active />
       </div>
 
-      <FamilyWall />
+      <FamilyWallPreview onTab={onTab} />
 
       <div className="section-row">
         <h3 className="section-title">🎯 Missions of the Day</h3>
@@ -506,74 +505,34 @@ function FamilyGoalBar() {
   );
 }
 
-/** Recent finished-task photos from every kid, with sticker reactions. */
-function FamilyWall() {
-  const { state, dispatch } = useApp();
+/** A small doorway to the social area; the full feed lives on its own tab. */
+function FamilyWallPreview({ onTab }: { onTab: (t: TabId) => void }) {
+  const { state } = useApp();
   const me = state.activeKid;
-  const photos = sharedPhotos(state, 12);
-  const [zoom, setZoom] = useState("");
-  if (!photos.length) return null;
+  const visibleCount = wallPhotosForViewer(state, me, 99).length;
+  const friendCount = kidList(state).filter(
+    (k) => k.id !== me && state.friendships.some((f) => {
+      const isPair =
+        (f.kidA === me && f.kidB === k.id) ||
+        (f.kidA === k.id && f.kidB === me);
+      return isPair && f.status === "friends";
+    }),
+  ).length;
   return (
-    <>
-      <h3 className="section-title">
-        📸 Family Wall <span className="section-tag">cheer each other on</span>
-      </h3>
-      <div className="wall">
-        {photos.map((s) => {
-          const kid = getKid(state, s.kidId);
-          const summary = reactionSummary(state, s.id, me);
-          return (
-            <div
-              key={s.id}
-              className="wallcard"
-              style={{ ["--this-kid" as string]: kid.color }}
-            >
-              <button
-                className="wallcard__photo"
-                onClick={() => setZoom(s.photo)}
-                aria-label={`See ${kid.firstName}'s ${s.title} bigger`}
-              >
-                <img src={s.photo} alt={s.title} loading="lazy" />
-              </button>
-              <div className="wallcard__who">
-                <Avatar3DThumb kidId={kid.id} size={24} className="wallcard__av" />
-                <span className="wallcard__name">{kid.firstName}</span>
-                <span className="wallcard__task">
-                  {s.emoji} {s.title}
-                </span>
-              </div>
-              <div className="wallcard__reacts">
-                {summary.map((r) => (
-                  <button
-                    key={r.emoji}
-                    className={`react ${r.mine ? "is-mine" : ""} ${
-                      r.count ? "has-count" : ""
-                    }`}
-                    onClick={() =>
-                      dispatch({
-                        type: "TOGGLE_REACTION",
-                        submissionId: s.id,
-                        by: me,
-                        emoji: r.emoji,
-                      })
-                    }
-                  >
-                    <span className="react__emoji">{r.emoji}</span>
-                    {r.count > 0 && <span className="react__n">{r.count}</span>}
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-        })}
+    <section className="wallpeek">
+      <div className="wallpeek__icon">💞</div>
+      <div className="wallpeek__body">
+        <strong className="wallpeek__title">Family Wall</strong>
+        <span className="wallpeek__sub">
+          A safe cheer space for accepted friends only.
+        </span>
+        <span className="wallpeek__meta">
+          {friendCount} friend{friendCount === 1 ? "" : "s"} · {visibleCount} visible post{visibleCount === 1 ? "" : "s"}
+        </span>
       </div>
-      {zoom &&
-        createPortal(
-          <div className="modal" onClick={() => setZoom("")}>
-            <img className="zoom" src={zoom} alt="Photo enlarged" />
-          </div>,
-          document.body,
-        )}
-    </>
+      <button className="btn btn--ghost btn--sm" onClick={() => onTab("family-wall")}>
+        Cheer wall →
+      </button>
+    </section>
   );
 }

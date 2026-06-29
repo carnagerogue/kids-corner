@@ -1446,11 +1446,128 @@ button {
 }
 
 /* --- Family wall (reactions) ----------------------------------------------*/
+.wallpeek {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  border: 2px solid color-mix(in srgb, var(--kid) 26%, var(--line));
+  border-radius: var(--radius-sm);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--kid) 10%, transparent), transparent 52%),
+    var(--paper);
+  box-shadow: var(--shadow-sm);
+  padding: 14px;
+}
+.wallpeek__icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--kid-soft);
+  font-size: 1.45rem;
+}
+.wallpeek__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wallpeek__title {
+  color: var(--ink);
+  font-size: 1rem;
+}
+.wallpeek__sub,
+.wallpeek__meta {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.wallview {
+  max-width: 1120px;
+  margin-inline: auto;
+}
+.wallview__header {
+  align-items: center;
+}
+.safeclub {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 2px dashed color-mix(in srgb, #2dd4bf 60%, var(--line));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, #ccfbf1 58%, var(--paper));
+  color: #14534d;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  font-weight: 800;
+}
+.safeclub span {
+  color: #266963;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.friendgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.friendcard {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  padding: 12px;
+}
+.friendcard--friends {
+  border-color: color-mix(in srgb, #22c55e 58%, var(--line));
+}
+.friendcard--request-received {
+  border-color: color-mix(in srgb, #f59e0b 62%, var(--line));
+}
+.friendcard__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid var(--this-kid, var(--kid));
+}
+.friendcard__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.friendcard__body strong {
+  color: var(--ink);
+}
+.friendcard__body span {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+.friendcard__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .wall {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 12px;
   margin-bottom: 6px;
+}
+.wall--page {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  margin-bottom: 20px;
+}
+.wall--locked {
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
 }
 .wallcard {
   border: 2px solid var(--line);
@@ -1460,6 +1577,25 @@ button {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+.wallcard--locked {
+  min-height: 178px;
+  justify-content: space-between;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--paper-2) 80%, white),
+      color-mix(in srgb, var(--paper-2) 80%, white) 10px,
+      color-mix(in srgb, var(--line) 55%, white) 11px,
+      color-mix(in srgb, var(--line) 55%, white) 20px
+    );
+}
+.wallcard__lock {
+  display: grid;
+  place-items: center;
+  min-height: 112px;
+  font-size: 2.2rem;
+  color: var(--ink-soft);
 }
 .wallcard__photo {
   border: none;
@@ -1532,6 +1668,38 @@ button {
 .react:not(.has-count) .react__emoji {
   filter: grayscale(0.35);
   opacity: 0.8;
+}
+.emptycard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--ink);
+  padding: 18px;
+  margin-bottom: 18px;
+}
+.emptycard span {
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .wallpeek {
+    grid-template-columns: auto 1fr;
+  }
+  .wallpeek .btn {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+  }
+  .safeclub {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .friendcard__actions .btn {
+    flex: 1 1 120px;
+  }
 }
 
 /* --- Celebrations (level-up / badge party) --------------------------------*/
@@ -4291,6 +4459,11 @@ body.fun-cursor-on * {
   border-top: 2px solid var(--line);
   background: var(--paper-2);
 }
+.thread__compose--locked {
+  color: var(--ink-soft);
+  font-weight: 800;
+  text-align: center;
+}
 .thread__composerow {
   display: flex;
   gap: 8px;
@@ -4359,6 +4532,24 @@ body.fun-cursor-on * {
   border-color: var(--kid);
   background: var(--kid);
   color: #fff;
+}
+.convopick__btn.is-locked {
+  border-style: dashed;
+  color: var(--ink-soft);
+}
+.convopick__btn.is-active.is-locked {
+  background: var(--paper-2);
+  color: var(--ink-soft);
+}
+.convopick__lock {
+  margin-left: 6px;
+  border-radius: 999px;
+  background: var(--paper-2);
+  color: var(--ink-soft);
+  padding: 2px 7px;
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
 }
 .convopick__pip {
   position: absolute;

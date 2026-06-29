@@ -53,6 +53,10 @@ crafts, outdoor adventures, and kid-friendly rewards.
   on by default).
 - **🏆 Trophy Room** — levels with fun ranks (Sprout → Summer Hero), unlockable
   badges, streaks, and per-kid stats.
+- **💞 Family Wall** — a dedicated cheer space for approved mission photos.
+  Kids only see posts from themselves and accepted friends. Friend requests
+  support sent, received, accepted, declined, removed, and blocked states, and
+  private posts show as locked placeholders instead of exposing photos.
 - **🌍 Shared 3D World** — each kid explores the neighborhood as their saved VRM
   avatar. The world has a day/night cycle, spatial wind and birds, surface-aware
   footsteps, animated landmarks, seasonal particles, sibling presence, and safe
@@ -63,12 +67,12 @@ crafts, outdoor adventures, and kid-friendly rewards.
   chosen unlocked decoration. Keyboard, mouse, and touch joystick controls are
   supported; Auto/High/Balanced/Low quality modes keep the world usable on
   iPad-class devices.
-- **💬 Messages** — direct messaging both **kid ↔ grown-ups** and **kid ↔ kid**:
-  a kid picks who to chat with (the grown-ups or a sibling), and grown-ups reply
-  from their dashboard. Messages can include **photo attachments**. New messages
-  **chime, raise a notification, and show a toast** the moment they arrive — even
-  when Kids Corner is open in a **background tab** — and threads sync live across
-  tabs and (with a family sync code) across devices.
+- **💬 Messages** — direct messaging both **kid ↔ grown-ups** and, after an
+  accepted friend request, **kid ↔ kid**. Messages can include **photo
+  attachments**. New messages **chime, raise a notification, and show a toast**
+  the moment they arrive — even when Kids Corner is open in a **background tab**
+  — and threads sync live across tabs and (with a family sync code) across
+  devices.
 - **🔒 Grown-Ups** — a PIN-gated dashboard where a parent reviews photo proof and
   **approves or sends back** each mission/assignment, **adds or removes kids**,
   **chooses which apps each kid can see**, **assigns chores**, **reads and
@@ -101,6 +105,16 @@ Kids **cannot** mark their own missions or daily assignments complete. Instead:
 
 > **Default grown-up PIN is `1234`.** Change it under Grown-Ups → Settings. It's a
 > light gate to keep kids out of the approval screen, not real security.
+
+## Social privacy note
+
+Kids Corner is a static React app that stores state in localStorage and can
+optionally sync through the configured Firebase room. The Family Wall and
+Messages UI are private by default and the reducer rejects new kid-to-kid
+messages or reactions unless the kids are accepted friends. For a real
+multi-family or school deployment, repeat these permission checks in backend
+rules or server code, add parent approval for new friend requests, and avoid
+trusting client-only localStorage as the source of truth.
 
 ## Rewards system
 

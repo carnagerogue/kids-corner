@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "../store/AppContext";
-import { getKid, messagesBetween } from "../store/selectors";
+import {
+  canMessageParticipant,
+  getKid,
+  messagesBetween,
+} from "../store/selectors";
 import { CameraCapture } from "./CameraCapture";
 import type { ParticipantId } from "../types";
 
@@ -26,6 +30,7 @@ export function MessageThread({
   const [photo, setPhoto] = useState<string | null>(null);
   const [camera, setCamera] = useState(false);
   const msgs = messagesBetween(state, me, other);
+  const canSend = readOnly || canMessageParticipant(state, me, other);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const emojiOf = (id: ParticipantId) =>
@@ -45,7 +50,7 @@ export function MessageThread({
   const send = (e: React.FormEvent) => {
     e.preventDefault();
     const t = text.trim();
-    if (!t && !photo) return;
+    if ((!t && !photo) || !canSend) return;
     dispatch({
       type: "SEND_MESSAGE",
       from: me,
@@ -95,7 +100,7 @@ export function MessageThread({
         )}
       </div>
 
-      {!readOnly && (
+      {!readOnly && canSend && (
         <form className="thread__compose" onSubmit={send}>
           {photo && (
             <div className="thread__attach">
@@ -137,6 +142,12 @@ export function MessageThread({
             </button>
           </div>
         </form>
+      )}
+
+      {!readOnly && !canSend && (
+        <div className="thread__compose thread__compose--locked">
+          You need to be friends before you can message.
+        </div>
       )}
 
       {camera && (

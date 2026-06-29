@@ -14,6 +14,7 @@ import type {
   Avatar3DSlot,
   ChoreAssignment,
   FamilyGoal,
+  Friendship,
   Kid,
   KidId,
   Loadout3D,
@@ -47,6 +48,7 @@ export type SyncConfig = {
   avatar3d: Record<string, Loadout3D>;
   loadouts3d: Record<string, SavedLoadout3D[]>;
   purchasesLocked: Record<string, boolean>;
+  friendships: Friendship[];
   familyGoal: FamilyGoal | null;
   rewardRates: RewardRates;
   parentPin: string;
@@ -151,6 +153,12 @@ export type Action =
   | { type: "INGEST_ANNOUNCEMENTS"; announcements: Announcement[] }
   | { type: "TOGGLE_REACTION"; submissionId: string; by: KidId; emoji: string }
   | { type: "INGEST_REACTIONS"; reactions: Reaction[] }
+  | { type: "SEND_FRIEND_REQUEST"; from: KidId; to: KidId }
+  | { type: "ACCEPT_FRIEND_REQUEST"; by: KidId; other: KidId }
+  | { type: "DECLINE_FRIEND_REQUEST"; by: KidId; other: KidId }
+  | { type: "CANCEL_FRIEND_REQUEST"; by: KidId; other: KidId }
+  | { type: "REMOVE_FRIEND"; by: KidId; other: KidId }
+  | { type: "BLOCK_FRIEND"; by: KidId; other: KidId }
   | { type: "SET_FAMILY_GOAL"; target: number; reward: string }
   | { type: "CLEAR_FAMILY_GOAL" }
   | { type: "SET_CONFIG"; config: SyncConfig }
@@ -176,6 +184,39 @@ export type Action =
 
 function toggleInArray(arr: string[], id: string): string[] {
   return arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
+}
+
+function friendshipId(a: KidId, b: KidId): string {
+  return [a, b].sort().join("__");
+}
+
+function friendshipBetween(
+  state: AppState,
+  a: KidId,
+  b: KidId,
+): Friendship | undefined {
+  const id = friendshipId(a, b);
+  return (state.friendships ?? []).find((f) => f.id === id);
+}
+
+function kidsAreFriends(state: AppState, a: KidId, b: KidId): boolean {
+  if (a === b) return true;
+  return friendshipBetween(state, a, b)?.status === "friends";
+}
+
+function canKidMessage(state: AppState, from: ParticipantId, to: ParticipantId) {
+  if (from === "parent" || to === "parent") return true;
+  return kidsAreFriends(state, from, to);
+}
+
+function canKidReactToSubmission(
+  state: AppState,
+  by: KidId,
+  submissionId: string,
+): boolean {
+  const submission = state.submissions.find((s) => s.id === submissionId);
+  if (!submission || submission.status !== "approved") return false;
+  return by === submission.kidId || kidsAreFriends(state, by, submission.kidId);
 }
 
 /** Re-evaluate one kid's badges and union them with what's already earned. */
@@ -651,6 +692,7 @@ function reducer(state: AppState, action: Action): AppState {
     case "SEND_MESSAGE": {
       const text = action.text.trim();
       if ((!text && !action.photo) || action.from === action.to) return state;
+      if (!canKidMessage(state, action.from, action.to)) return state;
       // Guard against accidental double-taps: drop an identical message sent to
       // the same person within the last second.
       const now0 = Date.now();
@@ -771,6 +813,9 @@ function reducer(state: AppState, action: Action): AppState {
     }
 
     case "TOGGLE_REACTION": {
+      if (!canKidReactToSubmission(state, action.by, action.submissionId)) {
+        return state;
+      }
       const existing = state.reactions.find(
         (r) =>
           !r.deleted &&
@@ -814,6 +859,133 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         reactions: [...byId.values()].sort((a, b) => a.at - b.at).slice(-500),
+      };
+    }
+
+    case "SEND_FRIEND_REQUEST": {
+      if (action.from === action.to) return state;
+      if (!state.kidProfiles.some((k) => k.id === action.from)) return state;
+      if (!state.kidProfiles.some((k) => k.id === action.to)) return state;
+      const id = friendshipId(action.from, action.to);
+      const existing = friendshipBetween(state, action.from, action.to);
+      if (existing?.status === "friends" || existing?.status === "pending") {
+        return state;
+      }
+      const [kidA, kidB] = [action.from, action.to].sort();
+      const next: Friendship = {
+        id,
+        kidA,
+        kidB,
+        status: "pending",
+        requestedBy: action.from,
+        updatedAt: Date.now(),
+      };
+      return {
+        ...state,
+        friendships: [
+          ...(state.friendships ?? []).filter((f) => f.id !== id),
+          next,
+        ],
+      };
+    }
+
+    case "ACCEPT_FRIEND_REQUEST": {
+      const existing = friendshipBetween(state, action.by, action.other);
+      if (
+        !existing ||
+        existing.status !== "pending" ||
+        existing.requestedBy === action.by
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        friendships: (state.friendships ?? []).map((f) =>
+          f.id === existing.id
+            ? { ...f, status: "friends", updatedAt: Date.now() }
+            : f,
+        ),
+      };
+    }
+
+    case "DECLINE_FRIEND_REQUEST": {
+      const existing = friendshipBetween(state, action.by, action.other);
+      if (
+        !existing ||
+        existing.status !== "pending" ||
+        existing.requestedBy === action.by
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        friendships: (state.friendships ?? []).map((f) =>
+          f.id === existing.id
+            ? { ...f, status: "declined", updatedAt: Date.now() }
+            : f,
+        ),
+      };
+    }
+
+    case "CANCEL_FRIEND_REQUEST": {
+      const existing = friendshipBetween(state, action.by, action.other);
+      if (
+        !existing ||
+        existing.status !== "pending" ||
+        existing.requestedBy !== action.by
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        friendships: (state.friendships ?? []).map((f) =>
+          f.id === existing.id
+            ? {
+                ...f,
+                status: "removed",
+                requestedBy: undefined,
+                updatedAt: Date.now(),
+              }
+            : f,
+        ),
+      };
+    }
+
+    case "REMOVE_FRIEND": {
+      const existing = friendshipBetween(state, action.by, action.other);
+      if (!existing || existing.status !== "friends") return state;
+      return {
+        ...state,
+        friendships: (state.friendships ?? []).map((f) =>
+          f.id === existing.id
+            ? {
+                ...f,
+                status: "removed",
+                requestedBy: undefined,
+                updatedAt: Date.now(),
+              }
+            : f,
+        ),
+      };
+    }
+
+    case "BLOCK_FRIEND": {
+      if (action.by === action.other) return state;
+      const id = friendshipId(action.by, action.other);
+      const [kidA, kidB] = [action.by, action.other].sort();
+      const existing = friendshipBetween(state, action.by, action.other);
+      const blocked: Friendship = {
+        id,
+        kidA,
+        kidB,
+        status: "blocked",
+        updatedAt: Date.now(),
+      };
+      return {
+        ...state,
+        friendships: existing
+          ? (state.friendships ?? []).map((f) => (f.id === id ? blocked : f))
+          : [...(state.friendships ?? []), blocked],
       };
     }
 
@@ -898,6 +1070,15 @@ function reducer(state: AppState, action: Action): AppState {
       // strips empty arrays, so a synced plan may arrive without kidIds/blocks
       // — normalize defensively to arrays.
       const liveIds = new Set(kidProfiles.map((k) => k.id));
+      const friendships = Array.isArray(cfg.friendships)
+        ? cfg.friendships.filter(
+            (f) =>
+              f &&
+              liveIds.has(f.kidA) &&
+              liveIds.has(f.kidB) &&
+              f.kidA !== f.kidB,
+          )
+        : state.friendships ?? [];
       const rawSchedules =
         Array.isArray(cfg.schedules) && cfg.schedules.length
           ? cfg.schedules
@@ -942,6 +1123,7 @@ function reducer(state: AppState, action: Action): AppState {
         avatar3d,
         loadouts3d,
         purchasesLocked,
+        friendships,
         familyGoal:
           cfg.familyGoal !== undefined ? cfg.familyGoal : state.familyGoal,
         rewardRates: cfg.rewardRates ?? state.rewardRates ?? DEFAULT_REWARD_RATES,
@@ -1070,6 +1252,9 @@ function reducer(state: AppState, action: Action): AppState {
           (m) => m.from !== action.kidId && m.to !== action.kidId,
         ),
         reactions: state.reactions.filter((r) => r.by !== action.kidId),
+        friendships: (state.friendships ?? []).filter(
+          (f) => f.kidA !== action.kidId && f.kidB !== action.kidId,
+        ),
         activeKid:
           state.activeKid === action.kidId
             ? kidProfiles[0].id
