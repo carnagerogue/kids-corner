@@ -7902,3 +7902,23 @@ body.fun-cursor-on * {
     animation: none;
   }
 }
+
+/* Avatar3DThumb — the 3D avatar rendered as a small thumbnail (top bar, home
+   cards, parent zone). Square headshot cropped to whatever shape the call-site
+   className gives it; the emoji chip is the instant fallback. */
+.av3thumb {
+  display: block;
+  object-fit: cover;
+  object-position: center top;
+}
+.av3thumb--emoji {
+  display: grid;
+  place-items: center;
+  line-height: 1;
+  border-radius: 50%;
+}
+.whoami__avatar--btn img.av3thumb,
+.whoami__avatar--btn .av3thumb {
+  width: 100%;
+  height: 100%;
+}

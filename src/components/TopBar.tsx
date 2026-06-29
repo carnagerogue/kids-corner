@@ -2,12 +2,11 @@ import { useApp } from "../store/AppContext";
 import { getLevelInfo } from "../data/levels";
 import {
   coinBalance,
-  equippedAvatar,
   getKid,
   getKidXp,
   kidUnreadCount,
 } from "../store/selectors";
-import { Avatar } from "../data/avatar";
+import { Avatar3DThumb } from "../features/avatar/Avatar3DThumb";
 import { TABS, type TabId } from "../App";
 import type { KidId } from "../types";
 
@@ -27,7 +26,6 @@ export function TopBar({
   const kid = getKid(state, user);
   const level = getLevelInfo(getKidXp(state, user));
   const coins = coinBalance(state, user);
-  const avatar = equippedAvatar(state, user);
 
   return (
     <header className="topbar">
@@ -47,7 +45,7 @@ export function TopBar({
           aria-label="Open Avatar Studio"
           title="Avatar Studio"
         >
-          <Avatar config={avatar} size={42} />
+          <Avatar3DThumb kidId={user} size={42} />
         </button>
         <span className="whoami__meta">
           <span className="whoami__name">{kid.firstName}</span>
