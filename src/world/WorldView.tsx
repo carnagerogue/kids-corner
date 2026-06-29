@@ -939,18 +939,23 @@ function Rig({
       const d = keyToDir(e.key);
       if (d) keys.current.delete(d);
     };
-    // Drop every held key when the window loses focus or is hidden — otherwise a
-    // key held during alt-tab never gets its keyup and the avatar walks forever.
-    const release = () => keys.current.clear();
+    const clearInput = () => {
+      keys.current.clear();
+      touch.current.x = 0;
+      touch.current.y = 0;
+    };
+    const visibilityChanged = () => {
+      if (document.hidden) clearInput();
+    };
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
-    window.addEventListener("blur", release);
-    document.addEventListener("visibilitychange", release);
+    window.addEventListener("blur", clearInput);
+    document.addEventListener("visibilitychange", visibilityChanged);
     return () => {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
-      window.removeEventListener("blur", release);
-      document.removeEventListener("visibilitychange", release);
+      window.removeEventListener("blur", clearInput);
+      document.removeEventListener("visibilitychange", visibilityChanged);
     };
   }, [inputLock]);
 
@@ -982,18 +987,27 @@ function Rig({
         move.x += rx * touch.current.x;
         move.z += rz * touch.current.x;
       }
+    } else {
+      keys.current.clear();
+      touch.current.x = 0;
+      touch.current.y = 0;
     }
     const moving = move.lengthSq() > 1e-6;
     if (moving) {
       move.normalize();
-      s.x = clamp(s.x + move.x * SPEED * dt, -ROAM, ROAM);
-      s.z = clamp(s.z + move.z * SPEED * dt, -ROAM, ROAM);
-      // Wall collision: if the step would enter a building, push back to its
-      // edge (slides along the wall instead of passing through).
-      for (const col of LANDMARK_COLLIDERS) pushOutsideCollider(s, col);
-      resolveCityBuildingCollisions(s, openDoors);
-      // Re-clamp AFTER collision resolution so a perimeter building can't push
-      // the avatar back outside the ±ROAM world bound.
+      // Break long frame-hitch movement into capsule-sized steps. Resolving
+      // only the endpoint can place the player beyond a thin wall or door.
+      const travel = SPEED * Math.min(dt, 0.25);
+      const substeps = Math.max(1, Math.ceil(travel / 0.18));
+      const step = travel / substeps;
+      for (let index = 0; index < substeps; index += 1) {
+        s.x = clamp(s.x + move.x * step, -ROAM, ROAM);
+        s.z = clamp(s.z + move.z * step, -ROAM, ROAM);
+        for (const col of LANDMARK_COLLIDERS) pushOutsideCollider(s, col);
+        resolveCityBuildingCollisions(s, openDoors);
+      }
+      // Re-clamp after collision resolution so perimeter geometry cannot push
+      // the avatar outside the world boundary.
       s.x = clamp(s.x, -ROAM, ROAM);
       s.z = clamp(s.z, -ROAM, ROAM);
       // Face the way we move (VRM forward is +Z in this pipeline).
@@ -1113,7 +1127,14 @@ function Rig({
           dirv.normalize();
           ray.set(c.target, dirv);
           ray.far = wanted;
-          const hits = ray.intersectObject(propsRef.current, true);
+          const hits = ray.intersectObject(propsRef.current, true).filter((hit) => {
+            let object: THREE.Object3D | null = hit.object;
+            while (object) {
+              if (object.userData.cameraIgnore) return false;
+              object = object.parent;
+            }
+            return true;
+          });
           // Floor low enough to actually tuck in front of a near wall (a 4-unit
           // floor could sit farther out than the obstruction it should dodge).
           const allowed = hits.length
@@ -1138,7 +1159,7 @@ function Rig({
       dampingFactor={0.12}
       rotateSpeed={0.9}
       zoomSpeed={1.1}
-      minDistance={5}
+      minDistance={3}
       maxDistance={22}
       minPolarAngle={0.25}
       maxPolarAngle={Math.PI / 2.25}

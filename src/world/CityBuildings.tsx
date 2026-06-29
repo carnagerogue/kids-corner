@@ -274,7 +274,12 @@ function EnterableBuilding({
           />
         </mesh>
       )}
-      <mesh position={[0, WALL_HEIGHT + 0.1, 0]} castShadow={shadows} receiveShadow>
+      <mesh
+        position={[0, WALL_HEIGHT + 0.1, 0]}
+        castShadow={shadows}
+        receiveShadow
+        userData={{ cameraIgnore: true }}
+      >
         <boxGeometry args={[WIDTH + 0.28, 0.2, DEPTH + 0.28]} />
         <meshStandardMaterial color="#4f5661" transparent opacity={open ? 0.16 : 1} depthWrite={!open} />
       </mesh>
