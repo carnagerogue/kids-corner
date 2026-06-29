@@ -1,0 +1,13 @@
+Downtown City MegaKit — Standard edition
+
+Original models by Quaternius (@Quaternius)
+https://quaternius.com/packs/downtowncitymegakit.html
+https://quaternius.itch.io/downtown-city-megakit
+
+License: CC0 1.0 Universal (Public Domain Dedication)
+https://creativecommons.org/publicdomain/zero/1.0/
+
+This project uses a selected subset of the Standard edition. The source glTF
+models were merged, deduplicated, quantized, packaged as GLB, and their textures
+were resized to 512px WebP for browser and tablet delivery.
+

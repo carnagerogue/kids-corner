@@ -126,6 +126,7 @@ import {
   resolveQuality,
   saveQualityChoice,
   type QualityChoice,
+  type RuntimeQuality,
 } from "./worldQuality";
 import { followOrbitTarget } from "./cameraFollow";
 import {
@@ -528,10 +529,12 @@ function SuburbTown({
   groupRef,
   shadows,
   openDoors,
+  quality,
 }: {
   groupRef: React.RefObject<THREE.Group>;
   shadows: boolean;
   openDoors: ReadonlySet<string>;
+  quality: RuntimeQuality["resolved"];
 }) {
   const [src, setSrc] = useState<{
     road: (n: string) => THREE.Object3D | undefined;
@@ -644,7 +647,102 @@ function SuburbTown({
   return (
     <group ref={groupRef}>
       <primitive object={instancedTown} />
+      <DowntownSkyline quality={quality} shadows={shadows} />
       <CityBuildings openDoors={openDoors} shadows={shadows} />
+    </group>
+  );
+}
+
+type SkylinePlacement = {
+  model: "medium" | "large";
+  position: [number, number, number];
+  rotation: number;
+  height: number;
+};
+
+const SKYLINE: SkylinePlacement[] = [
+  { model: "medium", position: [-34, 0, -21], rotation: Math.PI / 2, height: 12 },
+  { model: "large", position: [-34, 0, 2], rotation: Math.PI / 2, height: 14 },
+  { model: "medium", position: [-34, 0, 23], rotation: Math.PI / 2, height: 11 },
+  { model: "large", position: [-17, 0, -35], rotation: 0, height: 13 },
+  { model: "medium", position: [6, 0, -35], rotation: 0, height: 12 },
+  { model: "large", position: [34, 0, -20], rotation: -Math.PI / 2, height: 14 },
+  { model: "medium", position: [34, 0, 4], rotation: -Math.PI / 2, height: 11 },
+  { model: "large", position: [18, 0, 35], rotation: Math.PI, height: 13 },
+];
+
+function prepareSkylineModel(source: THREE.Object3D, height: number, shadows: boolean) {
+  const object = source.clone(true);
+  object.position.set(0, 0, 0);
+  object.rotation.set(0, 0, 0);
+  object.scale.set(1, 1, 1);
+  object.updateWorldMatrix(true, true);
+  let bounds = new THREE.Box3().setFromObject(object);
+  object.scale.setScalar(height / Math.max(0.001, bounds.max.y - bounds.min.y));
+  object.updateWorldMatrix(true, true);
+  bounds = new THREE.Box3().setFromObject(object);
+  object.position.set(
+    -(bounds.min.x + bounds.max.x) / 2,
+    -bounds.min.y,
+    -(bounds.min.z + bounds.max.z) / 2,
+  );
+  object.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+    child.castShadow = shadows;
+    child.receiveShadow = true;
+  });
+  return object;
+}
+
+/** Dense CC0 perimeter architecture gives the playable neighborhood a real
+ * city silhouette without adding collision work inside the roaming boundary. */
+function DowntownSkyline({
+  quality,
+  shadows,
+}: {
+  quality: RuntimeQuality["resolved"];
+  shadows: boolean;
+}) {
+  const [source, setSource] = useState<THREE.Group | null>(null);
+  useEffect(() => {
+    let alive = true;
+    let loaded: THREE.Group | null = null;
+    new GLTFLoader()
+      .loadAsync(resolveAssetUrl("/assets/world/downtown-city/downtown-buildings.glb"))
+      .then((gltf) => {
+        loaded = gltf.scene;
+        if (alive) setSource(loaded);
+        else disposeObject3D(loaded);
+      })
+      .catch((error) => console.warn("Downtown city kit failed to load", error));
+    return () => {
+      alive = false;
+      if (loaded) disposeObject3D(loaded);
+    };
+  }, []);
+
+  const buildings = useMemo(() => {
+    if (!source) return [];
+    const medium = source.getObjectByName("Building_Medium_2.001");
+    const large = source.getObjectByName("Building_Large_2");
+    const count = quality === "low" ? 4 : quality === "balanced" ? 6 : SKYLINE.length;
+    return SKYLINE.slice(0, count).flatMap((placement) => {
+      const model = placement.model === "large" ? large : medium;
+      if (!model) return [];
+      return [{ ...placement, object: prepareSkylineModel(model, placement.height, shadows) }];
+    });
+  }, [quality, shadows, source]);
+
+  return (
+    <group userData={{ cameraIgnore: true }}>
+      {buildings.map((building, index) => (
+        <primitive
+          key={`${building.model}-${index}`}
+          object={building.object}
+          position={building.position}
+          rotation={[0, building.rotation, 0]}
+        />
+      ))}
     </group>
   );
 }
@@ -655,13 +753,15 @@ function VillageProps({
   groupRef,
   shadows,
   openDoors,
+  quality,
 }: {
   groupRef: React.RefObject<THREE.Group>;
   shadows: boolean;
   openDoors: ReadonlySet<string>;
+  quality: RuntimeQuality["resolved"];
 }) {
   if (SUBURB)
-    return <SuburbTown groupRef={groupRef} shadows={shadows} openDoors={openDoors} />;
+    return <SuburbTown groupRef={groupRef} shadows={shadows} openDoors={openDoors} quality={quality} />;
   return (
     <group ref={groupRef}>
       {WORLD_MAP ? (
@@ -1925,7 +2025,12 @@ export default function WorldView() {
           }}
         />
         <group ref={propsRef}>
-          <VillageProps groupRef={townRef} shadows={quality.shadows} openDoors={openDoors} />
+          <VillageProps
+            groupRef={townRef}
+            shadows={quality.shadows}
+            openDoors={openDoors}
+            quality={quality.resolved}
+          />
           <WorldLandmarks save={worldSave} />
         </group>
         <MayorNova />

@@ -131,7 +131,13 @@ export function resolveCityBuildingCollisions(
   }
 }
 
-type Kit = { door: THREE.Object3D; window: THREE.Object3D };
+type Kit = {
+  door: THREE.Object3D;
+  window: THREE.Object3D;
+  downtown: THREE.Object3D;
+  facadeWindows: THREE.Object3D[];
+  doorFrame: THREE.Object3D | null;
+};
 
 function normalizeDetail(source: THREE.Object3D, height: number) {
   const object = source.clone(true);
@@ -226,6 +232,16 @@ function EnterableBuilding({
     () => kit ? Array.from({ length: 4 }, () => normalizeDetail(kit.window, 1.05)) : [],
     [kit],
   );
+  const facadeWindows = useMemo(() => {
+    if (!kit?.facadeWindows.length) return [];
+    const seed = CITY_BUILDINGS.findIndex((item) => item.id === building.id);
+    const source = kit.facadeWindows[Math.abs(seed) % kit.facadeWindows.length];
+    return [normalizeDetail(source, 3), normalizeDetail(source, 3)];
+  }, [building.id, kit]);
+  const doorFrame = useMemo(
+    () => kit?.doorFrame ? normalizeDetail(kit.doorFrame, 2.72) : null,
+    [kit],
+  );
   const halfW = WIDTH / 2;
   const halfD = DEPTH / 2;
   const frontWidth = (WIDTH - DOOR_WIDTH) / 2;
@@ -248,9 +264,21 @@ function EnterableBuilding({
         <div className="world-building-sign">{building.emoji} {building.name}</div>
       </Html>
 
-      {windows.map((window, index) => (
-        <primitive key={index} object={window} position={[index < 2 ? -2.05 : 2.05, index % 2 ? 2.05 : 1.1, halfD + 0.13]} />
-      ))}
+      {facadeWindows.length > 0
+        ? facadeWindows.map((window, index) => (
+            <primitive
+              key={index}
+              object={window}
+              position={[index === 0 ? -2.08 : 2.08, 0.16, halfD + 0.18]}
+            />
+          ))
+        : windows.map((window, index) => (
+            <primitive key={index} object={window} position={[index < 2 ? -2.05 : 2.05, index % 2 ? 2.05 : 1.1, halfD + 0.13]} />
+          ))}
+
+      {doorFrame && (
+        <primitive object={doorFrame} position={[0, 0.12, halfD + 0.19]} />
+      )}
 
       <group ref={hinge} position={[-DOOR_WIDTH / 2, 0, halfD + 0.13]}>
         {door ? (
@@ -297,12 +325,25 @@ export function CityBuildings({ openDoors, shadows }: { openDoors: ReadonlySet<s
     Promise.all([
       loader.loadAsync(resolveAssetUrl("/assets/world/city-modular/door-brown-window.glb")),
       loader.loadAsync(resolveAssetUrl("/assets/world/city-modular/window-white-wide.glb")),
-    ]).then(([door, window]) => {
-      loaded = { door: door.scene, window: window.scene };
+      loader.loadAsync(resolveAssetUrl("/assets/world/downtown-city/downtown-facades.glb")),
+    ]).then(([door, window, downtown]) => {
+      const facadeWindows = [
+        downtown.scene.getObjectByName("Metal_FirstFloor_Window"),
+        downtown.scene.getObjectByName("Trim_FirstFloor_Window.001"),
+        downtown.scene.getObjectByName("Brick_Window_CurvedDouble"),
+      ].filter((item): item is THREE.Object3D => Boolean(item));
+      loaded = {
+        door: door.scene,
+        window: window.scene,
+        downtown: downtown.scene,
+        facadeWindows,
+        doorFrame: downtown.scene.getObjectByName("DoorFrame_Trim") ?? null,
+      };
       if (alive) setKit(loaded);
       else {
         disposeObject3D(loaded.door);
         disposeObject3D(loaded.window);
+        disposeObject3D(loaded.downtown);
       }
     }).catch((error) => {
       console.warn(
@@ -317,6 +358,7 @@ export function CityBuildings({ openDoors, shadows }: { openDoors: ReadonlySet<s
       if (loaded) {
         disposeObject3D(loaded.door);
         disposeObject3D(loaded.window);
+        disposeObject3D(loaded.downtown);
       }
     };
   }, []);
