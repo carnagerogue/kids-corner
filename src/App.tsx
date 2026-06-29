@@ -35,9 +35,9 @@ export type TabId =
   | "parent";
 
 export const TABS: { id: TabId; label: string; emoji: string }[] = [
-  { id: "home", label: "Command Center", emoji: "🛰️" },
+  { id: "home", label: "Home", emoji: "🛰️" },
   { id: "schedule", label: "Schedule", emoji: "🗓️" },
-  { id: "applications", label: "Applications", emoji: "🧭" },
+  { id: "applications", label: "Apps", emoji: "🧭" },
   { id: "missions", label: "Missions", emoji: "🎯" },
   { id: "avatar", label: "Avatar", emoji: "🧢" },
   { id: "world", label: "World", emoji: "🌍" },
