@@ -682,7 +682,6 @@ function SuburbTown({
   return (
     <group ref={groupRef}>
       <TownGround />
-      <Skyline />
       <primitive object={instancedTown} />
       <DowntownSkyline quality={quality} shadows={shadows} />
       <CityBuildings openDoors={openDoors} shadows={shadows} />
@@ -2067,6 +2066,10 @@ export default function WorldView() {
             daylight.current = value;
           }}
         />
+        {/* Skyline lives OUTSIDE propsRef so the follow-cam occlusion raycast
+            never tests the distant decorative ring (which would falsely pull the
+            camera in near the perimeter). */}
+        <Skyline />
         <group ref={propsRef}>
           <VillageProps
             groupRef={townRef}

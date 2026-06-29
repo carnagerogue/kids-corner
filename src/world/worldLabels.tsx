@@ -6,7 +6,7 @@
 // opacity, so there's no per-frame React re-render and usually only 0–2 labels
 // are visible. Keeps the same CSS as before — just gated by distance.
 // ---------------------------------------------------------------------------
-import { useMemo, useRef } from "react";
+import { useRef } from "react";
 import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
@@ -33,8 +33,6 @@ export function ProximityHtml({
   const div = useRef<HTMLDivElement>(null);
   const shown = useRef(0);
   const wp = useRef<THREE.Vector3 | null>(null);
-  const tmp = useMemo(() => new THREE.Vector3(), []);
-
   useFrame((_, dt) => {
     if (!grp.current || !div.current) return;
     // Anchor world position is static — resolve it once, then reuse.
@@ -45,14 +43,16 @@ export function ProximityHtml({
     const w = wp.current;
     const d = Math.hypot(WORLD_PLAYER.x - w.x, WORLD_PLAYER.z - w.z);
     const target = d < radius ? 1 : 0;
+    // Common case — far away and already fully hidden: a cheap distance check
+    // and out, no DOM writes (most of the ~20 labels, most frames).
+    if (target === 0 && shown.current === 0) return;
     shown.current += (target - shown.current) * Math.min(1, dt * 9);
-    if (shown.current < 0.003 && target === 0) shown.current = 0;
+    if (target === 0 && shown.current < 0.004) shown.current = 0;
     const s = shown.current;
     const el = div.current;
     el.style.opacity = s.toFixed(3);
     el.style.transform = `scale(${(0.82 + s * 0.18).toFixed(3)})`;
     el.style.pointerEvents = s > 0.6 ? "auto" : "none";
-    void tmp;
   });
 
   return (
