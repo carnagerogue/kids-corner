@@ -54,12 +54,16 @@ import {
   AmbientLife,
   CelebrationBurst,
   ChampionsRing,
+  Fountain,
+  FOUNTAIN,
   LivingSky,
   MayorNova,
   QuestCollectibles,
   WorldCreatures,
   WorldLandmarks,
 } from "./WorldContent";
+import { Weather } from "./Weather";
+import { Minimap } from "./Minimap";
 import {
   ACADEMY_QUESTS,
   academyById,
@@ -404,6 +408,7 @@ const LANDMARK_COLLIDERS = [
   { x: -8, z: -8, r: 2.15 },
   { x: 8, z: -8, r: 2.15 },
   { x: 8, z: 8, r: 2.05 },
+  { x: FOUNTAIN.x, z: FOUNTAIN.z, r: FOUNTAIN.r },
 ];
 
 function pushOutsideCollider(pose: Pose, col: { x: number; z: number; r: number }) {
@@ -1850,10 +1855,12 @@ export default function WorldView() {
           <WorldLandmarks save={worldSave} />
         </group>
         <MayorNova />
+        <Fountain />
         <QuestCollectibles save={worldSave} />
         <ChampionsRing unlocked={level >= CHAMPIONS_RING.unlockLevel} />
         <WorldCreatures befriended={academy.befriended} level={level} />
         <AmbientLife particleCount={quality.particles} birdCount={quality.birds} />
+        <Weather season={event.id} count={quality.particles} />
         <CelebrationBurst burstId={celebrationId} />
         <Rig
           self={self}
@@ -1904,6 +1911,8 @@ export default function WorldView() {
           );
         })}
       </Canvas>
+
+      <Minimap self={self} />
 
       <div className="world-status" aria-live="polite">
         <div className="world-status__quest">

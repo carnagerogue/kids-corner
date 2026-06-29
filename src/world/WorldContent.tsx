@@ -587,6 +587,74 @@ export function WorldCreatures({
   );
 }
 
+// A central plaza fountain — focal landmark with animated water + ripples.
+export const FOUNTAIN = { x: 0, z: -3, r: 2.2 };
+
+export function Fountain() {
+  const ripple1 = useRef<THREE.Mesh>(null);
+  const ripple2 = useRef<THREE.Mesh>(null);
+  const spray = useRef<THREE.Group>(null);
+  const top = useRef<THREE.Mesh>(null);
+  const drops = useMemo(
+    () =>
+      [0, 1, 2, 3, 4, 5].map((i) => {
+        const a = (i / 6) * Math.PI * 2;
+        return [Math.cos(a) * 0.34, 0, Math.sin(a) * 0.34] as [number, number, number];
+      }),
+    [],
+  );
+  useFrame(({ clock }, dt) => {
+    const t = clock.elapsedTime;
+    [ripple1, ripple2].forEach((r, i) => {
+      if (!r.current) return;
+      const phase = (t * 0.5 + i * 0.5) % 1;
+      const s = 0.5 + phase * 1.5;
+      r.current.scale.set(s, s, s);
+      (r.current.material as THREE.MeshBasicMaterial).opacity = (1 - phase) * 0.4;
+    });
+    if (spray.current) spray.current.rotation.y += dt * 0.6;
+    if (top.current) top.current.position.y = 1.78 + Math.sin(t * 2) * 0.04;
+  });
+  return (
+    <group position={[FOUNTAIN.x, 0, FOUNTAIN.z]}>
+      {/* stone basin */}
+      <mesh position={[0, 0.28, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[2.05, 2.25, 0.56, 28]} />
+        <meshStandardMaterial color="#cdd0d6" roughness={0.95} />
+      </mesh>
+      {/* water surface */}
+      <mesh position={[0, 0.52, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[1.85, 36]} />
+        <meshStandardMaterial color="#4aa6e8" transparent opacity={0.82} roughness={0.15} metalness={0.35} />
+      </mesh>
+      {[ripple1, ripple2].map((r, i) => (
+        <mesh key={i} ref={r} position={[0, 0.54, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.75, 0.9, 32]} />
+          <meshBasicMaterial color="#cdecff" transparent opacity={0.35} depthWrite={false} />
+        </mesh>
+      ))}
+      {/* central column + upper bowl */}
+      <mesh position={[0, 1.0, 0]} castShadow>
+        <cylinderGeometry args={[0.16, 0.26, 1.0, 14]} />
+        <meshStandardMaterial color="#dadce2" roughness={0.9} />
+      </mesh>
+      <mesh ref={top} position={[0, 1.78, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.62, 20]} />
+        <meshStandardMaterial color="#7fc6f0" transparent opacity={0.85} side={THREE.DoubleSide} />
+      </mesh>
+      {/* falling spray, slowly rotating */}
+      <group ref={spray} position={[0, 1.9, 0]}>
+        {drops.map((p, i) => (
+          <mesh key={i} position={p}>
+            <sphereGeometry args={[0.055, 6, 6]} />
+            <meshBasicMaterial color="#e6f6ff" transparent opacity={0.7} />
+          </mesh>
+        ))}
+      </group>
+    </group>
+  );
+}
+
 export function ChampionsRing({ unlocked }: { unlocked: boolean }) {
   return (
     <group position={[CHAMPIONS_RING.x, 0, CHAMPIONS_RING.z]}>
