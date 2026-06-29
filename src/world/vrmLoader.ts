@@ -18,6 +18,14 @@ import {
   type VRMAnimation,
 } from "@pixiv/three-vrm-animation";
 import { resolveAssetUrl } from "../features/avatar/AvatarManifest";
+import {
+  attachAccessories,
+  captureHeadBind,
+  recolorVrm,
+  tickAccessories,
+  type AttachedAccessories,
+} from "../features/avatar/vrmAccessories";
+import type { Loadout3D } from "../types";
 
 export type LoadedAvatar = {
   vrm: VRM;
@@ -51,7 +59,10 @@ function loadIdleAnimation(): Promise<VRMAnimation | null> {
   return idlePromise;
 }
 
-export async function loadAvatar(url: string): Promise<LoadedAvatar> {
+export async function loadAvatar(
+  url: string,
+  loadout?: Loadout3D,
+): Promise<LoadedAvatar> {
   const loader = new GLTFLoader();
   loader.register((parser) => new VRMLoaderPlugin(parser));
   const gltf = await loader.loadAsync(url);
@@ -78,6 +89,16 @@ export async function loadAvatar(url: string): Promise<LoadedAvatar> {
   vrm.scene.position.x -= (box.min.x + box.max.x) / 2;
   vrm.scene.position.z -= (box.min.z + box.max.z) / 2;
   vrm.scene.position.y -= box.min.y;
+
+  // Dress the avatar: recolor to the chosen theme + attach equipped accessories.
+  // The head bind-pose snapshot MUST be captured here — after scale/center, but
+  // before the idle animation poses the model — so hats/glasses anchor correctly.
+  let accessories: AttachedAccessories | null = null;
+  if (loadout) {
+    const headBind = captureHeadBind(vrm);
+    recolorVrm(vrm, loadout);
+    accessories = attachAccessories(vrm, loadout, headBind);
+  }
 
   let mixer: THREE.AnimationMixer | null = null;
   const idle = await loadIdleAnimation();
@@ -106,11 +127,13 @@ export async function loadAvatar(url: string): Promise<LoadedAvatar> {
   const chest = bone("spine") || bone("chest");
   let phase = 0;
   let blend = 0;
+  let elapsed = 0;
 
   return {
     vrm,
     object: vrm.scene,
     update: (dt: number, moving: boolean) => {
+      elapsed += dt;
       mixer?.update(dt); // idle pose first
       blend += ((moving ? 1 : 0) - blend) * Math.min(1, dt * 9);
       if (moving) phase += dt * 8.5; // step cadence
@@ -134,9 +157,11 @@ export async function loadAvatar(url: string): Promise<LoadedAvatar> {
         // Lean forward a touch while moving.
         if (chest) chest.rotation.x += 0.07 * w;
       }
+      if (accessories) tickAccessories(accessories.animated, elapsed);
       vrm.update(dt); // bake normalized → raw + spring bones
     },
     dispose: () => {
+      accessories?.dispose();
       mixer?.stopAllAction();
       VRMUtils.deepDispose(vrm.scene);
     },

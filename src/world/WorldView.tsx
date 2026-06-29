@@ -15,6 +15,7 @@ import { useApp } from "../store/AppContext";
 import { getKid } from "../store/selectors";
 import { currentLoadout } from "../features/avatar/AvatarEconomy";
 import { itemById } from "../features/avatar/AvatarManifest";
+import type { Loadout3D } from "../types";
 import { webglAvailable } from "../features/avatar/webgl";
 import { loadAvatar, resolveModelUrl, type LoadedAvatar } from "./vrmLoader";
 import {
@@ -137,9 +138,12 @@ import { SYNC_EVENT } from "../sync";
 
 const BOUND = 8; // play-area half-extent (props ring the outside)
 const SPEED = 3.6;
+const JUMP_FORCE = 6.8; // initial upward velocity on a Space press
+const GRAVITY = 20; // downward accel; peak ≈1.16u, ~0.68s air-time
 
-/** Live, mutable pose shared between the controller and the local avatar. */
-type Pose = { x: number; z: number; heading: number; moving: boolean };
+/** Live, mutable pose shared between the controller and the local avatar.
+ * `y` is the jump height above the ground (0 = grounded). */
+type Pose = { x: number; z: number; heading: number; moving: boolean; y?: number };
 
 function keyToDir(k: string): "up" | "down" | "left" | "right" | null {
   switch (k) {
@@ -745,6 +749,7 @@ function WorldAvatar({
   shadows,
   aura,
   companion,
+  loadout,
 }: {
   url: string;
   getPose: () => Pose;
@@ -754,15 +759,36 @@ function WorldAvatar({
   shadows: boolean;
   aura?: Aura | null;
   companion?: Creature | null;
+  /** Equipped studio cosmetics — recolors the model + attaches accessories.
+   * Only the local player's loadout is known (remote loadouts aren't synced). */
+  loadout?: Loadout3D;
 }) {
   const group = useRef<THREE.Group>(null);
   const [loaded, setLoaded] = useState<LoadedAvatar | null>(null);
   const bob = useRef(0);
 
+  // Stable signature of the dressing-relevant slots: the model only reloads when
+  // the URL, shadow tier, or an equipped cosmetic actually changes — not on every
+  // render (currentLoadout returns a fresh object each time).
+  const loadoutKey = loadout
+    ? [
+        loadout.hat,
+        loadout.glasses,
+        loadout.backpack,
+        loadout.handheld,
+        loadout.pet,
+        loadout.aura,
+        loadout.outfit,
+        loadout.skinTone,
+        loadout.hairColor,
+        loadout.eyeColor,
+      ].join("|")
+    : "";
+
   useEffect(() => {
     let alive = true;
     let inst: LoadedAvatar | null = null;
-    loadAvatar(url)
+    loadAvatar(url, loadout)
       .then((a) => {
         if (!alive) {
           a.dispose();
@@ -783,7 +809,10 @@ function WorldAvatar({
       alive = false;
       inst?.dispose();
     };
-  }, [url, shadows]);
+    // loadout is captured via loadoutKey (its stable content signature) so an
+    // identical loadout doesn't thrash the VRM reload each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url, shadows, loadoutKey]);
 
   // Chat bubble auto-hides ~6s after the message.
   const [bubble, setBubble] = useState<string | null>(null);
@@ -804,7 +833,11 @@ function WorldAvatar({
     let dh = p.heading - g.rotation.y;
     dh = Math.atan2(Math.sin(dh), Math.cos(dh));
     g.rotation.y += dh * k;
-    if (p.moving) {
+    const jumpH = p.y ?? 0;
+    if (jumpH > 0.001) {
+      // Airborne: follow the jump arc directly (overrides the walk bob).
+      g.position.y = jumpH;
+    } else if (p.moving) {
       bob.current += dt * 9;
       g.position.y = Math.abs(Math.sin(bob.current)) * 0.05;
     } else {
@@ -858,6 +891,7 @@ function Rig({
   daylight: React.MutableRefObject<number>;
 }) {
   const keys = useRef<Set<string>>(new Set());
+  const jumpVel = useRef(0); // current vertical velocity of the local avatar
   const controls = useRef<React.ElementRef<typeof OrbitControls>>(null);
   const { camera } = useThree();
   const fwd = useMemo(() => new THREE.Vector3(), []);
@@ -886,6 +920,15 @@ function Rig({
     };
     const down = (e: KeyboardEvent) => {
       if (inputLock.current || isTyping()) return;
+      if (e.code === "Space" || e.key === " ") {
+        e.preventDefault();
+        // Jump only when grounded — ignore key-repeat and mid-air presses so
+        // you can't fly by holding Space.
+        if (!e.repeat && jumpVel.current === 0 && (self.current.y ?? 0) <= 0.001) {
+          jumpVel.current = JUMP_FORCE;
+        }
+        return;
+      }
       const d = keyToDir(e.key);
       if (d) {
         keys.current.add(d);
@@ -965,6 +1008,16 @@ function Rig({
       updateSelf({ x: s.x, z: s.z, heading: s.heading, moving: false }, true);
     }
     s.moving = moving;
+    // Jump arc — integrates independently of horizontal movement so you can
+    // hop while walking or standing still. Lands (and zeroes out) at y=0.
+    if (jumpVel.current !== 0 || (s.y ?? 0) > 0) {
+      jumpVel.current -= GRAVITY * dt;
+      s.y = (s.y ?? 0) + jumpVel.current * dt;
+      if (s.y <= 0) {
+        s.y = 0;
+        jumpVel.current = 0;
+      }
+    }
     audioTick.current += dt;
     if (audioTick.current >= 0.12) {
       audioTick.current = 0;
@@ -1885,6 +1938,7 @@ export default function WorldView() {
             companion={
               academy.companion ? creatureById(academy.companion) : null
             }
+            loadout={loadout}
           />
         )}
         {others.map((player) => {

@@ -20,12 +20,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import {
-  VRMLoaderPlugin,
-  VRMUtils,
-  type VRM,
-  type VRMHumanBoneName,
-} from "@pixiv/three-vrm";
+import { VRMLoaderPlugin, VRMUtils, type VRM } from "@pixiv/three-vrm";
 import {
   VRMAnimationLoaderPlugin,
   createVRMAnimationClip,
@@ -34,11 +29,13 @@ import {
 import type { Loadout3D } from "../../types";
 import { itemById, resolveAssetUrl, useAvatarManifest } from "./AvatarManifest";
 import {
-  ACCESSORY_PLACEMENT,
-  buildAccessory,
-  disposeAccessory,
-  normalizeGlb,
-} from "./AvatarAccessories";
+  attachAccessories,
+  captureHeadBind,
+  recolorVrm,
+  tickAccessories,
+  type AttachedAccessories,
+  type HeadBind,
+} from "./vrmAccessories";
 import type { EmoteName } from "./webgl";
 
 // ---------------------------------------------------------------------------
@@ -56,58 +53,10 @@ export type VRMAvatarViewerProps = {
   onError: () => void;
 };
 
-// Build a grayscale (luminance) copy of a color texture, brightened so a tint
-// multiplied over it reads vividly while dark detail (an eye's pupil, hair
-// shadow) stays dark. Returns null if the image can't be read (e.g. not yet
-// decoded / cross-origin tainted) — caller then falls back to a flat tint.
-function grayscaleColorMap(
-  src: THREE.Texture,
-  gamma: number,
-  lift = 0,
-): THREE.Texture | null {
-  const img = src.image as
-    | HTMLImageElement
-    | ImageBitmap
-    | HTMLCanvasElement
-    | undefined;
-  if (!img || !("width" in img) || !img.width || !img.height) return null;
-  const canvas = document.createElement("canvas");
-  canvas.width = img.width;
-  canvas.height = img.height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-  try {
-    ctx.drawImage(img as CanvasImageSource, 0, 0);
-    const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const px = data.data;
-    for (let i = 0; i < px.length; i += 4) {
-      const lum = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
-      // gamma <1 lifts tones so a tint reads vividly; lower gamma = brighter
-      // (used for eyes so the small iris shows the colour strongly).
-      // gamma lifts mid-tones; `lift` then remaps into [lift,1] so even a near
-      // black fabric still shows a clear mid-tone of the tint (dark clothes were
-      // staying dark — e.g. navy shorts barely shifted toward the picked colour).
-      const norm = Math.pow(lum / 255, gamma);
-      const v = 255 * (lift + (1 - lift) * norm);
-      px[i] = px[i + 1] = px[i + 2] = v; // keep alpha at px[i+3]
-    }
-    ctx.putImageData(data, 0, 0);
-  } catch {
-    return null;
-  }
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.flipY = src.flipY;
-  tex.colorSpace = src.colorSpace;
-  tex.wrapS = src.wrapS;
-  tex.wrapT = src.wrapT;
-  tex.repeat.copy(src.repeat);
-  tex.offset.copy(src.offset);
-  tex.needsUpdate = true;
-  return tex;
-}
-
 // ---------------------------------------------------------------------------
 // VRM character — load, optimize, face camera, frame, animate, dispose.
+// (Accessory attach + skin/hair/eye/cloth recolor live in ./vrmAccessories so
+// the World shares the exact same dressing pipeline.)
 // ---------------------------------------------------------------------------
 
 function VrmCharacter({
@@ -140,35 +89,12 @@ function VrmCharacter({
   // Idle animation mixer — retargets a .vrma idle to THIS model's normalized
   // rig, so any VRM (T-posed or not) stands naturally. No hand-authored posing.
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
-  // Accessories needing per-frame motion (pet bob / aura spin).
-  const accessoryAnimRef = useRef<
-    { obj: THREE.Object3D; kind: "petBob" | "auraSpin"; baseY: number; amp: number }[]
-  >([]);
+  // Live accessory handle (per-frame pet bob / aura spin live in its `animated`).
+  const accessoriesRef = useRef<AttachedAccessories | null>(null);
   // Bind-pose head snapshot, captured once at load BEFORE the idle animation
-  // poses the model. Head accessories (hat/glasses) are placed from THIS stable
-  // reference — never the live, animating bone — so a slow GLB load can't leave
-  // them floating where the head used to be. `matrixWorldInv` maps a bind-pose
-  // world point into the head bone's local frame, giving a rigid local offset
-  // that stays glued to the head in every animation pose.
-  const headBindRef = useRef<{
-    matrixWorldInv: THREE.Matrix4;
-    pos: THREE.Vector3;
-    scale: number;
-    top: number;
-    front: number; // model's front (+Z) in the bind pose — glasses sit near it
-    eyeMid: THREE.Vector3 | null; // eye-bone midpoint if the rig has eye bones
-  } | null>(null);
-  // Original material colors + base textures, so skin/hair/eye recolor can be
-  // restored to the model's defaults. WeakMaps → entries vanish when a
-  // swapped-out model's materials are GC'd.
-  const origColorsRef = useRef(new WeakMap<THREE.Material, THREE.Color>());
-  const origMapsRef = useRef(new WeakMap<THREE.Material, THREE.Texture | null>());
-  // Cached grayscale (luminance) version of a hair/eye material's base texture,
-  // so a chosen color shows vividly (color × luminance) while the texture's
-  // light/dark detail — hair strands, the eye's pupil — is preserved.
-  const grayMapsRef = useRef(new WeakMap<THREE.Material, THREE.Texture | null>());
-  // Original emissive per material, so the eye "glow" boost can be restored.
-  const origEmissiveRef = useRef(new WeakMap<THREE.Material, THREE.Color>());
+  // poses the model — head accessories (hat/glasses) are placed from this stable
+  // reference so a slow GLB load can't leave them floating where the head was.
+  const headBindRef = useRef<HeadBind | null>(null);
 
   // ---- Imperative load (loadAsync is not Suspense-friendly) --------------
   useEffect(() => {
@@ -237,42 +163,7 @@ function VrmCharacter({
         // not posed it yet, so the head bone is in its canonical upright rest
         // position. Head accessories are placed from this snapshot regardless of
         // when they load, so they can never lag the bind→idle transition.
-        got.scene.updateWorldMatrix(true, true);
-        const headRaw = got.humanoid?.getRawBoneNode("head");
-        if (headRaw) {
-          headRaw.updateWorldMatrix(true, false);
-          const headWorldPos = headRaw.getWorldPosition(new THREE.Vector3());
-          // Measure the crown in the SAME (seated) frame as the head bone. Crown
-          // = top of the model, but clamped to a sane skull height above the head
-          // bone so a tall hair mesh / ahoge on a user-supplied model can't push
-          // hats up off the head. For the three bundled rigs the cap never bites
-          // (their box top sits only ~0.21–0.23 above the head bone = the skull).
-          const seatedBox = new THREE.Box3().setFromObject(got.scene);
-          // Eye-bone midpoint (if the rig has eye bones) → exact glasses anchor,
-          // free of the chest/face-depth confound. Seed-san rigs lack eye bones,
-          // so those fall back to a model-front-aware push.
-          const lEye = got.humanoid?.getRawBoneNode("leftEye");
-          const rEye = got.humanoid?.getRawBoneNode("rightEye");
-          let eyeMid: THREE.Vector3 | null = null;
-          if (lEye && rEye) {
-            lEye.updateWorldMatrix(true, false);
-            rEye.updateWorldMatrix(true, false);
-            eyeMid = lEye
-              .getWorldPosition(new THREE.Vector3())
-              .add(rEye.getWorldPosition(new THREE.Vector3()))
-              .multiplyScalar(0.5);
-          }
-          headBindRef.current = {
-            matrixWorldInv: headRaw.matrixWorld.clone().invert(),
-            pos: headWorldPos,
-            scale: headRaw.getWorldScale(new THREE.Vector3()).x || 1,
-            top: Math.min(seatedBox.max.y, headWorldPos.y + 0.33),
-            front: seatedBox.max.z,
-            eyeMid,
-          };
-        } else {
-          headBindRef.current = null;
-        }
+        headBindRef.current = captureHeadBind(got);
 
         // (Accessories are attached in a separate effect so equips update live.)
 
@@ -316,168 +207,19 @@ function VrmCharacter({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelUrl]);
 
-  // ---- Accessories: build + attach equipped props; re-runs on every equip so
-  // changes show live. Uses RAW bones (the rendered/animated skeleton) and
-  // auto-scales into each model's bone space. A real .glb at the item's
-  // assetPath overrides the built-in procedural prop. ----------------------
+  // ---- Accessories: attach the equipped props; re-runs on each equip so
+  // changes show live. The shared pipeline auto-scales into each model's bone
+  // space, anchors head items to the bind-pose snapshot, and overrides the
+  // built-in prop with a real .glb when one exists. ------------------------
   useEffect(() => {
     if (!vrm) return;
-    const v = vrm;
-    let cancelled = false;
-    const loader = new GLTFLoader();
-    const attached: THREE.Object3D[] = [];
-    const animated: typeof accessoryAnimRef.current = [];
-
-    const rawBone = (n: VRMHumanBoneName) => v.humanoid?.getRawBoneNode(n) ?? null;
-    const resolveParent = (b: string): THREE.Object3D | null => {
-      if (b === "root") return v.scene;
-      if (b === "chest")
-        return (
-          rawBone("chest") ?? rawBone("upperChest") ?? rawBone("spine") ?? rawBone("hips")
-        );
-      if (b === "spine") return rawBone("spine") ?? rawBone("hips");
-      return rawBone(b as VRMHumanBoneName);
-    };
-    const place = (
-      obj: THREE.Object3D,
-      parent: THREE.Object3D,
-      offset: [number, number, number],
-      rotation?: [number, number, number],
-    ): number => {
-      parent.updateWorldMatrix(true, false);
-      const ws = new THREE.Vector3();
-      parent.getWorldScale(ws);
-      const s = ws.x || 1; // bone world scale → keep props at real-world size
-      obj.scale.setScalar(1 / s);
-      obj.position.set(offset[0] / s, offset[1] / s, offset[2] / s);
-      if (rotation) obj.rotation.set(rotation[0], rotation[1], rotation[2]);
-      obj.traverse((o) => (o.frustumCulled = false));
-      parent.add(obj);
-      return s;
-    };
-    // Place a HEAD accessory using the BIND-pose head snapshot. Raw bone local
-    // axes are arbitrary per rig (a head bone's local "up" rarely points
-    // world-up), so a fixed local offset lands unpredictably — that was the
-    // hat-over-the-face bug. And localizing a world target against the LIVE bone
-    // matrix races the idle animation, leaving props floating where the head
-    // *was* — that was the floating bug. So we compute the target in the model's
-    // bind-pose world frame, map it to a rigid bone-LOCAL offset via the bind
-    // inverse matrix, and stand it upright via the bind rotation. The offset is
-    // constant in bone-local space, so `boneMatrixWorld(anyPose) · offset` is the
-    // crown in that pose — the prop stays glued to the head in every frame, no
-    // matter when it loads. `hb` is the head bind snapshot; `parent` is the live
-    // bone the prop rides.
-    const placeBind = (
-      obj: THREE.Object3D,
-      parent: THREE.Object3D,
-      worldTargetBind: THREE.Vector3,
-      hb: NonNullable<typeof headBindRef.current>,
-    ): number => {
-      // POSITION comes from the BIND snapshot → a rigid bone-local offset that
-      // can never float (the whole point of this fix). Assumes ~uniform bone
-      // scale (true for these rigs); `1/hb.scale` undoes the bone's world scale
-      // so the prop renders at its normalized real-world size.
-      obj.scale.setScalar(1 / hb.scale);
-      obj.position.copy(worldTargetBind.clone().applyMatrix4(hb.matrixWorldInv));
-      // ORIENTATION reads the LIVE (settled idle) bone, not the bind pose: some
-      // rigs carry a rest head-tilt that the idle straightens out (Seed-san has a
-      // ~9° bind pitch), so freezing upright at bind would leave the prop visibly
-      // tilted. A small orientation error never detaches the prop, so it's safe
-      // to read the live bone here even though position must not.
-      parent.updateWorldMatrix(true, false);
-      const pq = new THREE.Quaternion();
-      parent.getWorldQuaternion(pq);
-      obj.quaternion.copy(pq.invert()); // stand upright in the current pose
-      obj.traverse((o) => (o.frustumCulled = false));
-      parent.add(obj);
-      return hb.scale;
-    };
-
-    // Stable bind-pose head reference (captured at load, before the idle pose).
-    const hb = headBindRef.current;
-
-    (async () => {
-      const slots = ["hat", "glasses", "backpack", "handheld", "pet", "aura"] as const;
-      for (const slot of slots) {
-        if (cancelled) break;
-        const item = itemById(loadout[slot]);
-        if (!item) continue;
-        const p = ACCESSORY_PLACEMENT[slot];
-        const parent = resolveParent(p.bone);
-        if (!parent) continue;
-
-        let obj: THREE.Object3D | null = null;
-        if (item.assetPath && /\.glb$/i.test(item.assetPath)) {
-          try {
-            const g = await loader.loadAsync(resolveAssetUrl(item.assetPath));
-            if (cancelled) {
-              disposeAccessory(g.scene);
-              return;
-            }
-            // Real asset: normalize its arbitrary size/origin to fit this slot.
-            obj = normalizeGlb(g.scene, slot);
-          } catch {
-            // missing/broken .glb → fall back to the built-in prop
-          }
-        }
-        if (!obj) obj = buildAccessory(slot, item.value ?? "", item.color);
-        if (!obj || cancelled) continue;
-
-        // Head items (hat/glasses) anchor to the stable bind-pose head snapshot
-        // (immune to the idle pose); everything else rides its bone with the
-        // authored local offset (works well off-head). If the head snapshot is
-        // unavailable (no head bone), head items fall back to the bone offset.
-        let s: number;
-        if (slot === "hat" && hb) {
-          // Sink the hat onto the head by a fraction of its OWN height so the
-          // head goes inside it (a cap to the forehead, a tall hat's brim to the
-          // crown) instead of the whole hat perching on top. normalizeGlb anchors
-          // the hat base at y=0, so its local box height is the rendered height.
-          obj.updateMatrixWorld(true);
-          const hatH = new THREE.Box3().setFromObject(obj).max.y || 0.1;
-          const sink = THREE.MathUtils.clamp(hatH * 0.7, 0.05, 0.16);
-          s = placeBind(
-            obj,
-            parent,
-            new THREE.Vector3(hb.pos.x, hb.top - sink, hb.pos.z),
-            hb,
-          );
-        } else if (slot === "glasses" && hb) {
-          // Prefer the exact eye-bone midpoint (just nudged forward to the lens
-          // plane). Rigs without eye bones fall back to eye height + a push
-          // toward the model front so glasses don't sink inside a deeper face
-          // (clamped so a shallow face doesn't float them off).
-          // Eye-bone rigs: exact. Otherwise estimate the FACE front from head
-          // depth (≈ half the head's vertical size in front of the head bone) —
-          // the whole-model front overshoots past the face (chest/hair), making
-          // glasses stick out. Cap at the model front as a safety net.
-          const faceZ = Math.min(
-            hb.pos.z + THREE.MathUtils.clamp((hb.top - hb.pos.y) * 0.33, 0.07, 0.105),
-            hb.front - 0.04,
-          );
-          const target = hb.eyeMid
-            ? new THREE.Vector3(hb.eyeMid.x, hb.eyeMid.y, hb.eyeMid.z + 0.03)
-            : new THREE.Vector3(hb.pos.x, hb.top - 0.15, faceZ);
-          s = placeBind(obj, parent, target, hb);
-        } else {
-          s = place(obj, parent, p.offset, p.rotation);
-        }
-        attached.push(obj);
-        if (p.animate) {
-          animated.push({ obj, kind: p.animate, baseY: obj.position.y, amp: 0.025 / s });
-        }
-      }
-      if (!cancelled) accessoryAnimRef.current = animated;
-    })();
-
+    const handle = attachAccessories(vrm, loadout, headBindRef.current);
+    accessoriesRef.current = handle;
     return () => {
-      cancelled = true;
-      accessoryAnimRef.current = [];
-      for (const o of attached) {
-        o.parent?.remove(o);
-        disposeAccessory(o);
-      }
+      handle.dispose();
+      accessoriesRef.current = null;
     };
+    // loadout is read whole; the slot deps below are the equips that matter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     vrm,
@@ -489,110 +231,14 @@ function VrmCharacter({
     loadout.aura,
   ]);
 
-  // ---- Recolor: tint skin / hair / eye / clothing materials --------------
-  // Geometry can't swap on a fixed VRM, but COLORS can: VRoid + most rigs name
-  // their materials (…_SKIN / _HAIR / EyeIris / _CLOTH, or body / hair / eye /
-  // wear / huku), so we recolor those by name. Each material's original color is
-  // remembered so a pick applies a tint and clearing restores the default. Skin
-  // + CLOTHES multiply over the texture (white clothes tint to a vivid theme
-  // colour); hair + eyes use a grayscale repaint for fully vivid colour. NOTE:
-  // this changes the clothing COLOUR only — the garment SHAPE is baked mesh and
-  // changes only by loading a per-outfit model (see AvatarViewer).
+  // ---- Recolor: tint skin / hair / eye / clothing materials to the theme.
+  // Geometry can't swap on a fixed VRM, but COLORS can. Shared with the World so
+  // both dress identically; changes the clothing COLOUR only — the garment SHAPE
+  // is baked mesh and changes only by loading a per-outfit model.
   useEffect(() => {
     if (!vrm) return;
-    const pick = (slot: keyof Loadout3D) => itemById(loadout[slot])?.color;
-    const want = {
-      eye: pick("eyeColor"),
-      hair: pick("hairColor"),
-      skin: pick("skinTone"),
-      cloth: pick("outfit"), // recolor the worn clothes to the outfit's theme
-    };
-    vrm.scene.traverse((o) => {
-      const mesh = o as THREE.Mesh;
-      if (!mesh.isMesh) return;
-      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-      for (const m of mats) {
-        const mat = m as THREE.Material & {
-          color?: THREE.Color;
-          map?: THREE.Texture | null;
-          emissive?: THREE.Color;
-        };
-        if (!mat?.color) continue;
-        const name = (mat.name || "").toLowerCase();
-        // Order matters — a material matches the FIRST category. eye/hair/skin
-        // before cloth so e.g. "body" stays skin; clothing materials are named
-        // _CLOTH / wear / huku (服) / tops / bottom / dress / etc.
-        const cat: keyof typeof want | null = /iris|^eye$/.test(name)
-          ? "eye"
-          : /hair/.test(name)
-            ? "hair"
-            : /skin|body/.test(name)
-              ? "skin"
-              : /cloth|wear|huku|tops|bottom|shirt|skirt|dress|jacket|coat|hood|pant|suit/.test(
-                    name,
-                  )
-                ? "cloth"
-                : null;
-        if (!cat) continue;
-        if (!origColorsRef.current.has(mat)) {
-          origColorsRef.current.set(mat, mat.color.clone());
-          origMapsRef.current.set(mat, mat.map ?? null);
-        }
-        const tint = want[cat];
-        // HAIR + EYES recolor vividly by swapping their base texture for a
-        // grayscale (luminance) copy and tinting that: color × luminance shows
-        // the picked color fully while keeping detail — hair strands, and
-        // crucially the eye's dark pupil (a plain multiply muddies vivid colors;
-        // dropping the texture entirely would erase the pupil). SKIN keeps its
-        // texture and tints over it for natural shading.
-        const useGray = cat === "hair" || cat === "eye" || cat === "cloth";
-        if (cat === "eye" && mat.emissive && !origEmissiveRef.current.has(mat)) {
-          origEmissiveRef.current.set(mat, mat.emissive.clone());
-        }
-        if (tint) {
-          mat.color.set(tint);
-          if (useGray) {
-            let gray = grayMapsRef.current.get(mat);
-            if (gray === undefined) {
-              const om = origMapsRef.current.get(mat) ?? null;
-              // Eyes + clothes brighten harder (lower gamma) so a small iris and
-              // dark fabric still take the colour boldly.
-              // Cloth gets a brightness floor so dark garments (shorts, shoes)
-              // still take the colour boldly; eyes/hair keep full contrast.
-              gray = om
-                ? grayscaleColorMap(
-                    om,
-                    cat === "eye" || cat === "cloth" ? 0.4 : 0.6,
-                    cat === "cloth" ? 0.5 : 0,
-                  )
-                : null;
-              grayMapsRef.current.set(mat, gray); // cache (null = no/failed map)
-            }
-            if (gray && mat.map !== gray) {
-              mat.map = gray;
-              mat.needsUpdate = true;
-            }
-          }
-          // Eyes also get a gentle self-glow in the chosen colour so it pops.
-          if (cat === "eye" && mat.emissive) {
-            mat.emissive.set(tint).multiplyScalar(0.45);
-          }
-        } else {
-          mat.color.copy(origColorsRef.current.get(mat)!);
-          if (useGray) {
-            const om = origMapsRef.current.get(mat) ?? null;
-            if (mat.map !== om) {
-              mat.map = om;
-              mat.needsUpdate = true;
-            }
-          }
-          if (cat === "eye" && mat.emissive) {
-            const oe = origEmissiveRef.current.get(mat);
-            if (oe) mat.emissive.copy(oe);
-          }
-        }
-      }
-    });
+    recolorVrm(vrm, loadout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vrm, loadout.skinTone, loadout.hairColor, loadout.eyeColor, loadout.outfit]);
 
   // ---- Per-frame: rest pose → active emote, then vrm.update(delta) -------
@@ -659,10 +305,7 @@ function VrmCharacter({
     em?.setValue("relaxed", relaxed);
 
     // Animate pet (bob) + aura (spin) accessories.
-    for (const a of accessoryAnimRef.current) {
-      if (a.kind === "petBob") a.obj.position.y = a.baseY + Math.sin(t * 3) * a.amp;
-      else a.obj.rotation.y = t * 0.7;
-    }
+    if (accessoriesRef.current) tickAccessories(accessoriesRef.current.animated, t);
 
     vrm.update(delta);
   });
