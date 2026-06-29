@@ -1,18 +1,37 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { resolveAssetUrl } from "../features/avatar/AvatarManifest";
 import { disposeObject3D } from "./disposeObject";
+import { ProximityHtml } from "./worldLabels";
 import type { InteractionTarget } from "./worldGame";
 
 const WIDTH = 6.35;
 const DEPTH = 6.35;
-const WALL_HEIGHT = 3.25;
 const WALL_THICKNESS = 0.18;
 const DOOR_WIDTH = 1.35;
 const AVATAR_RADIUS = 0.32;
+
+// Per-building silhouette variety so the ring reads as a street of different
+// shops, not 12 identical boxes. Footprint never changes (colliders depend on
+// it) — only wall height + roof shape. Art-directed by building index.
+const ROOF_COLORS = ["#d6855c", "#c76b78", "#6f9bc4", "#7aa86a", "#e0a35c", "#9f7bc0"];
+type RoofStyle = "hip" | "flat";
+const VARIETY: { h: number; roof: RoofStyle }[] = [
+  { h: 3.1, roof: "hip" },
+  { h: 4.4, roof: "flat" },
+  { h: 3.4, roof: "hip" },
+  { h: 3.0, roof: "hip" },
+  { h: 4.7, roof: "flat" },
+  { h: 3.3, roof: "hip" },
+  { h: 3.7, roof: "hip" },
+  { h: 4.3, roof: "flat" },
+  { h: 3.0, roof: "hip" },
+  { h: 3.5, roof: "hip" },
+  { h: 4.5, roof: "flat" },
+  { h: 3.2, roof: "hip" },
+];
 
 export type CityBuildingDef = {
   id: string;
@@ -209,15 +228,20 @@ function Interior({ type, accent }: { type: CityBuildingDef["interior"]; accent:
 
 function EnterableBuilding({
   building,
+  index,
   open,
   kit,
   shadows,
 }: {
   building: CityBuildingDef;
+  index: number;
   open: boolean;
   kit: Kit | null;
   shadows: boolean;
 }) {
+  const variety = VARIETY[index % VARIETY.length];
+  const wallH = variety.h;
+  const roofColor = ROOF_COLORS[index % ROOF_COLORS.length];
   const hinge = useRef<THREE.Group>(null);
   useFrame((_, dt) => {
     if (!hinge.current) return;
@@ -252,17 +276,22 @@ function EnterableBuilding({
       <mesh position={[0, 0.05, 0]} receiveShadow><boxGeometry args={[7.5, 0.1, 7.5]} /><meshStandardMaterial color="#c9ccd0" roughness={1} /></mesh>
       <mesh position={[0, 0.13, 0]} receiveShadow><boxGeometry args={[WIDTH - 0.25, 0.12, DEPTH - 0.25]} /><meshStandardMaterial color="#e8dfca" roughness={0.95} /></mesh>
 
-      <mesh position={[-frontCenter, WALL_HEIGHT / 2, halfD]} castShadow={shadows}><boxGeometry args={[frontWidth, WALL_HEIGHT, WALL_THICKNESS]} /><meshStandardMaterial color={building.color} /></mesh>
-      <mesh position={[frontCenter, WALL_HEIGHT / 2, halfD]} castShadow={shadows}><boxGeometry args={[frontWidth, WALL_HEIGHT, WALL_THICKNESS]} /><meshStandardMaterial color={building.color} /></mesh>
-      <mesh position={[0, WALL_HEIGHT - 0.42, halfD]} castShadow={shadows}><boxGeometry args={[DOOR_WIDTH, 0.84, WALL_THICKNESS]} /><meshStandardMaterial color={building.color} /></mesh>
-      <mesh position={[0, WALL_HEIGHT / 2, -halfD]} castShadow={shadows}><boxGeometry args={[WIDTH, WALL_HEIGHT, WALL_THICKNESS]} /><meshStandardMaterial color={building.color} /></mesh>
-      <mesh position={[-halfW, WALL_HEIGHT / 2, 0]} castShadow={shadows}><boxGeometry args={[WALL_THICKNESS, WALL_HEIGHT, DEPTH]} /><meshStandardMaterial color={building.color} /></mesh>
-      <mesh position={[halfW, WALL_HEIGHT / 2, 0]} castShadow={shadows}><boxGeometry args={[WALL_THICKNESS, WALL_HEIGHT, DEPTH]} /><meshStandardMaterial color={building.color} /></mesh>
+      <mesh position={[-frontCenter, wallH / 2, halfD]} castShadow={shadows}><boxGeometry args={[frontWidth, wallH, WALL_THICKNESS]} /><meshStandardMaterial color={building.color} /></mesh>
+      <mesh position={[frontCenter, wallH / 2, halfD]} castShadow={shadows}><boxGeometry args={[frontWidth, wallH, WALL_THICKNESS]} /><meshStandardMaterial color={building.color} /></mesh>
+      <mesh position={[0, (2.3 + wallH) / 2, halfD]} castShadow={shadows}><boxGeometry args={[DOOR_WIDTH, Math.max(0.2, wallH - 2.3), WALL_THICKNESS]} /><meshStandardMaterial color={building.color} /></mesh>
+      <mesh position={[0, wallH / 2, -halfD]} castShadow={shadows}><boxGeometry args={[WIDTH, wallH, WALL_THICKNESS]} /><meshStandardMaterial color={building.color} /></mesh>
+      <mesh position={[-halfW, wallH / 2, 0]} castShadow={shadows}><boxGeometry args={[WALL_THICKNESS, wallH, DEPTH]} /><meshStandardMaterial color={building.color} /></mesh>
+      <mesh position={[halfW, wallH / 2, 0]} castShadow={shadows}><boxGeometry args={[WALL_THICKNESS, wallH, DEPTH]} /><meshStandardMaterial color={building.color} /></mesh>
 
-      <mesh position={[0, 2.72, halfD + 0.13]} castShadow><boxGeometry args={[2.65, 0.5, 0.14]} /><meshStandardMaterial color={building.accent} /></mesh>
-      <Html position={[0, 2.73, halfD + 0.23]} center distanceFactor={12} occlude={false} zIndexRange={[12, 0]}>
+      {/* sign board + storefront awning */}
+      <mesh position={[0, wallH - 0.5, halfD + 0.13]} castShadow><boxGeometry args={[2.65, 0.5, 0.14]} /><meshStandardMaterial color={building.accent} /></mesh>
+      <mesh position={[0, 2.18, halfD + 0.42]} rotation={[-0.52, 0, 0]} castShadow={shadows}>
+        <boxGeometry args={[DOOR_WIDTH + 1.15, 0.1, 0.92]} />
+        <meshStandardMaterial color={building.accent} roughness={0.7} />
+      </mesh>
+      <ProximityHtml position={[0, wallH + 0.28, halfD + 0.23]} radius={9} distanceFactor={12}>
         <div className="world-building-sign">{building.emoji} {building.name}</div>
-      </Html>
+      </ProximityHtml>
 
       {facadeWindows.length > 0
         ? facadeWindows.map((window, index) => (
@@ -292,7 +321,7 @@ function EnterableBuilding({
       {/* Warm "lights on" glow when open — an emissive panel instead of a real
           pointLight, so opening every door doesn't stack N real-time lights. */}
       {open && (
-        <mesh position={[0, WALL_HEIGHT - 0.18, 0]}>
+        <mesh position={[0, wallH - 0.18, 0]}>
           <boxGeometry args={[WIDTH - 0.7, 0.08, DEPTH - 0.7]} />
           <meshStandardMaterial
             color="#fff3d2"
@@ -302,15 +331,41 @@ function EnterableBuilding({
           />
         </mesh>
       )}
+      {/* Structural roof slab — camera-ignored + fades to a cutaway when the door
+          opens so you can see inside. Coloured to match the decorative roof. */}
       <mesh
-        position={[0, WALL_HEIGHT + 0.1, 0]}
+        position={[0, wallH + 0.1, 0]}
         castShadow={shadows}
         receiveShadow
         userData={{ cameraIgnore: true }}
       >
         <boxGeometry args={[WIDTH + 0.28, 0.2, DEPTH + 0.28]} />
-        <meshStandardMaterial color="#4f5661" transparent opacity={open ? 0.16 : 1} depthWrite={!open} />
+        <meshStandardMaterial color={roofColor} transparent opacity={open ? 0.16 : 1} depthWrite={!open} />
       </mesh>
+      {/* Decorative roof — a hipped peak or a flat parapet, hidden while open so
+          it never blocks the cutaway interior view. */}
+      {variety.roof === "hip" ? (
+        <mesh
+          position={[0, wallH + 1.05, 0]}
+          rotation={[0, Math.PI / 4, 0]}
+          visible={!open}
+          castShadow={shadows}
+          userData={{ cameraIgnore: true }}
+        >
+          <coneGeometry args={[WIDTH * 0.74, 1.7, 4]} />
+          <meshStandardMaterial color={roofColor} roughness={1} flatShading />
+        </mesh>
+      ) : (
+        <mesh
+          position={[0, wallH + 0.42, 0]}
+          visible={!open}
+          castShadow={shadows}
+          userData={{ cameraIgnore: true }}
+        >
+          <boxGeometry args={[WIDTH + 0.42, 0.52, DEPTH + 0.42]} />
+          <meshStandardMaterial color={roofColor} roughness={1} />
+        </mesh>
+      )}
       <mesh position={[0, 1.15, halfD + 0.02]}><boxGeometry args={[DOOR_WIDTH + 0.35, 2.45, 0.05]} /><meshBasicMaterial color={building.accent} transparent opacity={open ? 0.16 : 0} depthWrite={false} /></mesh>
     </group>
   );
@@ -365,8 +420,8 @@ export function CityBuildings({ openDoors, shadows }: { openDoors: ReadonlySet<s
 
   return (
     <group>
-      {CITY_BUILDINGS.map((building) => (
-        <EnterableBuilding key={building.id} building={building} open={openDoors.has(building.id)} kit={kit} shadows={shadows} />
+      {CITY_BUILDINGS.map((building, index) => (
+        <EnterableBuilding key={building.id} building={building} index={index} open={openDoors.has(building.id)} kit={kit} shadows={shadows} />
       ))}
     </group>
   );

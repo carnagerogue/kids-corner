@@ -65,6 +65,9 @@ import {
 } from "./WorldContent";
 import { Weather } from "./Weather";
 import { Minimap } from "./Minimap";
+import { TownGround } from "./TownGround";
+import { Skyline } from "./Skyline";
+import { WORLD_PLAYER } from "./worldLabels";
 import {
   ACADEMY_QUESTS,
   academyById,
@@ -405,9 +408,7 @@ function PreloadedMap({ map }: { map: WorldMapDef }) {
   );
 }
 
-// --- Suburb: a grid town assembled from a CC0 road kit + house/tree props ----
-const TILE = 8; // world size of one road tile (≈5 avatar-widths, a 2-lane road)
-const GRID = 7; // 7×7 cells → 56×56-unit neighbourhood
+// --- Town: a cohesive paved town (TownGround) dressed with CC0 props ---------
 
 const LANDMARK_COLLIDERS = [
   { x: -8, z: -8, r: 2.15 },
@@ -547,6 +548,8 @@ function SuburbTown({
   const [src, setSrc] = useState<{
     road: (n: string) => THREE.Object3D | undefined;
     bench: THREE.Object3D;
+    tree: THREE.Object3D;
+    bush: THREE.Object3D;
   } | null>(null);
 
   useEffect(() => {
@@ -556,9 +559,11 @@ function SuburbTown({
     Promise.all([
       L("/assets/world/road-kit.glb"),
       L("/assets/world/bench.glb"),
+      L("/assets/world/tree.glb"),
+      L("/assets/world/flowerbush.glb"),
     ])
-      .then(([rk, bn]) => {
-        loaded = [rk.scene, bn.scene];
+      .then(([rk, bn, tr, fb]) => {
+        loaded = [rk.scene, bn.scene, tr.scene, fb.scene];
         if (!alive) {
           loaded.forEach(disposeObject3D);
           return;
@@ -571,6 +576,8 @@ function SuburbTown({
         setSrc({
           road: (n) => named.get(n),
           bench: bn.scene,
+          tree: tr.scene,
+          bush: fb.scene,
         });
       })
       .catch(() => {});
@@ -585,52 +592,72 @@ function SuburbTown({
   const placed = useMemo<Placed[]>(() => {
     if (!src) return [];
     const out: Placed[] = [];
-    const off = ((GRID - 1) / 2) * TILE; // recenter grid on origin
-    const cellX = (c: number) => c * TILE - off;
-    const cellZ = (r: number) => r * TILE - off;
-    const isRoad = (i: number) => i % 2 === 1; // streets on odd rows/cols
-    const reservedLots = new Set(["-8,-8", "8,-8", "8,8", "-8,8"]);
+    const lamp = () => fit(src.road("light_square"), { height: 4.6 });
+    const bench = () => fit(src.bench, { footprint: 1.9 });
 
-    for (let c = 0; c < GRID; c++) {
-      for (let r = 0; r < GRID; r++) {
-        const x = cellX(c);
-        const z = cellZ(r);
-        const roadC = isRoad(c);
-        const roadR = isRoad(r);
-        if (roadC && roadR) {
-          // Lined 4-way intersection.
-          const t = fit(src.road("road_crossroadLine"), {
-            footprint: TILE,
-            flat: true,
-          });
-          if (t) out.push({ obj: t, x, z, rot: 0 });
-        } else if (roadC || roadR) {
-          // Straight road with painted lane lines.
-          const t = fit(src.road("road_square"), { footprint: TILE, flat: true });
-          if (t) out.push({ obj: t, x, z, rot: roadR ? Math.PI / 2 : 0 });
-        } else {
-          // Four lots are gameplay spaces: three landmarks and the kid's yard.
-          if (reservedLots.has(`${x},${z}`)) continue;
-          // Enterable buildings are rendered separately so their doors and
-          // cutaway roofs can animate. Keep this pass for roads/street props.
+    // Lamps ringing the central plaza (face inward toward the fountain).
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
+      const l = lamp();
+      if (l) out.push({ obj: l, x: Math.cos(a) * 9.9, z: Math.sin(a) * 9.9, rot: a });
+    }
+    // Lamps marching out along the four avenues, both kerbs.
+    for (const a of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+      const dx = Math.cos(a);
+      const dz = Math.sin(a);
+      const px = -dz;
+      const pz = dx;
+      for (const along of [13, 18]) {
+        for (const side of [-1, 1]) {
+          const l = lamp();
+          if (l)
+            out.push({
+              obj: l,
+              x: dx * along + px * side * 4.0,
+              z: dz * along + pz * side * 4.0,
+              rot: a,
+            });
         }
       }
     }
-    // Lamp posts + benches along the streets: one at a corner of every
-    // intersection cell.
-    for (let c = 0; c < GRID; c++) {
-      for (let r = 0; r < GRID; r++) {
-        if (!(isRoad(c) && isRoad(r))) continue;
-        const x = cellX(c);
-        const z = cellZ(r);
-        const lamp = fit(src.road("light_square"), { height: 4.6 });
-        if (lamp)
-          out.push({ obj: lamp, x: x + 3.7, z: z + 3.7, rot: Math.PI });
-        if ((c + r) % 4 === 0) {
-          const bench = fit(src.bench, { footprint: 1.9 });
-          if (bench) out.push({ obj: bench, x: x - 3.6, z: z + 3.7, rot: 0 });
+    // Benches at the plaza edge, facing the fountain.
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      const b = bench();
+      if (b) out.push({ obj: b, x: Math.cos(a) * 8.2, z: Math.sin(a) * 8.2, rot: a + Math.PI });
+    }
+    // Tree-lined avenues: a row of trees on the grass either side of each avenue.
+    let seed = 0;
+    const tree = (h: number) => fit(src.tree, { height: h });
+    for (const a of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+      const dx = Math.cos(a);
+      const dz = Math.sin(a);
+      const px = -dz;
+      const pz = dx;
+      for (const along of [11.5, 15.5, 19.5]) {
+        for (const side of [-1, 1]) {
+          seed++;
+          const t = tree(3.2 + (seed % 3) * 0.4);
+          if (t)
+            out.push({
+              obj: t,
+              x: dx * along + px * side * 4.7,
+              z: dz * along + pz * side * 4.7,
+              rot: seed * 1.3,
+            });
         }
       }
+    }
+    // Trees + flowering bushes ringing the plaza, tucked between the lamps.
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const t = tree(3 + (i % 2) * 0.5);
+      if (t) out.push({ obj: t, x: Math.cos(a) * 10.6, z: Math.sin(a) * 10.6, rot: i });
+    }
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + 0.4;
+      const b = fit(src.bush, { footprint: 1.5 });
+      if (b) out.push({ obj: b, x: Math.cos(a) * 7.6, z: Math.sin(a) * 7.6, rot: i * 2.1 });
     }
     return out;
   }, [src]);
@@ -654,6 +681,8 @@ function SuburbTown({
 
   return (
     <group ref={groupRef}>
+      <TownGround />
+      <Skyline />
       <primitive object={instancedTown} />
       <DowntownSkyline quality={quality} shadows={shadows} />
       <CityBuildings openDoors={openDoors} shadows={shadows} />
@@ -1133,6 +1162,9 @@ function Rig({
       updateSelf({ x: s.x, z: s.z, heading: s.heading, moving: false }, true);
     }
     s.moving = moving;
+    // Publish the player position for proximity labels (cheap, once per frame).
+    WORLD_PLAYER.x = s.x;
+    WORLD_PLAYER.z = s.z;
     // Jump arc — integrates independently of horizontal movement so you can
     // hop while walking or standing still. Lands (and zeroes out) at y=0.
     if (jumpVel.current !== 0 || (s.y ?? 0) > 0) {

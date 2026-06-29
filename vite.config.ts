@@ -10,5 +10,8 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: true,
     open: false,
+    // Honour a PORT assigned by the tooling (falls back to Vite's default 5173
+    // for a plain `npm run dev`).
+    port: Number(process.env.PORT) || 5173,
   },
 }));

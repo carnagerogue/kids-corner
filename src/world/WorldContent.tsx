@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Html } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
+import { ProximityHtml } from "./worldLabels";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { resolveAssetUrl } from "../features/avatar/AvatarManifest";
@@ -103,7 +103,7 @@ export function LivingSky({
       />
       <ambientLight intensity={0.14} />
       <mesh ref={ground} receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.035, 0]}>
-        <circleGeometry args={[45, 64]} />
+        <circleGeometry args={[62, 72]} />
         <meshStandardMaterial color="#83c267" roughness={1} />
       </mesh>
     </>
@@ -125,11 +125,11 @@ function LandmarkSign({ name, emoji, color }: { name: string; emoji: string; col
         <cylinderGeometry args={[0.09, 0.12, 1.1, 8]} />
         <meshStandardMaterial color="#6f482e" />
       </mesh>
-      <Html position={[0, 0.72, 0.1]} center distanceFactor={11} occlude={false} zIndexRange={[12, 0]}>
+      <ProximityHtml position={[0, 0.72, 0.1]} radius={7.5} distanceFactor={11}>
         <div className="world-sign" style={{ borderColor: color }}>
           {emoji} {name}
         </div>
-      </Html>
+      </ProximityHtml>
     </group>
   );
 }
@@ -359,9 +359,9 @@ function NpcAvatar({
         <circleGeometry args={[0.46, 24]} />
         <meshBasicMaterial color="#253646" transparent opacity={0.18} depthWrite={false} />
       </mesh>
-      <Html position={[0, 1.9, 0]} center distanceFactor={10} occlude={false} zIndexRange={[12, 0]}>
+      <ProximityHtml position={[0, 1.9, 0]} radius={6.5} distanceFactor={10}>
         <div className="world-npc-tag">{emoji} {name}</div>
-      </Html>
+      </ProximityHtml>
     </group>
   );
 }
@@ -558,12 +558,12 @@ function WorldCreature({
         <ringGeometry args={[size + 0.2, size + 0.45, 28]} />
         <meshBasicMaterial color={tint} transparent opacity={0.35} />
       </mesh>
-      <Html position={[0, creature.position[1] + 0.95, 0]} center distanceFactor={11} occlude={false} zIndexRange={[12, 0]}>
+      <ProximityHtml position={[0, creature.position[1] + 0.95, 0]} radius={6.5} distanceFactor={11}>
         <div className="world-creature-tag" style={{ borderColor: tint }}>
           {locked ? "🔒" : creature.emoji} {creature.name}
           {locked ? ` · Lv ${creature.unlockLevel}` : badge}
         </div>
-      </Html>
+      </ProximityHtml>
     </group>
   );
 }
@@ -668,17 +668,15 @@ export function ChampionsRing({ unlocked }: { unlocked: boolean }) {
           opacity={0.5}
         />
       </mesh>
-      <Html
+      <ProximityHtml
         position={[0, 3.2, -CHAMPIONS_RING.radius + 1.2]}
-        center
-        distanceFactor={3.5}
-        occlude={false}
-        zIndexRange={[12, 0]}
+        radius={9}
+        distanceFactor={13}
       >
         <div className="world-ring-sign">
           🏆 Champions&apos; Ring{unlocked ? "" : ` · Lv ${CHAMPIONS_RING.unlockLevel}+`}
         </div>
-      </Html>
+      </ProximityHtml>
     </group>
   );
 }
