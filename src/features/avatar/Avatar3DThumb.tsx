@@ -67,6 +67,36 @@ function writeCache(kidId: string, s: string, data: string | null) {
   }
 }
 
+// In-flight renders, so a kid shown in several thumbnails at once (top bar +
+// home card + …) loads + renders their VRM ONCE, not once per spot.
+const inflight = new Map<string, Promise<string | null>>();
+
+function getThumbnail(
+  kidId: string,
+  s: string,
+  loadout: Loadout3D,
+): Promise<string | null> {
+  const cached = readCache(kidId, s);
+  if (cached !== undefined) return Promise.resolve(cached);
+  const flightKey = kidId + ":" + s;
+  let p = inflight.get(flightKey);
+  if (!p) {
+    p = import("../../world/avatarThumbnail")
+      .then((m) => m.renderAvatarThumbnail(kidId, loadout))
+      .then((data) => {
+        writeCache(kidId, s, data);
+        return data;
+      })
+      .catch(() => {
+        writeCache(kidId, s, null);
+        return null;
+      })
+      .finally(() => inflight.delete(flightKey));
+    inflight.set(flightKey, p);
+  }
+  return p;
+}
+
 export function Avatar3DThumb({
   kidId,
   size = 42,
@@ -101,16 +131,9 @@ export function Avatar3DThumb({
     // rapidly; wait for it to settle so we render the final look once, not every
     // intermediate try-on.
     const timer = window.setTimeout(() => {
-      import("../../world/avatarThumbnail")
-        .then((m) => m.renderAvatarThumbnail(kidId, loadout))
-        .then((data) => {
-          writeCache(kidId, s, data);
-          if (alive) setSrc(data);
-        })
-        .catch(() => {
-          writeCache(kidId, s, null);
-          if (alive) setSrc(null);
-        });
+      getThumbnail(kidId, s, loadout).then((data) => {
+        if (alive) setSrc(data);
+      });
     }, 700);
     return () => {
       alive = false;

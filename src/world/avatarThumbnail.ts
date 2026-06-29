@@ -32,6 +32,22 @@ export function renderAvatarThumbnail(
   return run.catch(() => null);
 }
 
+/** Did the render actually draw the avatar? Reads back the framebuffer alpha;
+ * a head-and-shoulders shot covers a big fraction of the frame, so a near-empty
+ * one (blank / off-frame) is rejected. */
+function hasDrawnContent(renderer: THREE.WebGLRenderer): boolean {
+  try {
+    const gl = renderer.getContext();
+    const px = new Uint8Array(SIZE * SIZE * 4);
+    gl.readPixels(0, 0, SIZE, SIZE, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    let opaque = 0;
+    for (let i = 3; i < px.length; i += 4) if (px[i] > 16) opaque++;
+    return opaque > SIZE * SIZE * 0.02; // >2% of pixels drew something
+  } catch {
+    return true; // can't read back → assume the render is fine
+  }
+}
+
 async function doRender(
   kidId: string,
   loadout: Loadout3D,
@@ -88,6 +104,9 @@ async function doRender(
     cam.lookAt(0, headY - 0.04, 0);
 
     renderer.render(scene, cam);
+    // Reject a blank capture (model failed to draw / ended up off-frame) so we
+    // never cache an empty image — the caller falls back to the emoji chip.
+    if (!hasDrawnContent(renderer)) return null;
     const data = canvas.toDataURL("image/png");
     return data && data.length > 256 ? data : null;
   } catch {
