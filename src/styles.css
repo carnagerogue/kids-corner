@@ -230,9 +230,8 @@ button {
   box-shadow:
     0 16px 34px -24px rgba(31, 16, 56, 0.42),
     inset 0 1px 0 rgba(255, 255, 255, 0.68);
-  overflow-x: auto;
+  overflow: hidden;
   scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
 }
 .tabs::-webkit-scrollbar {
   display: none;
@@ -286,6 +285,27 @@ button {
 .tabs__label {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+@media (max-width: 1180px) {
+  .tabs {
+    gap: 3px;
+    padding: 6px;
+  }
+  .tabs__btn {
+    flex: 1 1 0;
+    padding: 10px 9px;
+  }
+  .tabs__label {
+    display: none;
+  }
+  .tabs__btn.is-active {
+    flex-grow: 1.65;
+    padding-inline: 12px;
+  }
+  .tabs__btn.is-active .tabs__label {
+    display: inline;
+  }
 }
 
 /* --- Grown-ups sub-navigation ---------------------------------------------*/
@@ -3039,14 +3059,27 @@ button {
   .crew {
     grid-template-columns: 1fr;
   }
-  .tabs__label {
-    display: none;
+  .tabs {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 5px;
+    border-radius: 24px;
   }
   .tabs__btn {
-    padding: 12px;
+    width: 100%;
+    min-height: 42px;
+    padding: 9px 6px;
+  }
+  .tabs__btn.is-active {
+    flex-grow: initial;
+    padding-inline: 6px;
+  }
+  .tabs__btn.is-active .tabs__label {
+    display: none;
   }
   .tabs__emoji {
-    font-size: 1.4rem;
+    width: auto;
+    font-size: 1.25rem;
   }
   .rankcard__quickstats {
     margin-left: 0;
