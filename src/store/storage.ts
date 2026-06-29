@@ -2,7 +2,6 @@ import type {
   ActivityIdea,
   Announcement,
   AppState,
-  AvatarConfig,
   ChoreAssignment,
   FamilyGoal,
   Loadout3D,
@@ -205,7 +204,6 @@ export function defaultState(): AppState {
     coinsBonus: {},
     lastSpin: {},
     ownedGear: {},
-    avatar: {},
     avatar3d: {},
     loadouts3d: {},
     purchasesLocked: {},
@@ -279,7 +277,6 @@ export function loadState(): AppState {
     const coinsBonus: Record<KidId, number> = {};
     const lastSpin: Record<KidId, string> = {};
     const ownedGear: Record<KidId, string[]> = {};
-    const avatar: Record<KidId, AvatarConfig> = {};
     const avatar3d: Record<KidId, Loadout3D> = {};
     const loadouts3d: Record<KidId, SavedLoadout3D[]> = {};
     const purchasesLocked: Record<KidId, boolean> = {};
@@ -335,10 +332,6 @@ export function loadState(): AppState {
       ownedGear[id] = Array.isArray(owned)
         ? (owned as unknown[]).filter((x): x is string => typeof x === "string")
         : [];
-
-      const av = (parsed.avatar as Record<string, unknown> | undefined)?.[id];
-      avatar[id] =
-        av && typeof av === "object" ? (av as AvatarConfig) : {};
 
       const av3 = (parsed.avatar3d as Record<string, unknown> | undefined)?.[id];
       avatar3d[id] =
@@ -442,7 +435,6 @@ export function loadState(): AppState {
       coinsBonus,
       lastSpin,
       ownedGear,
-      avatar,
       avatar3d,
       loadouts3d,
       purchasesLocked,

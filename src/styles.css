@@ -774,53 +774,6 @@ button {
 /* ===========================================================================
    Avatar — chibi character + Studio game-shop
    =========================================================================== */
-.avatar {
-  display: block;
-  overflow: visible;
-}
-.avatar--live .av-breathe {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  animation: av-breathe 3.8s ease-in-out infinite;
-}
-@keyframes av-breathe {
-  0%, 100% { transform: translateY(0) scaleY(1); }
-  50% { transform: translateY(-2px) scaleY(1.015); }
-}
-.avatar--live .av-head {
-  transform-box: fill-box;
-  transform-origin: 50% 95%;
-  animation: av-tilt 7s ease-in-out infinite;
-}
-@keyframes av-tilt {
-  0%, 100% { transform: rotate(0deg); }
-  30% { transform: rotate(2.2deg); }
-  70% { transform: rotate(-2.2deg); }
-}
-.avatar--live .av-eyes {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: av-blink 5.2s infinite;
-}
-@keyframes av-blink {
-  0%, 93%, 100% { transform: scaleY(1); }
-  96% { transform: scaleY(0.08); }
-}
-.avatar--live .av-pet {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  animation: av-petbob 2.6s ease-in-out infinite;
-}
-@keyframes av-petbob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-7px); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .avatar--live .av-breathe,
-  .avatar--live .av-head,
-  .avatar--live .av-eyes,
-  .avatar--live .av-pet { animation: none; }
-}
 
 /* --- Studio layout --------------------------------------------------------*/
 .studio2 {
@@ -1079,7 +1032,6 @@ button {
   overflow: hidden;
   background: rgba(0, 0, 0, 0.2);
 }
-.cosmo__art .avatar { width: 100%; height: 100%; }
 .cosmo__equipped {
   position: absolute;
   top: 6px;
@@ -1267,7 +1219,6 @@ button {
   overflow: hidden;
   box-shadow: var(--shadow-sm);
 }
-.reveal__art .avatar { display: block; width: 130px; height: 130px; }
 
 /* --- Announcements --------------------------------------------------------*/
 .announce {

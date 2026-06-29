@@ -12,10 +12,8 @@ import type {
   AppState,
   Avatar3DBuyInfo,
   Avatar3DSlot,
-  AvatarConfig,
   ChoreAssignment,
   FamilyGoal,
-  GearSlot,
   Kid,
   KidId,
   Loadout3D,
@@ -46,7 +44,6 @@ export type SyncConfig = {
   coinsBonus: Record<string, number>;
   lastSpin: Record<string, string>;
   ownedGear: Record<string, string[]>;
-  avatar: Record<string, AvatarConfig>;
   avatar3d: Record<string, Loadout3D>;
   loadouts3d: Record<string, SavedLoadout3D[]>;
   purchasesLocked: Record<string, boolean>;
@@ -70,10 +67,9 @@ import {
   coinBalance,
   computeStats,
   getKidXp,
-  ownsGear,
 } from "./selectors";
 import { BADGES } from "../data/badges";
-import { GEAR_BY_ID, SPIN_COST } from "../data/avatar";
+import { SPIN_COST } from "../data/avatar";
 import { getLevelInfo } from "../data/levels";
 import { makeKid } from "../data/kids";
 import { DEFAULT_NEW_KID_APPS } from "../data/applications";
@@ -116,8 +112,6 @@ export type Action =
   | { type: "ADD_CUSTOM_ACTIVITY"; activity: ActivityIdea }
   | { type: "REMOVE_CUSTOM_ACTIVITY"; activityId: string }
   | { type: "SET_ACTIVITY_IMAGE"; activityId: string; image: string | null }
-  | { type: "BUY_GEAR"; kidId: KidId; gearId: string }
-  | { type: "EQUIP_GEAR"; kidId: KidId; slot: GearSlot; gearId: string }
   // --- 3D avatar actions (reuse the same coin ledger) ---
   | { type: "BUY_AVATAR_ITEM"; kidId: KidId; item: Avatar3DBuyInfo }
   | {
@@ -476,56 +470,6 @@ function reducer(state: AppState, action: Action): AppState {
         activityImages: {
           ...state.activityImages,
           [action.activityId]: action.image,
-        },
-      };
-    }
-
-    case "BUY_GEAR": {
-      const item = GEAR_BY_ID[action.gearId];
-      if (!item || item.price <= 0) return state;
-      if (ownsGear(state, action.kidId, action.gearId)) return state;
-      // Enforce affordability and any level requirement.
-      if (coinBalance(state, action.kidId) < item.price) return state;
-      if (
-        item.levelReq &&
-        getLevelInfo(getKidXp(state, action.kidId)).rank.level < item.levelReq
-      ) {
-        return state;
-      }
-      const owned = state.ownedGear[action.kidId] ?? [];
-      return {
-        ...state,
-        coinsSpent: {
-          ...state.coinsSpent,
-          [action.kidId]: (state.coinsSpent[action.kidId] ?? 0) + item.price,
-        },
-        ownedGear: {
-          ...state.ownedGear,
-          [action.kidId]: [...owned, action.gearId],
-        },
-        // Auto-equip the freshly bought piece.
-        avatar: {
-          ...state.avatar,
-          [action.kidId]: {
-            ...(state.avatar[action.kidId] ?? {}),
-            [item.slot]: action.gearId,
-          },
-        },
-      };
-    }
-
-    case "EQUIP_GEAR": {
-      const item = GEAR_BY_ID[action.gearId];
-      if (!item || item.slot !== action.slot) return state;
-      if (!ownsGear(state, action.kidId, action.gearId)) return state;
-      return {
-        ...state,
-        avatar: {
-          ...state.avatar,
-          [action.kidId]: {
-            ...(state.avatar[action.kidId] ?? {}),
-            [action.slot]: action.gearId,
-          },
         },
       };
     }
@@ -923,7 +867,6 @@ function reducer(state: AppState, action: Action): AppState {
       const coinsBonus: Record<string, number> = {};
       const lastSpin: Record<string, string> = {};
       const ownedGear: Record<string, string[]> = {};
-      const avatar: Record<string, AvatarConfig> = {};
       const avatar3d: Record<string, Loadout3D> = {};
       const loadouts3d: Record<string, SavedLoadout3D[]> = {};
       const purchasesLocked: Record<string, boolean> = {};
@@ -937,7 +880,6 @@ function reducer(state: AppState, action: Action): AppState {
         coinsBonus[k.id] = pick(cfg.coinsBonus, state.coinsBonus, k.id, 0);
         lastSpin[k.id] = pick(cfg.lastSpin, state.lastSpin, k.id, "");
         ownedGear[k.id] = pick(cfg.ownedGear, state.ownedGear, k.id, []);
-        avatar[k.id] = pick(cfg.avatar, state.avatar, k.id, {});
         avatar3d[k.id] = pick(cfg.avatar3d, state.avatar3d, k.id, {});
         loadouts3d[k.id] = pick(cfg.loadouts3d, state.loadouts3d, k.id, []);
         purchasesLocked[k.id] = pick(
@@ -997,7 +939,6 @@ function reducer(state: AppState, action: Action): AppState {
         coinsBonus,
         lastSpin,
         ownedGear,
-        avatar,
         avatar3d,
         loadouts3d,
         purchasesLocked,
@@ -1087,7 +1028,6 @@ function reducer(state: AppState, action: Action): AppState {
         coinsBonus: { ...state.coinsBonus, [id]: 0 },
         lastSpin: { ...state.lastSpin, [id]: "" },
         ownedGear: { ...state.ownedGear, [id]: [] },
-        avatar: { ...state.avatar, [id]: {} },
       };
     }
 
@@ -1111,7 +1051,6 @@ function reducer(state: AppState, action: Action): AppState {
         coinsBonus: omitKey(state.coinsBonus, action.kidId),
         lastSpin: omitKey(state.lastSpin, action.kidId),
         ownedGear: omitKey(state.ownedGear, action.kidId),
-        avatar: omitKey(state.avatar, action.kidId),
         submissions: state.submissions.filter((s) => s.kidId !== action.kidId),
         choreAssignments: state.choreAssignments.filter(
           (c) => c.kidId !== action.kidId,

@@ -28,53 +28,16 @@ export type Kid = {
   motto: string;
 };
 
-// --- Avatar dress-up ------------------------------------------------------
+// --- Avatar -----------------------------------------------------------------
 
-/** The customizable layers of a kid's chibi avatar. */
-export type GearSlot =
-  | "bodyType"
-  | "skin"
-  | "hair"
-  | "hairColor"
-  | "eyeShape"
-  | "eyeColor"
-  | "face"
-  | "outfit"
-  | "hat"
-  | "accessory"
-  | "pet"
-  | "scene";
-
-/** Which gear item id is equipped in each slot (missing = the free default). */
-export type AvatarConfig = Partial<Record<GearSlot, string>>;
-
-/** Collectible tiers, cheap → showstopper. */
+/** Collectible tiers, cheap → showstopper (shared by the 3D avatar catalog). */
 export type Rarity = "common" | "rare" | "epic" | "legendary";
 
-/** A buyable/equippable avatar piece (see data/avatar.tsx). */
-export type GearItem = {
-  id: string;
-  slot: GearSlot;
-  name: string;
-  /** Coins to unlock. 0 = free default (always owned). */
-  price: number;
-  /** Hidden in the shop until the kid reaches this level. */
-  levelReq?: number;
-  /** Collectible tier (drives the card's frame + label). */
-  rarity?: Rarity;
-  /**
-   * Slot-specific value used by the renderer: a CSS color for skin/hairColor,
-   * or a style/key string the layer renderers switch on. Empty = nothing.
-   */
-  value: string;
-};
-
 // --- 3D avatar (VRoid/VRM-compatible game layer) --------------------------
-// A richer, manifest-driven cosmetic system that renders in Three.js. It reuses
-// the SAME coin economy as the 2D gear above (ownedGear + coinsSpent), so coins
-// stay unified. See src/features/avatar/ and public/assets/avatar/.
+// A manifest-driven cosmetic system that renders in Three.js. Coins are unified
+// (ownedGear + coinsSpent). See src/features/avatar/ and public/assets/avatar/.
 
-/** Cosmetic slots of the 3D avatar (a superset of the 2D GearSlots). */
+/** Cosmetic slots of the 3D avatar. */
 export type Avatar3DSlot =
   | "base"
   | "skinTone"
@@ -381,8 +344,6 @@ export type AppState = {
   lastSpin: Record<KidId, string>;
   /** Gear item ids each kid has unlocked (free defaults are always owned). */
   ownedGear: Record<KidId, string[]>;
-  /** Each kid's currently equipped avatar gear, per slot. */
-  avatar: Record<KidId, AvatarConfig>;
   /** Each kid's equipped 3D/VRM avatar loadout (manifest item ids per slot). */
   avatar3d: Record<KidId, Loadout3D>;
   /** Each kid's saved 3D outfit presets (School Mode, Space Mode, …). */

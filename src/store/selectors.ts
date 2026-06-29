@@ -3,7 +3,6 @@ import type {
   ActivityIdea,
   Announcement,
   AppState,
-  AvatarConfig,
   ChoreAssignment,
   DayProgress,
   Kid,
@@ -20,11 +19,7 @@ import { ACTIVITY_BY_ID, CATEGORY_ORDER, CHORES } from "../data/activities";
 import { APP_CATALOG, type CatalogApp } from "../data/applications";
 import { RESOURCES, type Resource } from "../data/resources";
 import { defaultSchedules } from "../data/schedule";
-import {
-  GEAR_BY_ID,
-  STARTER_COINS,
-  defaultAvatarConfig,
-} from "../data/avatar";
+import { STARTER_COINS } from "../data/avatar";
 import { todayKey } from "./storage";
 
 // --- Kid roster -----------------------------------------------------------
@@ -188,28 +183,6 @@ export function canSpinFree(state: AppState, kidId: KidId): boolean {
 /** Spendable coin balance (earned minus what's been spent in the shop). */
 export function coinBalance(state: AppState, kidId: KidId): number {
   return Math.max(0, coinsEarned(state, kidId) - (state.coinsSpent?.[kidId] ?? 0));
-}
-
-/** Has this kid unlocked a gear item? (Free defaults are always owned.) */
-export function ownsGear(state: AppState, kidId: KidId, gearId: string): boolean {
-  const item = GEAR_BY_ID[gearId];
-  if (!item) return false;
-  if (item.price === 0) return true;
-  return (state.ownedGear?.[kidId] ?? []).includes(gearId);
-}
-
-/** The kid's equipped gear, defaults filling empty slots. Saved ids that
- * aren't valid for the current catalog (e.g. from an older avatar version)
- * are ignored so the premium defaults still show. */
-export function equippedAvatar(state: AppState, kidId: KidId): AvatarConfig {
-  const out: AvatarConfig = { ...defaultAvatarConfig() };
-  const saved = state.avatar?.[kidId] ?? {};
-  for (const key of Object.keys(saved) as (keyof AvatarConfig)[]) {
-    const id = saved[key];
-    const gear = id ? GEAR_BY_ID[id] : undefined;
-    if (gear && gear.slot === key) out[key] = id;
-  }
-  return out;
 }
 
 /** Status of a given task for a kid on a given day (latest submission wins). */
