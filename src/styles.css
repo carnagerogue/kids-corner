@@ -1484,7 +1484,7 @@ button {
   font-weight: 700;
 }
 .wallview {
-  max-width: 1120px;
+  max-width: 1180px;
   margin-inline: auto;
 }
 .wallview__header {
@@ -1555,6 +1555,140 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+.socialshell {
+  display: grid;
+  grid-template-columns: minmax(240px, 310px) minmax(0, 620px);
+  align-items: start;
+  justify-content: center;
+  gap: 24px;
+}
+.socialshell__friends {
+  position: sticky;
+  top: 14px;
+}
+.socialshell__feed {
+  min-width: 0;
+}
+.wallfeed {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding-bottom: 24px;
+}
+.wallfeed--locked {
+  gap: 14px;
+}
+.wallpost {
+  border: 2px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.wallpost__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+}
+.wallpost__avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 2px solid var(--this-kid, var(--kid));
+  flex: none;
+}
+.wallpost__by {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.wallpost__by strong {
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+.wallpost__by span {
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+.wallpost__badge {
+  display: grid;
+  place-items: center;
+  margin-left: auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--kid-soft);
+  font-size: 1.15rem;
+}
+.wallpost__photo {
+  display: block;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  background: #000;
+  cursor: zoom-in;
+}
+.wallpost__photo img {
+  display: block;
+  width: 100%;
+  max-height: min(72vh, 680px);
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+}
+.wallpost__caption {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 14px 4px;
+}
+.wallpost__caption strong {
+  color: var(--ink);
+  font-size: 1rem;
+}
+.wallpost__caption span {
+  color: var(--ink-soft);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+.wallpost__reacts {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px 14px;
+  flex-wrap: wrap;
+}
+.wallpost--locked {
+  box-shadow: var(--shadow-sm);
+}
+.wallpost__lock {
+  display: grid;
+  place-items: center;
+  text-align: center;
+  gap: 5px;
+  min-height: 260px;
+  padding: 28px;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--paper-2) 80%, white),
+      color-mix(in srgb, var(--paper-2) 80%, white) 10px,
+      color-mix(in srgb, var(--line) 55%, white) 11px,
+      color-mix(in srgb, var(--line) 55%, white) 20px
+    );
+}
+.wallpost__lock > span {
+  font-size: 2.3rem;
+}
+.wallpost__lock strong {
+  color: var(--ink);
+}
+.wallpost__lock p {
+  max-width: 280px;
+  margin: 0;
+  color: var(--ink-soft);
+  font-weight: 800;
 }
 .wall {
   display: grid;
@@ -1699,6 +1833,34 @@ button {
   }
   .friendcard__actions .btn {
     flex: 1 1 120px;
+  }
+  .socialshell {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .socialshell__friends {
+    position: static;
+    width: 100%;
+  }
+  .friendgrid {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scroll-snap-type: x proximity;
+  }
+  .friendcard {
+    min-width: 230px;
+    scroll-snap-align: start;
+  }
+  .wallfeed {
+    gap: 18px;
+  }
+  .wallpost {
+    margin-inline: -2px;
+  }
+  .wallpost__photo img {
+    max-height: 76vh;
   }
 }
 

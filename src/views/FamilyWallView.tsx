@@ -127,27 +127,36 @@ function WallCard({ submission }: { submission: Submission }) {
   const me = state.activeKid;
   const kid = getKid(state, submission.kidId);
   const summary = reactionSummary(state, submission.id, me);
+  const when = new Date(submission.reviewedAt ?? submission.submittedAt).toLocaleDateString(
+    [],
+    { month: "short", day: "numeric" },
+  );
 
   return (
     <article
-      className="wallcard"
+      className="wallpost"
       style={{ ["--this-kid" as string]: kid.color }}
     >
+      <div className="wallpost__head">
+        <Avatar3DThumb kidId={kid.id} size={42} className="wallpost__avatar" />
+        <div className="wallpost__by">
+          <strong>{kid.firstName}</strong>
+          <span>{when} · approved mission</span>
+        </div>
+        <span className="wallpost__badge">{submission.emoji}</span>
+      </div>
       <button
-        className="wallcard__photo"
+        className="wallpost__photo"
         onClick={() => setZoom(true)}
         aria-label={`See ${kid.firstName}'s ${submission.title} bigger`}
       >
         <img src={submission.photo} alt={submission.title} loading="lazy" />
       </button>
-      <div className="wallcard__who">
-        <Avatar3DThumb kidId={kid.id} size={24} className="wallcard__av" />
-        <span className="wallcard__name">{kid.firstName}</span>
-        <span className="wallcard__task">
-          {submission.emoji} {submission.title}
-        </span>
+      <div className="wallpost__caption">
+        <strong>{submission.title}</strong>
+        <span>Cheer on finished work with a sticker.</span>
       </div>
-      <div className="wallcard__reacts">
+      <div className="wallpost__reacts">
         {summary.map((r) => (
           <button
             key={r.emoji}
@@ -184,12 +193,19 @@ function LockedCard({ submission }: { submission: Submission }) {
   const { state } = useApp();
   const kid = getKid(state, submission.kidId);
   return (
-    <article className="wallcard wallcard--locked">
-      <div className="wallcard__lock">🔒</div>
-      <div className="wallcard__who">
-        <Avatar3DThumb kidId={kid.id} size={24} className="wallcard__av" />
-        <span className="wallcard__name">{kid.firstName}</span>
-        <span className="wallcard__task">Private post · become friends to cheer</span>
+    <article className="wallpost wallpost--locked">
+      <div className="wallpost__head">
+        <Avatar3DThumb kidId={kid.id} size={42} className="wallpost__avatar" />
+        <div className="wallpost__by">
+          <strong>{kid.firstName}</strong>
+          <span>Private post</span>
+        </div>
+        <span className="wallpost__badge">🔒</span>
+      </div>
+      <div className="wallpost__lock">
+        <span>🔒</span>
+        <strong>Post locked</strong>
+        <p>Become friends before you can see or react to this work.</p>
       </div>
     </article>
   );
@@ -221,46 +237,52 @@ export function FamilyWallView({ onTab }: { onTab: (t: TabId) => void }) {
         <span>Posts, reactions, and kid-to-kid messages open after both kids accept.</span>
       </section>
 
-      <div className="section-row">
-        <h3 className="section-title">Friends</h3>
-        <span className="section-tag">ask first, cheer after</span>
-      </div>
-      <div className="friendgrid">
-        {others.map((kid) => (
-          <FriendAction key={kid.id} otherId={kid.id} onTab={onTab} />
-        ))}
-      </div>
-
-      <div className="section-row">
-        <h3 className="section-title">Cheer Feed</h3>
-        <span className="section-tag">visible to you</span>
-      </div>
-      {photos.length ? (
-        <div className="wall wall--page">
-          {photos.map((s) => (
-            <WallCard key={s.id} submission={s} />
-          ))}
-        </div>
-      ) : (
-        <div className="emptycard">
-          <strong>No visible posts yet</strong>
-          <span>Finish a mission or become friends to see cheer-worthy work here.</span>
-        </div>
-      )}
-
-      {locked.length > 0 && (
-        <>
+      <div className="socialshell">
+        <aside className="socialshell__friends" aria-label="Friend requests">
           <div className="section-row">
-            <h3 className="section-title">Private Posts</h3>
-            <span className="section-tag">locked until accepted</span>
+            <h3 className="section-title">Friends</h3>
+            <span className="section-tag">ask first</span>
           </div>
-          <div className="wall wall--locked">
-            {locked.map((s) => (
-              <LockedCard key={s.id} submission={s} />
+          <div className="friendgrid">
+            {others.map((kid) => (
+              <FriendAction key={kid.id} otherId={kid.id} onTab={onTab} />
             ))}
           </div>
-        </>
-      )}
+        </aside>
+
+        <section className="socialshell__feed" aria-label="Cheer Feed">
+          <div className="section-row">
+            <h3 className="section-title">Cheer Feed</h3>
+            <span className="section-tag">scroll the wall</span>
+          </div>
+          {photos.length ? (
+            <div className="wallfeed">
+              {photos.map((s) => (
+                <WallCard key={s.id} submission={s} />
+              ))}
+            </div>
+          ) : (
+            <div className="emptycard">
+              <strong>No visible posts yet</strong>
+              <span>Finish a mission or become friends to see cheer-worthy work here.</span>
+            </div>
+          )}
+
+          {locked.length > 0 && (
+            <>
+              <div className="section-row">
+                <h3 className="section-title">Private Posts</h3>
+                <span className="section-tag">locked until accepted</span>
+              </div>
+              <div className="wallfeed wallfeed--locked">
+                {locked.map((s) => (
+                  <LockedCard key={s.id} submission={s} />
+                ))}
+              </div>
+            </>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
