@@ -34,6 +34,9 @@ export type LoadedAvatar = {
   /** Advance idle animation + a procedural walk + spring bones. Pass whether the
    * avatar is moving this frame so the walk cycle eases in/out. */
   update: (dt: number, moving: boolean) => void;
+  /** Resolves once equipped accessories have finished attaching — a one-shot
+   * renderer (e.g. a thumbnail) awaits this so GLB hats/glasses aren't missed. */
+  accessoriesReady: Promise<void>;
   dispose: () => void;
 };
 
@@ -160,6 +163,7 @@ export async function loadAvatar(
       if (accessories) tickAccessories(accessories.animated, elapsed);
       vrm.update(dt); // bake normalized → raw + spring bones
     },
+    accessoriesReady: accessories?.ready ?? Promise.resolve(),
     dispose: () => {
       accessories?.dispose();
       mixer?.stopAllAction();

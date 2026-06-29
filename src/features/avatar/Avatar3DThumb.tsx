@@ -12,10 +12,14 @@ import { webglAvailable } from "./webgl";
 import { currentLoadout } from "./AvatarEconomy";
 import type { KidId, Loadout3D } from "../../types";
 
-// Cache: kid+loadout signature → PNG data URL. `null` means "rendered, but the
-// kid has no model" (so we keep the emoji and never retry). In memory for the
-// session + localStorage so a returning visitor sees the avatar instantly.
-const mem = new Map<string, string | null>();
+// Cache: ONE entry per kid, holding the current loadout's signature + its PNG
+// (`null` data = "rendered, but the kid has no model" — keep the emoji, no
+// retry). Keyed by kidId only, so a kid trying many outfits OVERWRITES their one
+// entry instead of minting a permanent PNG per combination — otherwise the cache
+// would grow unbounded and exhaust the localStorage quota shared with the app's
+// state save. Only the current look is ever displayed, so one entry is enough.
+type Entry = { sig: string; data: string | null };
+const mem = new Map<string, Entry>();
 const LS_PREFIX = "kids-corner:av3thumb:";
 
 /** Stable signature of the slots that change how the avatar looks. */
@@ -35,29 +39,31 @@ function sig(l: Loadout3D): string {
   ].join("|");
 }
 
-/** undefined = never rendered; string = image; null = no model (use fallback). */
-function readCache(key: string): string | null | undefined {
-  if (mem.has(key)) return mem.get(key);
-  try {
-    const v = localStorage.getItem(LS_PREFIX + key);
-    if (v) {
-      mem.set(key, v);
-      return v;
+/** undefined = no cached image for THIS look (render it); string = image;
+ * null = rendered but the kid has no model (use the emoji fallback). */
+function readCache(kidId: string, s: string): string | null | undefined {
+  let e = mem.get(kidId);
+  if (!e) {
+    try {
+      const raw = localStorage.getItem(LS_PREFIX + kidId);
+      if (raw) {
+        e = JSON.parse(raw) as Entry;
+        mem.set(kidId, e);
+      }
+    } catch {
+      /* private mode / bad JSON — fall through to a render */
     }
-  } catch {
-    /* private mode — fall through to a render */
   }
-  return undefined;
+  return e && e.sig === s ? e.data : undefined;
 }
 
-function writeCache(key: string, data: string | null) {
-  mem.set(key, data);
-  if (data) {
-    try {
-      localStorage.setItem(LS_PREFIX + key, data);
-    } catch {
-      /* storage full — the in-memory cache still serves this session */
-    }
+function writeCache(kidId: string, s: string, data: string | null) {
+  const e: Entry = { sig: s, data };
+  mem.set(kidId, e);
+  try {
+    localStorage.setItem(LS_PREFIX + kidId, JSON.stringify(e));
+  } catch {
+    /* storage full — the in-memory cache still serves this session */
   }
 }
 
@@ -73,12 +79,14 @@ export function Avatar3DThumb({
   const { state } = useApp();
   const kid = getKid(state, kidId);
   const loadout = currentLoadout(state, kidId);
-  const key = kidId + ":" + sig(loadout);
+  const s = sig(loadout);
 
-  const [src, setSrc] = useState<string | null | undefined>(() => readCache(key));
+  const [src, setSrc] = useState<string | null | undefined>(() =>
+    readCache(kidId, s),
+  );
 
   useEffect(() => {
-    const cached = readCache(key);
+    const cached = readCache(kidId, s);
     if (cached !== undefined) {
       setSrc(cached);
       return;
@@ -89,22 +97,28 @@ export function Avatar3DThumb({
     }
     let alive = true;
     setSrc(undefined); // show the emoji chip while the headshot renders
-    import("../../world/avatarThumbnail")
-      .then((m) => m.renderAvatarThumbnail(kidId, loadout))
-      .then((data) => {
-        writeCache(key, data);
-        if (alive) setSrc(data);
-      })
-      .catch(() => {
-        writeCache(key, null);
-        if (alive) setSrc(null);
-      });
+    // Debounce: trying on outfits in the Avatar Studio changes the loadout
+    // rapidly; wait for it to settle so we render the final look once, not every
+    // intermediate try-on.
+    const timer = window.setTimeout(() => {
+      import("../../world/avatarThumbnail")
+        .then((m) => m.renderAvatarThumbnail(kidId, loadout))
+        .then((data) => {
+          writeCache(kidId, s, data);
+          if (alive) setSrc(data);
+        })
+        .catch(() => {
+          writeCache(kidId, s, null);
+          if (alive) setSrc(null);
+        });
+    }, 700);
     return () => {
       alive = false;
+      window.clearTimeout(timer);
     };
-    // loadout is captured via `key` (its stable signature); see sig().
+    // loadout is captured via `s` (its stable signature); see sig().
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, kidId]);
+  }, [kidId, s]);
 
   if (src) {
     return (

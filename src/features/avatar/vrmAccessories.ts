@@ -43,9 +43,12 @@ export type AccessoryAnim = {
 
 /** Handle returned by attachAccessories: the per-frame animated props plus a
  * dispose() that removes + frees everything (also cancels any in-flight GLB
- * loads). `animated` is filled as accessories finish attaching. */
+ * loads). `animated` is filled as accessories finish attaching, and `ready`
+ * resolves once they're all attached (so a one-shot render — e.g. a thumbnail —
+ * can wait for them instead of capturing a bare model). */
 export type AttachedAccessories = {
   animated: AccessoryAnim[];
+  ready: Promise<void>;
   dispose: () => void;
 };
 
@@ -210,7 +213,7 @@ export function attachAccessories(
 
   const hb = headBind;
 
-  (async () => {
+  const attachPromise = (async () => {
     const slots = ["hat", "glasses", "backpack", "handheld", "pet", "aura"] as const;
     for (const slot of slots) {
       if (cancelled) break;
@@ -276,9 +279,15 @@ export function attachAccessories(
       }
     }
   })();
+  // Never rejects — every slot is guarded — so a one-shot renderer can await it.
+  const ready = attachPromise.then(
+    () => undefined,
+    () => undefined,
+  );
 
   return {
     animated,
+    ready,
     dispose: () => {
       cancelled = true;
       animated.length = 0;

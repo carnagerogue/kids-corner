@@ -45,6 +45,13 @@ async function doRender(
   let renderer: THREE.WebGLRenderer | null = null;
   try {
     loaded = await loadAvatar(url, loadout);
+    // Equipped accessories (hat/glasses/backpack/pet/aura) attach asynchronously
+    // from .glb files; wait for them before the single capture or they'd be
+    // missing. Cap the wait so one hung/broken asset can't block the thumbnail.
+    await Promise.race([
+      loaded.accessoriesReady,
+      new Promise<void>((res) => setTimeout(res, 4000)),
+    ]);
 
     const canvas = document.createElement("canvas");
     canvas.width = SIZE;
