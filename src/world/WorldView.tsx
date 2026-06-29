@@ -416,6 +416,14 @@ const LANDMARK_COLLIDERS = [
   { x: FOUNTAIN.x, z: FOUNTAIN.z, r: FOUNTAIN.r },
 ];
 
+// Two authored downtown buildings sit immediately behind the northern academy
+// lots. They are inside the roam bounds, so give them explicit lightweight
+// collision proxies instead of letting avatars walk through detailed meshes.
+const DOWNTOWN_COLLIDERS = [
+  { x: -8, z: -14.5, r: 3.05 },
+  { x: 8, z: -14.5, r: 3.05 },
+];
+
 function pushOutsideCollider(pose: Pose, col: { x: number; z: number; r: number }) {
   const ddx = pose.x - col.x;
   const ddz = pose.z - col.z;
@@ -661,14 +669,16 @@ type SkylinePlacement = {
 };
 
 const SKYLINE: SkylinePlacement[] = [
-  { model: "medium", position: [-34, 0, -21], rotation: Math.PI / 2, height: 12 },
-  { model: "large", position: [-34, 0, 2], rotation: Math.PI / 2, height: 14 },
-  { model: "medium", position: [-34, 0, 23], rotation: Math.PI / 2, height: 11 },
-  { model: "large", position: [-17, 0, -35], rotation: 0, height: 13 },
-  { model: "medium", position: [6, 0, -35], rotation: 0, height: 12 },
-  { model: "large", position: [34, 0, -20], rotation: -Math.PI / 2, height: 14 },
-  { model: "medium", position: [34, 0, 4], rotation: -Math.PI / 2, height: 11 },
-  { model: "large", position: [18, 0, 35], rotation: Math.PI, height: 13 },
+  // The first five placements frame the default north-facing spawn view, so
+  // even the low/iPad tier reads as a city instead of an empty plaza.
+  { model: "medium", position: [-8, 0, -14.5], rotation: 0, height: 9 },
+  { model: "medium", position: [8, 0, -14.5], rotation: 0, height: 9 },
+  { model: "large", position: [0, 0, -31], rotation: 0, height: 20 },
+  { model: "medium", position: [-31, 0, -8], rotation: Math.PI / 2, height: 16 },
+  { model: "large", position: [31, 0, -9], rotation: -Math.PI / 2, height: 18 },
+  { model: "medium", position: [-31, 0, 17], rotation: Math.PI / 2, height: 15 },
+  { model: "medium", position: [31, 0, 17], rotation: -Math.PI / 2, height: 15 },
+  { model: "large", position: [0, 0, 34], rotation: Math.PI, height: 17 },
 ];
 
 function prepareSkylineModel(source: THREE.Object3D, height: number, shadows: boolean) {
@@ -725,7 +735,7 @@ function DowntownSkyline({
     if (!source) return [];
     const medium = source.getObjectByName("Building_Medium_2.001");
     const large = source.getObjectByName("Building_Large_2");
-    const count = quality === "low" ? 4 : quality === "balanced" ? 6 : SKYLINE.length;
+    const count = quality === "low" ? 5 : quality === "balanced" ? 7 : SKYLINE.length;
     return SKYLINE.slice(0, count).flatMap((placement) => {
       const model = placement.model === "large" ? large : medium;
       if (!model) return [];
@@ -1104,6 +1114,7 @@ function Rig({
         s.x = clamp(s.x + move.x * step, -ROAM, ROAM);
         s.z = clamp(s.z + move.z * step, -ROAM, ROAM);
         for (const col of LANDMARK_COLLIDERS) pushOutsideCollider(s, col);
+        for (const col of DOWNTOWN_COLLIDERS) pushOutsideCollider(s, col);
         resolveCityBuildingCollisions(s, openDoors);
       }
       // Re-clamp after collision resolution so perimeter geometry cannot push
@@ -1182,10 +1193,10 @@ function Rig({
         // facing so it looks where the avatar looks (and forward walks ahead).
         inited.current = true;
         c.target.copy(tgt);
-        const back = 8.5;
+        const back = 9.5;
         camera.position.set(
           s.x - Math.sin(s.heading) * back,
-          tgt.y + 6, // street-level third-person so you see building facades
+          tgt.y + 4.2, // lower chase angle keeps the city skyline in frame
           s.z - Math.cos(s.heading) * back,
         );
       } else {
@@ -2015,7 +2026,7 @@ export default function WorldView() {
         shadows={quality.shadows}
         dpr={quality.dpr}
         gl={{ antialias: quality.antialias, toneMapping: THREE.ACESFilmicToneMapping }}
-        camera={{ position: [0, 9.5, 5.5], fov: 45 }}
+        camera={{ position: [0, 6.4, 9.5], fov: 45 }}
       >
         <LivingSky
           shadows={quality.shadows}

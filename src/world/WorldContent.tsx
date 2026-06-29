@@ -38,7 +38,7 @@ export function LivingSky({
   const { scene } = useThree();
   const sky = useMemo(() => new THREE.Color(), []);
   const groundColor = useMemo(() => new THREE.Color(), []);
-  const fog = useMemo(() => new THREE.Fog(0xffffff, 19, 43), []);
+  const fog = useMemo(() => new THREE.Fog(0xffffff, 24, 58), []);
   const lastUi = useRef(0);
   const start = useRef(performance.now());
 
@@ -54,8 +54,10 @@ export function LivingSky({
     scene.background = sky;
     // Mutate one stable Fog instead of allocating a new THREE.Fog every frame.
     fog.color.copy(sky);
-    fog.near = daylight > 0.2 ? 19 : 14;
-    fog.far = daylight > 0.2 ? 43 : 35;
+    // Keep the downtown silhouette legible from the plaza while retaining
+    // atmospheric depth at the edge of the expanded neighborhood.
+    fog.near = daylight > 0.2 ? 24 : 18;
+    fog.far = daylight > 0.2 ? 58 : 46;
     scene.fog = fog;
     if (sun.current) {
       sun.current.position.set(
@@ -669,7 +671,7 @@ export function ChampionsRing({ unlocked }: { unlocked: boolean }) {
       <Html
         position={[0, 3.2, -CHAMPIONS_RING.radius + 1.2]}
         center
-        distanceFactor={15}
+        distanceFactor={3.5}
         occlude={false}
         zIndexRange={[12, 0]}
       >
