@@ -2055,11 +2055,21 @@ button {
   gap: 8px;
 }
 .whoami__avatar--btn {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  flex: none;
   padding: 0;
-  border: none;
+  border: 2px solid color-mix(in srgb, var(--this-kid) 24%, var(--paper));
   overflow: hidden;
   cursor: pointer;
-  background: var(--paper);
+  background:
+    radial-gradient(circle at 50% 45%, var(--paper) 0 44%, transparent 45%),
+    var(--this-kid);
+  box-shadow:
+    0 6px 14px -10px rgba(31, 16, 56, 0.5),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.35);
 }
 .whoami__avatar--btn svg {
   display: block;
@@ -3935,6 +3945,12 @@ button {
   background: var(--this-kid);
   font-size: 1.3rem;
   box-shadow: inset 0 -3px 8px rgba(0, 0, 0, 0.15);
+}
+.whoami .whoami__avatar--btn {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border: 2px solid color-mix(in srgb, var(--this-kid) 24%, var(--paper));
 }
 .whoami__meta {
   display: flex;
@@ -8291,4 +8307,11 @@ body.fun-cursor-on * {
 .whoami__avatar--btn .av3thumb {
   width: 100%;
   height: 100%;
+}
+.whoami__avatar--btn img.av3thumb {
+  object-position: center center;
+  transform: translateX(2%) scale(1.12);
+}
+.whoami__avatar--btn .av3thumb--emoji {
+  transform: none;
 }
