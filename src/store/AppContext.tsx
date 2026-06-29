@@ -561,8 +561,26 @@ function reducer(state: AppState, action: Action): AppState {
     case "EQUIP_AVATAR_ITEM": {
       const { kidId, slot, itemId } = action;
       const next: Loadout3D = { ...(state.avatar3d[kidId] ?? {}) };
-      if (itemId === null) delete next[slot];
-      else next[slot] = itemId;
+      if (itemId === null) {
+        // Taking an item OFF must never ask the kid to buy it again — it was on
+        // their avatar, so they own it. An item can be equipped WITHOUT being in
+        // ownedGear (older saves, the 2D→3D catalog upgrade, or cross-device
+        // sync), so grant ownership of what we remove. Safe because the UI only
+        // ever equips items the kid already owns; this just keeps the record
+        // consistent with what's on the character.
+        const removed = next[slot];
+        delete next[slot];
+        const owned = state.ownedGear[kidId] ?? [];
+        if (typeof removed === "string" && removed && !owned.includes(removed)) {
+          return {
+            ...state,
+            avatar3d: { ...state.avatar3d, [kidId]: next },
+            ownedGear: { ...state.ownedGear, [kidId]: [...owned, removed] },
+          };
+        }
+        return { ...state, avatar3d: { ...state.avatar3d, [kidId]: next } };
+      }
+      next[slot] = itemId;
       return { ...state, avatar3d: { ...state.avatar3d, [kidId]: next } };
     }
 
