@@ -64,10 +64,14 @@ async function doRender(
     // Equipped accessories (hat/glasses/backpack/pet/aura) attach asynchronously
     // from .glb files; wait for them before the single capture or they'd be
     // missing. Cap the wait so one hung/broken asset can't block the thumbnail.
+    let capTimer: ReturnType<typeof setTimeout> | undefined;
     await Promise.race([
       loaded.accessoriesReady,
-      new Promise<void>((res) => setTimeout(res, 4000)),
+      new Promise<void>((res) => {
+        capTimer = setTimeout(res, 4000);
+      }),
     ]);
+    clearTimeout(capTimer); // don't leave a dangling 4s timer on the fast path
 
     const canvas = document.createElement("canvas");
     canvas.width = SIZE;

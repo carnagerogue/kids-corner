@@ -320,6 +320,10 @@ type RecolorCaches = {
   origMaps: WeakMap<THREE.Material, THREE.Texture | null>;
   grayMaps: WeakMap<THREE.Material, THREE.Texture | null>;
   origEmissive: WeakMap<THREE.Material, THREE.Color>;
+  /** Every texture this module creates (grays) or detaches from a material
+   * (originals swapped out for a gray) — held so they can be freed on teardown,
+   * since VRMUtils.deepDispose only frees textures still attached to a material. */
+  textures: Set<THREE.Texture>;
 };
 
 function recolorCaches(vrm: VRM): RecolorCaches {
@@ -332,9 +336,21 @@ function recolorCaches(vrm: VRM): RecolorCaches {
       origMaps: new WeakMap(),
       grayMaps: new WeakMap(),
       origEmissive: new WeakMap(),
+      textures: new Set(),
     };
   }
   return ud.__recolor;
+}
+
+/** Free the grayscale + detached-original textures recolorVrm created for this
+ * VRM. Call before VRMUtils.deepDispose so no recolor texture leaks GPU memory.
+ * Safe to double-dispose anything deepDispose also frees. */
+export function disposeRecolor(vrm: VRM): void {
+  const ud = vrm.scene.userData as { __recolor?: RecolorCaches };
+  const caches = ud.__recolor;
+  if (!caches) return;
+  for (const tex of caches.textures) tex.dispose();
+  caches.textures.clear();
 }
 
 export function recolorVrm(vrm: VRM, loadout: Loadout3D): void {
@@ -375,6 +391,7 @@ export function recolorVrm(vrm: VRM, loadout: Loadout3D): void {
       if (!caches.origColors.has(mat)) {
         caches.origColors.set(mat, mat.color.clone());
         caches.origMaps.set(mat, mat.map ?? null);
+        if (mat.map) caches.textures.add(mat.map); // may be detached for a gray
       }
       const tint = want[cat];
       // HAIR + EYES + CLOTH recolor vividly by swapping their base texture for a
@@ -400,6 +417,7 @@ export function recolorVrm(vrm: VRM, loadout: Loadout3D): void {
                 )
               : null;
             caches.grayMaps.set(mat, gray); // cache (null = no/failed map)
+            if (gray) caches.textures.add(gray); // free on teardown
           }
           if (gray && mat.map !== gray) {
             mat.map = gray;

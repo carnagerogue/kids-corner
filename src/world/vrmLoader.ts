@@ -22,6 +22,7 @@ import {
   attachAccessories,
   captureHeadBind,
   recolorVrm,
+  disposeRecolor,
   tickAccessories,
   type AttachedAccessories,
 } from "../features/avatar/vrmAccessories";
@@ -166,6 +167,7 @@ export async function loadAvatar(
     accessoriesReady: accessories?.ready ?? Promise.resolve(),
     dispose: () => {
       accessories?.dispose();
+      disposeRecolor(vrm);
       mixer?.stopAllAction();
       VRMUtils.deepDispose(vrm.scene);
     },

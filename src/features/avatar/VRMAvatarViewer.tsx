@@ -32,6 +32,7 @@ import {
   attachAccessories,
   captureHeadBind,
   recolorVrm,
+  disposeRecolor,
   tickAccessories,
   type AttachedAccessories,
   type HeadBind,
@@ -201,7 +202,10 @@ function VrmCharacter({
       mixerRef.current?.stopAllAction();
       mixerRef.current = null;
       headBindRef.current = null; // drop the stale snapshot until the next load
-      if (loaded) VRMUtils.deepDispose(loaded.scene);
+      if (loaded) {
+        disposeRecolor(loaded);
+        VRMUtils.deepDispose(loaded.scene);
+      }
       setVrm(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

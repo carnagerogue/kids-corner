@@ -421,8 +421,9 @@ const LANDMARK_COLLIDERS = [
 // lots. They are inside the roam bounds, so give them explicit lightweight
 // collision proxies instead of letting avatars walk through detailed meshes.
 const DOWNTOWN_COLLIDERS = [
-  { x: -8, z: -14.5, r: 3.05 },
-  { x: 8, z: -14.5, r: 3.05 },
+  // r covers the building's box corners (~3.6 from centre) so you can't clip in.
+  { x: -8, z: -14.5, r: 3.6 },
+  { x: 8, z: -14.5, r: 3.6 },
 ];
 
 function pushOutsideCollider(pose: Pose, col: { x: number; z: number; r: number }) {
@@ -772,16 +773,28 @@ function DowntownSkyline({
   }, [quality, shadows, source]);
 
   return (
-    <group userData={{ cameraIgnore: true }}>
-      {buildings.map((building, index) => (
-        <primitive
-          key={`${building.model}-${index}`}
-          object={building.object}
-          position={building.position}
-          rotation={[0, building.rotation, 0]}
-        />
+    <>
+      <group userData={{ cameraIgnore: true }}>
+        {buildings.map((building, index) => (
+          <primitive
+            key={`${building.model}-${index}`}
+            object={building.object}
+            position={building.position}
+            rotation={[0, building.rotation, 0]}
+          />
+        ))}
+      </group>
+      {/* Invisible camera-collision proxies for the two in-bounds downtown
+          buildings: the detailed meshes are cameraIgnore (raycast cost), but the
+          follow-cam must not pass through their walls. Cheap boxes, NOT
+          cameraIgnore, sized to the building footprint. */}
+      {DOWNTOWN_COLLIDERS.map((c, i) => (
+        <mesh key={`proxy-${i}`} position={[c.x, 4.5, c.z]} visible={false}>
+          <boxGeometry args={[5.6, 9, 5]} />
+          <meshBasicMaterial />
+        </mesh>
       ))}
-    </group>
+    </>
   );
 }
 
@@ -1210,15 +1223,17 @@ function Rig({
           // Keep the player's chosen zoom distance. Do not accidentally save a
           // shortened distance while camera collision is pulling the view in.
           if (!cameraColliding.current) {
+            // Floor matches OrbitControls' minDistance so a close zoom-in sticks
+            // instead of springing back out.
             desiredCameraDistance.current = clamp(
               camera.position.distanceTo(c.target),
-              5,
+              3,
               22,
             );
           }
         });
       }
-      tgt.set(s.x, 1.2, s.z);
+      tgt.set(s.x, 1.2 + (s.y ?? 0), s.z); // follow the avatar up during a jump
       if (!inited.current) {
         // Establish a nice third-person orbit distance once, BEHIND the avatar's
         // facing so it looks where the avatar looks (and forward walks ahead).
