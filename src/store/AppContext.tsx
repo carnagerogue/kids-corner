@@ -57,6 +57,7 @@ import {
   DEFAULT_REWARD_RATES,
   defaultState,
   emptyKidState,
+  FALLBACK_KID_PIN,
   loadState,
   newId,
   saveState,
@@ -77,6 +78,7 @@ import { makeKid } from "../data/kids";
 import { DEFAULT_NEW_KID_APPS } from "../data/applications";
 import { itemById } from "../features/avatar/AvatarManifest";
 import { meetsUnlock } from "../features/avatar/AvatarRewardEngine";
+import { hashPin, looksHashed } from "../lib/hash";
 
 /** Return a copy of `obj` without `key`, preserving the value type. */
 function omitKey<V>(obj: Record<string, V>, key: string): Record<string, V> {
@@ -1104,7 +1106,7 @@ function reducer(state: AppState, action: Action): AppState {
       const purchasesLocked: Record<string, boolean> = {};
       for (const k of kidProfiles) {
         kids[k.id] = state.kids[k.id] ?? emptyKidState();
-        kidPins[k.id] = pick(cfg.kidPins, state.kidPins, k.id, "0000");
+        kidPins[k.id] = pick(cfg.kidPins, state.kidPins, k.id, FALLBACK_KID_PIN);
         themes[k.id] = pick(cfg.themes, state.themes, k.id, "sparkle");
         appVisibility[k.id] = pick(cfg.appVisibility, state.appVisibility, k.id, []);
         exploreHidden[k.id] = pick(cfg.exploreHidden, state.exploreHidden, k.id, []);
@@ -1282,7 +1284,9 @@ function reducer(state: AppState, action: Action): AppState {
         kidProfiles: [...state.kidProfiles, kid],
         removedKids: state.removedKids.filter((x) => x !== id),
         kids: { ...state.kids, [id]: emptyKidState() },
-        kidPins: { ...state.kidPins, [id]: action.pin.trim() || "0000" },
+        // action.pin arrives pre-hashed (see CHANGE_PIN actions wrapper /
+        // AddKidForm in ParentZone.tsx — never the raw PIN by this point).
+        kidPins: { ...state.kidPins, [id]: action.pin.trim() || FALLBACK_KID_PIN },
         themes: { ...state.themes, [id]: "sparkle" },
         appVisibility: { ...state.appVisibility, [id]: [...DEFAULT_NEW_KID_APPS] },
         exploreHidden: { ...state.exploreHidden, [id]: [] },
@@ -1402,6 +1406,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, []);
+
+  // Transparently hash any PIN that's still plain text (from before PIN
+  // hashing shipped). Reactive rather than once-on-mount, so it also catches
+  // the family's REAL synced PIN the moment FamilySync pulls it in — not just
+  // whatever stale value was cached locally. A no-op once a value is already
+  // hashed, so it's safe to leave running on every relevant state change.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (state.parentPin && !looksHashed(state.parentPin)) {
+        const hashed = await hashPin(state.parentPin);
+        if (!cancelled) dispatch({ type: "SET_PARENT_PIN", pin: hashed });
+      }
+      for (const kid of state.kidProfiles) {
+        const current = state.kidPins[kid.id];
+        if (current && !looksHashed(current)) {
+          const hashed = await hashPin(current);
+          if (!cancelled) {
+            dispatch({ type: "SET_KID_PIN", kidId: kid.id, pin: hashed });
+          }
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [state.parentPin, state.kidProfiles, state.kidPins, dispatch]);
 
   const value = useMemo(() => ({ state, dispatch }), [state]);
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

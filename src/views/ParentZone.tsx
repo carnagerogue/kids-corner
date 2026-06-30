@@ -42,8 +42,16 @@ import {
 import { newId } from "../store/storage";
 import { MessageThread } from "../components/MessageThread";
 import { MessageNotifier } from "../components/MessageNotifier";
+import { CopyField } from "../components/AppCard";
+import { hashPin, pinMatches } from "../lib/hash";
 import { FIREBASE_READY } from "../firebase";
-import { readSyncOverride, writeSyncCode } from "../sync";
+import {
+  DEFAULT_SYNC_CODE,
+  generatePrivateCode,
+  migrateRoom,
+  readSyncOverride,
+  writeSyncCode,
+} from "../sync";
 import type {
   ActivityIdea,
   Audience,
@@ -74,9 +82,9 @@ function PinGate({
   const [entry, setEntry] = useState("");
   const [error, setError] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (entry === state.parentPin) {
+    if (await pinMatches(entry, state.parentPin)) {
       onUnlock();
     } else {
       setError(true);
@@ -936,7 +944,7 @@ function ParentKids() {
 
   const canAdd = name.trim().length > 0 && pin.trim().length >= 3;
 
-  const add = (e: React.FormEvent) => {
+  const add = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canAdd) return;
     dispatch({
@@ -944,7 +952,7 @@ function ParentKids() {
       firstName: name.trim(),
       emoji,
       paletteIndex: palette,
-      pin: pin.trim(),
+      pin: await hashPin(pin.trim()),
     });
     setName("");
     setPin("");
@@ -1198,16 +1206,42 @@ function ParentExplore() {
   );
 }
 
+type MigrateState =
+  | { phase: "idle" }
+  | { phase: "working" }
+  | { phase: "done"; code: string; counts: { kids: number; messages: number; submissions: number } }
+  | { phase: "error"; message: string };
+
 function CloudSync() {
   const [code, setCode] = useState(() => readSyncOverride());
   const [saved, setSaved] = useState(false);
-  const usingPrivate = readSyncOverride().length > 0;
+  const override = readSyncOverride();
+  const usingPrivate = override.length > 0;
+  const currentCode = usingPrivate ? override : DEFAULT_SYNC_CODE;
+  const [migrate, setMigrate] = useState<MigrateState>({ phase: "idle" });
 
   const save = (e: React.FormEvent) => {
     e.preventDefault();
     writeSyncCode(code);
     setSaved(true);
     window.setTimeout(() => setSaved(false), 1800);
+  };
+
+  const startMigration = async () => {
+    setMigrate({ phase: "working" });
+    const newCode = generatePrivateCode();
+    const result = await migrateRoom(currentCode, newCode);
+    if (result.ok) {
+      setMigrate({ phase: "done", code: newCode, counts: result.counts });
+    } else {
+      setMigrate({ phase: "error", message: result.error });
+    }
+  };
+
+  const switchNow = () => {
+    if (migrate.phase !== "done") return;
+    writeSyncCode(migrate.code);
+    setCode(migrate.code);
   };
 
   return (
@@ -1224,12 +1258,67 @@ function CloudSync() {
               ✅ <strong>Sync is on.</strong> Every computer that opens Kids
               Corner shares the same family automatically — kids, photos,
               messages, and progress show up everywhere, no setup needed.
-              {usingPrivate
-                ? " (This device is using a private room.)"
-                : ""}
             </p>
-            <details className="cloudsync__adv">
-              <summary>Advanced: use a private room</summary>
+
+            {!usingPrivate && (
+              <div className="cloudsync__warning">
+                <strong>⚠️ You're using the shared default room.</strong>
+                <p>
+                  Every install of this app starts on the same public room
+                  unless a private code is set. Your family's data is safe
+                  only if your Firebase rules require one — moving to a
+                  private code removes that risk entirely. This copies
+                  everything (kids, messages, photos) to a new private room
+                  first, so nothing is lost.
+                </p>
+                {migrate.phase === "idle" && (
+                  <button className="btn btn--primary" onClick={startMigration}>
+                    🔒 Create a private family code
+                  </button>
+                )}
+                {migrate.phase === "working" && (
+                  <button className="btn btn--primary" disabled>
+                    Copying your data…
+                  </button>
+                )}
+                {migrate.phase === "error" && (
+                  <>
+                    <p className="cloudsync__error">{migrate.message}</p>
+                    <button className="btn btn--primary" onClick={startMigration}>
+                      Try again
+                    </button>
+                  </>
+                )}
+                {migrate.phase === "done" && (
+                  <div className="cloudsync__result">
+                    <p>
+                      ✓ Copied {migrate.counts.kids} kid
+                      {migrate.counts.kids === 1 ? "" : "s"},{" "}
+                      {migrate.counts.messages} message
+                      {migrate.counts.messages === 1 ? "" : "s"}, and{" "}
+                      {migrate.counts.submissions} submission
+                      {migrate.counts.submissions === 1 ? "" : "s"} to a new
+                      private room.
+                    </p>
+                    <CopyField label="New private code" value={migrate.code} />
+                    <p className="cloudsync__hint">
+                      Write this down. Switching this device now — you'll
+                      need to enter the same code on every other family
+                      device (below) before they can see the shared data
+                      again.
+                    </p>
+                    <button className="btn btn--primary" onClick={switchNow}>
+                      Switch this device to the new code
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <details className="cloudsync__adv" open={usingPrivate}>
+              <summary>
+                {usingPrivate ? "Private room code" : "Advanced: use a private room"}
+              </summary>
               <form className="settings__row" onSubmit={save}>
                 <label className="settings__label">
                   Private room code
@@ -1248,7 +1337,10 @@ function CloudSync() {
               <p className="settings__hint">
                 Set the <strong>same code on every device</strong> to keep your
                 family in a separate room from anyone else. Leave blank to use
-                the shared default.
+                the shared default — entering a code here does NOT copy any
+                data; use "Create a private family code" above on the first
+                device, then enter the code it gives you here on every other
+                device.
               </p>
             </details>
           </>
@@ -1627,14 +1719,14 @@ function CustomChores({ onCreated }: { onCreated: (id: string) => void }) {
 }
 
 function ParentSettings() {
-  const { state, dispatch } = useApp();
+  const { dispatch } = useApp();
   const [pin, setPin] = useState("");
   const [saved, setSaved] = useState(false);
 
-  const savePin = (e: React.FormEvent) => {
+  const savePin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pin.trim().length < 3) return;
-    dispatch({ type: "SET_PARENT_PIN", pin: pin.trim() });
+    dispatch({ type: "SET_PARENT_PIN", pin: await hashPin(pin.trim()) });
     setPin("");
     setSaved(true);
     window.setTimeout(() => setSaved(false), 1800);
@@ -1677,8 +1769,9 @@ function ParentSettings() {
           </button>
         </div>
         <p className="settings__hint">
-          Current grown-up PIN is <code>{state.parentPin}</code>. This is a light
-          gate to keep kids out — not real security.
+          PINs are stored hashed, so there's nothing to show here — if you've
+          forgotten it, just set a new one above. This is a light gate to keep
+          kids out, not real security.
         </p>
       </div>
     </>
@@ -1706,13 +1799,19 @@ function ParentPins() {
 function KidPinRow({ kidId }: { kidId: KidId }) {
   const { state, dispatch } = useApp();
   const kid = getKid(state, kidId);
-  const [pin, setPin] = useState(state.kidPins[kidId]);
-  const dirty = pin !== state.kidPins[kidId];
+  const [pin, setPin] = useState("");
+  const [saved, setSaved] = useState(false);
+  // PINs are stored hashed (never shown again once set), so there's nothing
+  // to pre-fill — this is always "type a new one," not "edit the current one."
+  const dirty = pin.trim().length >= 3;
 
-  const save = (e: React.FormEvent) => {
+  const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin.trim().length < 3) return;
-    dispatch({ type: "SET_KID_PIN", kidId, pin: pin.trim() });
+    if (!dirty) return;
+    dispatch({ type: "SET_KID_PIN", kidId, pin: await hashPin(pin.trim()) });
+    setPin("");
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 1800);
   };
 
   return (
@@ -1724,11 +1823,11 @@ function KidPinRow({ kidId }: { kidId: KidId }) {
           inputMode="numeric"
           value={pin}
           onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ""))}
-          placeholder="PIN (min 3 digits)"
+          placeholder="New PIN (min 3 digits)"
         />
       </label>
       <button className="btn btn--ghost" type="submit" disabled={!dirty}>
-        {dirty ? "Save" : "✓ Saved"}
+        {saved ? "✓ Saved" : "Save"}
       </button>
     </form>
   );

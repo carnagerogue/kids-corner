@@ -5115,6 +5115,47 @@ body.fun-cursor-on * {
   margin-bottom: 8px;
 }
 
+.cloudsync__warning {
+  margin-top: 4px;
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  background: #fff7ed;
+  border: 2px solid #fdba74;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cloudsync__warning strong {
+  color: #9a3412;
+}
+.cloudsync__warning p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+}
+.cloudsync__error {
+  margin: 0;
+  font-weight: 700;
+  color: #b91c1c;
+}
+.cloudsync__result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: #f0fdf4;
+  border: 2px solid #86efac;
+}
+.cloudsync__result p {
+  margin: 0;
+  font-size: 0.88rem;
+}
+.cloudsync__hint {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
 /* "Do it with a friend" partner picker on missions */
 .partnerpick {
   display: flex;

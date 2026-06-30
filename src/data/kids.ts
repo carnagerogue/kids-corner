@@ -35,11 +35,15 @@ export const DEFAULT_KIDS: Kid[] = [
   },
 ];
 
-/** Starting PIN / theme for the seeded kids. */
+/**
+ * Starting PIN / theme for the seeded kids. Stored as SHA-256 hashes (see
+ * src/lib/hash.ts) of "1111" / "2222" / "3333" — never the raw PIN, even as
+ * a default. A grown-up should still change these in the Grown-Ups area.
+ */
 export const DEFAULT_KID_PINS: Record<string, string> = {
-  claire: "1111",
-  coby: "2222",
-  hailee: "3333",
+  claire: "c0e5f6d827607a1eca8db009f69f86889e5215386f6db04b6ed81fad566853d9",
+  coby: "40991afe001d79c281b69611c83f4c1ef7e36906b4bcbdadd6655e9842904c11",
+  hailee: "526d152c1cc331fa634642106181ebfcc5f0d86b209de96902316206c4dda2d3",
 };
 export const DEFAULT_KID_THEMES: Record<string, ThemeId> = {
   claire: "sparkle",

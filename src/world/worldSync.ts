@@ -16,7 +16,7 @@ import {
   remove,
   type Database,
 } from "firebase/database";
-import { getDb } from "../firebase";
+import { ensureAuth, getDb } from "../firebase";
 import { readSyncOverride } from "../sync";
 import type { LandmarkId } from "./worldGame";
 
@@ -99,9 +99,16 @@ export function joinWorld(initial: PlayerState): void {
   // overwriting each other's presence record.
   selfPath = `${path}/${sanitize(initial.kidId)}-${sessionId}`;
   selfState = { ...initial, t: Date.now() };
-  const r = ref(db, selfPath);
-  set(r, selfState);
-  onDisconnect(r).remove();
+  const myPath = selfPath;
+  // The rules require auth != null — wait for the (invisible, anonymous)
+  // sign-in before writing presence, so the very first write doesn't race a
+  // not-yet-authenticated client and get silently rejected.
+  void ensureAuth().then(() => {
+    if (!db || selfPath !== myPath) return; // left/rejoined while awaiting
+    const r = ref(db, myPath);
+    set(r, selfState).catch(() => {});
+    onDisconnect(r).remove();
+  });
 }
 
 /** Write self position/heading, throttled. Pass force for important changes. */

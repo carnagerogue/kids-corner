@@ -47,8 +47,16 @@ const STATE_VERSION = 2;
 /** Keep at most this many messages to bound storage growth. */
 const MAX_MESSAGES = 300;
 
-/** Default grown-up PIN. Change it in the Grown-Ups area. */
-export const DEFAULT_PARENT_PIN = "1234";
+/**
+ * Default grown-up PIN, stored as a SHA-256 hash (see src/lib/hash.ts) of
+ * "1234" — never the raw PIN. Change it in the Grown-Ups area.
+ */
+export const DEFAULT_PARENT_PIN =
+  "c22a1dad5ead22a0b3bf6c9a09e8deccc48113b5694290eea843c9fea7128fad";
+
+/** Hash of "0000" — the last-resort fallback for a kid with no PIN at all. */
+export const FALLBACK_KID_PIN =
+  "f3cf88a2b00b0ddcd7438fd0812afbe477e58964031beb0ff8620c6a0a31124d";
 
 const SESSION_KEY = "kids-corner:session";
 
@@ -255,7 +263,7 @@ export function defaultState(): AppState {
   const exploreHidden: Record<KidId, string[]> = {};
   for (const k of DEFAULT_KIDS) {
     kids[k.id] = emptyKidState();
-    kidPins[k.id] = DEFAULT_KID_PINS[k.id] ?? "0000";
+    kidPins[k.id] = DEFAULT_KID_PINS[k.id] ?? FALLBACK_KID_PIN;
     themes[k.id] = DEFAULT_KID_THEMES[k.id] ?? "sparkle";
     appVisibility[k.id] = defaultVisibility(k.id);
     exploreHidden[k.id] = [];
@@ -367,7 +375,7 @@ export function loadState(): AppState {
       kidPins[id] =
         typeof p === "string" && p.length > 0
           ? p
-          : DEFAULT_KID_PINS[id] ?? "0000";
+          : DEFAULT_KID_PINS[id] ?? FALLBACK_KID_PIN;
 
       const t = (parsed.themes as Record<string, unknown> | undefined)?.[id];
       themes[id] =

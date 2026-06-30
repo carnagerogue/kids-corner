@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { useApp } from "../store/AppContext";
 import { getKid, kidList } from "../store/selectors";
+import { pinMatches } from "../lib/hash";
 import { PinDots, PinPad } from "./PinPad";
 import type { KidId } from "../types";
+
+const MAX_PIN_LEN = 8;
 
 export function LoginScreen({
   onLogin,
@@ -17,7 +20,6 @@ export function LoginScreen({
   const [error, setError] = useState(false);
 
   const kid = picked ? getKid(state, picked) : null;
-  const pin = picked ? state.kidPins[picked] ?? "" : "";
 
   const reset = () => {
     setPicked(null);
@@ -25,19 +27,29 @@ export function LoginScreen({
     setError(false);
   };
 
+  // PINs are stored hashed, so we no longer know the real PIN's length up
+  // front — re-check after every digit (once at least 3 are typed, the
+  // shortest allowed PIN) instead of waiting for a known target length.
+  const checkEntry = async (kidId: KidId, next: string) => {
+    if (next.length < 3) return;
+    const stored = state.kidPins[kidId] ?? "";
+    if (await pinMatches(next, stored)) {
+      onLogin(kidId);
+    } else if (next.length >= MAX_PIN_LEN) {
+      setError(true);
+      setEntry("");
+    }
+  };
+
   const press = (d: string) => {
     if (!picked) return;
+    const kidId = picked;
     setError(false);
-    const next = (entry + d).slice(0, Math.max(pin.length, 8));
-    setEntry(next);
-    if (next.length >= pin.length) {
-      if (next === pin) {
-        onLogin(picked);
-      } else {
-        setError(true);
-        setEntry("");
-      }
-    }
+    setEntry((prev) => {
+      const next = (prev + d).slice(0, MAX_PIN_LEN);
+      void checkEntry(kidId, next);
+      return next;
+    });
   };
 
   const back = () => setEntry((e) => e.slice(0, -1));
@@ -92,7 +104,7 @@ export function LoginScreen({
             <span className="login__avatarbig">{kid!.emoji}</span>
             <h2 className="login__prompt">Hi {kid!.firstName}! Enter your PIN</h2>
             <div className={error ? "is-error" : ""}>
-              <PinDots count={entry.length} total={pin.length || 4} />
+              <PinDots count={entry.length} total={Math.max(entry.length, 4)} />
             </div>
             {error && <p className="login__error">Oops, try again!</p>}
             <PinPad onDigit={press} onBack={back} />

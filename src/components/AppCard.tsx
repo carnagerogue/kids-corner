@@ -28,7 +28,7 @@ export function AppCard({ app, required }: { app: AppLink; required?: boolean })
   );
 }
 
-function CopyField({ label, value }: { label: string; value: string }) {
+export function CopyField({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {

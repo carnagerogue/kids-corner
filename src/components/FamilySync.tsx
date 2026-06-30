@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { onValue, ref, set, update } from "firebase/database";
 import { useApp, type SyncConfig } from "../store/AppContext";
-import { FIREBASE_READY, getDb } from "../firebase";
+import { ensureAuth, FIREBASE_READY, getDb } from "../firebase";
 import { readSyncCode, SYNC_EVENT } from "../sync";
 import type {
   Announcement,
@@ -104,6 +104,20 @@ export function FamilySync() {
   const { state, dispatch } = useApp();
   const [code, setCode] = useState(() => readSyncCode());
   const [ready, setReady] = useState(false);
+  // The database's rules require auth != null — sign in (invisibly,
+  // anonymously) before any read/write is attempted.
+  const [authReady, setAuthReady] = useState(false);
+
+  useEffect(() => {
+    if (!FIREBASE_READY) return;
+    let cancelled = false;
+    ensureAuth().then(() => {
+      if (!cancelled) setAuthReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const lastConfig = useRef("");
   const syncedSub = useRef<Map<string, string>>(new Map());
@@ -124,7 +138,7 @@ export function FamilySync() {
 
   // Subscribe to every shared slice and ingest remote changes.
   useEffect(() => {
-    if (!FIREBASE_READY || !code) return;
+    if (!FIREBASE_READY || !code || !authReady) return;
     const db = getDb();
     if (!db) return;
     setReady(false);
@@ -180,12 +194,12 @@ export function FamilySync() {
       }),
     ];
     return () => unsubs.forEach((u) => u());
-  }, [code, dispatch]);
+  }, [code, dispatch, authReady]);
 
   // Push config (last-write-wins) — only after we've seen the cloud's copy, so
   // a fresh device doesn't clobber an existing roster.
   useEffect(() => {
-    if (!FIREBASE_READY || !code || !ready) return;
+    if (!FIREBASE_READY || !code || !ready || !authReady) return;
     const db = getDb();
     if (!db) return;
     const pruned = prune(pickConfig(state)) ?? {};
@@ -217,11 +231,12 @@ export function FamilySync() {
     state.parentPin,
     code,
     ready,
+    authReady,
   ]);
 
   // Push new/changed submissions (incl. photos).
   useEffect(() => {
-    if (!FIREBASE_READY || !code) return;
+    if (!FIREBASE_READY || !code || !authReady) return;
     const db = getDb();
     if (!db) return;
     const updates: Record<string, Submission> = {};
@@ -235,11 +250,11 @@ export function FamilySync() {
     if (Object.keys(updates).length) {
       pushUpdate(db, `rooms/${safe(code)}/submissions`, updates);
     }
-  }, [state.submissions, code]);
+  }, [state.submissions, code, authReady]);
 
   // Push new chore assignments.
   useEffect(() => {
-    if (!FIREBASE_READY || !code) return;
+    if (!FIREBASE_READY || !code || !authReady) return;
     const db = getDb();
     if (!db) return;
     const updates: Record<string, ChoreAssignment> = {};
@@ -252,11 +267,11 @@ export function FamilySync() {
     if (Object.keys(updates).length) {
       pushUpdate(db, `rooms/${safe(code)}/choreAssignments`, updates);
     }
-  }, [state.choreAssignments, code]);
+  }, [state.choreAssignments, code, authReady]);
 
   // Push new / soft-deleted messages.
   useEffect(() => {
-    if (!FIREBASE_READY || !code) return;
+    if (!FIREBASE_READY || !code || !authReady) return;
     const db = getDb();
     if (!db) return;
     const updates: Record<string, Message> = {};
@@ -270,11 +285,11 @@ export function FamilySync() {
     if (Object.keys(updates).length) {
       pushUpdate(db, `rooms/${safe(code)}/messages`, updates);
     }
-  }, [state.messages, code]);
+  }, [state.messages, code, authReady]);
 
   // Push new / soft-deleted announcements.
   useEffect(() => {
-    if (!FIREBASE_READY || !code) return;
+    if (!FIREBASE_READY || !code || !authReady) return;
     const db = getDb();
     if (!db) return;
     const updates: Record<string, Announcement> = {};
@@ -288,11 +303,11 @@ export function FamilySync() {
     if (Object.keys(updates).length) {
       pushUpdate(db, `rooms/${safe(code)}/announcements`, updates);
     }
-  }, [state.announcements, code]);
+  }, [state.announcements, code, authReady]);
 
   // Push new / removed reactions.
   useEffect(() => {
-    if (!FIREBASE_READY || !code) return;
+    if (!FIREBASE_READY || !code || !authReady) return;
     const db = getDb();
     if (!db) return;
     const updates: Record<string, Reaction> = {};
@@ -306,7 +321,7 @@ export function FamilySync() {
     if (Object.keys(updates).length) {
       pushUpdate(db, `rooms/${safe(code)}/reactions`, updates);
     }
-  }, [state.reactions, code]);
+  }, [state.reactions, code, authReady]);
 
   return null;
 }
