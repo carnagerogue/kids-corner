@@ -366,14 +366,18 @@ function ParentReview({ onZoom }: { onZoom: (src: string) => void }) {
 function FamilyGoalEditor() {
   const { state, dispatch } = useApp();
   const g = state.familyGoal;
-  const [target, setTarget] = useState(g?.target ?? 20);
+  // Free text so the field can be cleared + retyped; coerced on blur + submit.
+  const [targetText, setTargetText] = useState(String(g?.target ?? 20));
   const [reward, setReward] = useState(g?.reward ?? "");
   const done = familyGoalProgress(state);
+
+  const clampTarget = (text: string) =>
+    Math.max(1, Math.min(200, parseInt(text, 10) || 20));
 
   const save = (e: React.FormEvent) => {
     e.preventDefault();
     if (!reward.trim()) return;
-    dispatch({ type: "SET_FAMILY_GOAL", target, reward });
+    dispatch({ type: "SET_FAMILY_GOAL", target: clampTarget(targetText), reward });
   };
 
   return (
@@ -422,10 +426,9 @@ function FamilyGoalEditor() {
               type="number"
               min={1}
               max={200}
-              value={target}
-              onChange={(e) =>
-                setTarget(Math.max(1, Math.min(200, parseInt(e.target.value) || 1)))
-              }
+              value={targetText}
+              onChange={(e) => setTargetText(e.target.value)}
+              onBlur={() => setTargetText(String(clampTarget(targetText)))}
             />
           </label>
           <button className="btn btn--primary" type="submit" disabled={!reward.trim()}>
@@ -1490,14 +1493,20 @@ function CustomChores({ onCreated }: { onCreated: (id: string) => void }) {
   const { state, dispatch } = useApp();
   const custom = state.customActivities.filter((a) => a.category === "chores");
   const [title, setTitle] = useState("");
-  const [xp, setXp] = useState(15);
+  // XP is held as free text so it can be cleared + retyped; it's only coerced to
+  // a sane number on blur and at submit (empty/garbage → 15, clamped to 5–60).
+  const [xpText, setXpText] = useState("15");
   const [audience, setAudience] = useState<Audience>("all");
   const [steps, setSteps] = useState("");
+
+  const clampXp = (text: string) =>
+    Math.max(5, Math.min(60, parseInt(text, 10) || 15));
 
   const create = (e: React.FormEvent) => {
     e.preventDefault();
     const t = title.trim();
     if (!t) return;
+    const xp = clampXp(xpText);
     const id = `custom-${newId().slice(0, 8)}`;
     const stepLines = steps
       .split("\n")
@@ -1522,7 +1531,7 @@ function CustomChores({ onCreated }: { onCreated: (id: string) => void }) {
     };
     dispatch({ type: "ADD_CUSTOM_ACTIVITY", activity });
     setTitle("");
-    setXp(15);
+    setXpText("15");
     setAudience("all");
     setSteps("");
     onCreated(id);
@@ -1586,10 +1595,9 @@ function CustomChores({ onCreated }: { onCreated: (id: string) => void }) {
                 min={5}
                 max={60}
                 step={5}
-                value={xp}
-                onChange={(e) =>
-                  setXp(Math.max(5, Math.min(60, parseInt(e.target.value) || 5)))
-                }
+                value={xpText}
+                onChange={(e) => setXpText(e.target.value)}
+                onBlur={() => setXpText(String(clampXp(xpText)))}
               />
             </label>
             <label className="settings__label addchore__field">

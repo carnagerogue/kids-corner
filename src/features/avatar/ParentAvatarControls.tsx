@@ -26,13 +26,26 @@ export function ParentAvatarControls() {
   const { state, dispatch } = useApp();
   const kids = kidList(state);
   const [kidId, setKidId] = useState(() => state.activeKid || kids[0]?.id || "");
-  const [amount, setAmount] = useState(25);
+  // Number fields are held as free text so they can be cleared + retyped; each
+  // is coerced to a sane number only on blur and when used (never mid-keystroke).
+  const [amountText, setAmountText] = useState("25");
   const [grantId, setGrantId] = useState("");
   const savedRates = state.rewardRates ?? DEFAULT_REWARD_RATES;
-  const [rates, setRates] = useState(() => ({ ...savedRates }));
+  const [rates, setRates] = useState(() => ({
+    mission: String(savedRates.mission),
+    assignment: String(savedRates.assignment),
+  }));
+  const clampAmount = (t: string) =>
+    Math.max(1, Math.min(9999, Math.round(Number(t) || 1)));
+  const parseRate = (t: string) =>
+    Math.max(0, Math.min(9999, Math.round(Number(t) || 0)));
+  const editedRates = {
+    mission: parseRate(rates.mission),
+    assignment: parseRate(rates.assignment),
+  };
   const ratesDirty =
-    rates.mission !== savedRates.mission ||
-    rates.assignment !== savedRates.assignment;
+    editedRates.mission !== savedRates.mission ||
+    editedRates.assignment !== savedRates.assignment;
 
   const balance = coinBalance(state, kidId);
   const earned = coinsEarned(state, kidId);
@@ -109,17 +122,18 @@ export function ParentAvatarControls() {
           <input
             className="settings__input"
             type="number"
-            value={amount}
+            value={amountText}
             min={1}
             max={9999}
-            onChange={(e) => setAmount(Math.max(1, Number(e.target.value) || 0))}
+            onChange={(e) => setAmountText(e.target.value)}
+            onBlur={() => setAmountText(String(clampAmount(amountText)))}
             aria-label="Custom coin amount"
             style={{ maxWidth: 120 }}
           />
-          <button className="btn btn--primary" onClick={() => addCoins(dispatch, kidId, amount)}>
+          <button className="btn btn--primary" onClick={() => addCoins(dispatch, kidId, clampAmount(amountText))}>
             Add coins
           </button>
-          <button className="btn btn--ghost" onClick={() => addCoins(dispatch, kidId, -amount)}>
+          <button className="btn btn--ghost" onClick={() => addCoins(dispatch, kidId, -clampAmount(amountText))}>
             Remove
           </button>
         </div>
@@ -203,10 +217,10 @@ export function ParentAvatarControls() {
               max={9999}
               value={rates.mission}
               onChange={(e) =>
-                setRates((r) => ({
-                  ...r,
-                  mission: Math.max(0, Math.round(Number(e.target.value) || 0)),
-                }))
+                setRates((r) => ({ ...r, mission: e.target.value }))
+              }
+              onBlur={() =>
+                setRates((r) => ({ ...r, mission: String(parseRate(r.mission)) }))
               }
               aria-label="Bonus coins per mission"
             />
@@ -220,10 +234,10 @@ export function ParentAvatarControls() {
               max={9999}
               value={rates.assignment}
               onChange={(e) =>
-                setRates((r) => ({
-                  ...r,
-                  assignment: Math.max(0, Math.round(Number(e.target.value) || 0)),
-                }))
+                setRates((r) => ({ ...r, assignment: e.target.value }))
+              }
+              onBlur={() =>
+                setRates((r) => ({ ...r, assignment: String(parseRate(r.assignment)) }))
               }
               aria-label="Bonus coins per learning task"
             />
@@ -234,14 +248,17 @@ export function ParentAvatarControls() {
           <button
             className="btn btn--primary"
             disabled={!ratesDirty}
-            onClick={() => dispatch({ type: "SET_REWARD_RATES", rates })}
+            onClick={() => dispatch({ type: "SET_REWARD_RATES", rates: editedRates })}
           >
             Save amounts
           </button>
           <button
             className="btn btn--ghost"
             onClick={() => {
-              setRates({ ...DEFAULT_REWARD_RATES });
+              setRates({
+                mission: String(DEFAULT_REWARD_RATES.mission),
+                assignment: String(DEFAULT_REWARD_RATES.assignment),
+              });
               dispatch({ type: "SET_REWARD_RATES", rates: { ...DEFAULT_REWARD_RATES } });
             }}
           >
