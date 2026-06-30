@@ -4,6 +4,7 @@ import { ProximityHtml } from "./worldLabels";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { resolveAssetUrl } from "../features/avatar/AvatarManifest";
+import { disposeObject3D } from "./disposeObject";
 import {
   STAR_COLLECTIBLES,
   currentSeasonalEvent,
@@ -295,12 +296,10 @@ async function loadNpcAvatar(modelPath: string): Promise<LoadedNpcAvatar> {
     dispose: () => {
       mixer.stopAllAction();
       mixer.uncacheRoot(object);
-      object.traverse((child) => {
-        if (!(child instanceof THREE.Mesh)) return;
-        child.geometry.dispose();
-        const materials = Array.isArray(child.material) ? child.material : [child.material];
-        materials.forEach((material) => material.dispose());
-      });
+      // disposeObject3D also frees each material's textures (map, etc.) —
+      // Material.dispose() alone does not, so the shared colormap atlas these
+      // Kenney NPCs use would otherwise leak on every World remount.
+      disposeObject3D(object);
     },
   };
 }

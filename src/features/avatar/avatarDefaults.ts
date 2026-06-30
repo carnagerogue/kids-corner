@@ -4,9 +4,11 @@
 import type { Avatar3DSlot, Loadout3D } from "../../types";
 import type { AvatarItem, Rarity3D } from "./avatarTypes";
 
-/** Where a brand-new learner starts (all free items). */
+/** Where a brand-new learner starts (all free items). `base` is intentionally
+ * omitted — the manifest only has gendered bodies (girl-base-01/boy-base-01),
+ * so a ghost id here would never match an "equipped" body; the per-kid
+ * default model fallback in AvatarViewer covers an unset base just fine. */
 export const DEFAULT_LOADOUT: Loadout3D = {
-  base: "neutral-base-01",
   skinTone: "skin-warm",
   eyeColor: "eyes-brown",
   hairStyle: "hair-short",

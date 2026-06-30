@@ -75,6 +75,8 @@ import { SPIN_COST } from "../data/avatar";
 import { getLevelInfo } from "../data/levels";
 import { makeKid } from "../data/kids";
 import { DEFAULT_NEW_KID_APPS } from "../data/applications";
+import { itemById } from "../features/avatar/AvatarManifest";
+import { meetsUnlock } from "../features/avatar/AvatarRewardEngine";
 
 /** Return a copy of `obj` without `key`, preserving the value type. */
 function omitKey<V>(obj: Record<string, V>, key: string): Record<string, V> {
@@ -219,8 +221,43 @@ function canKidReactToSubmission(
   return by === submission.kidId || kidsAreFriends(state, by, submission.kidId);
 }
 
+/**
+ * Does a kid own/have-access-to a 3D avatar item right now? Mirrors
+ * AvatarEconomy.ownsItem exactly, but duplicated here (not imported) because
+ * AvatarEconomy imports useApp from this file — importing it back would be a
+ * circular import. Keep the unlock rules in sync if they change there.
+ */
+function reducerOwnsItem(state: AppState, kidId: KidId, itemId: string): boolean {
+  const item = itemById(itemId);
+  if (!item) return false;
+  const owned = state.ownedGear[kidId] ?? [];
+  if (owned.includes(item.id)) return true;
+  if (
+    item.unlockType === "mission" ||
+    item.unlockType === "trophy" ||
+    item.unlockType === "streak"
+  ) {
+    const stats = computeStats(state, kidId);
+    const level = getLevelInfo(getKidXp(state, kidId)).rank.level;
+    const badges = state.kids[kidId]?.badges ?? [];
+    return meetsUnlock(item.unlockRequirement, stats, level, badges);
+  }
+  return item.price === 0;
+}
+
+/** Shared by local SET_REWARD_RATES and remote SET_CONFIG merges so a synced
+ * value can never bypass the same 0–100000 bound. */
+function clampRewardRates(rates: RewardRates): RewardRates {
+  const clamp = (v: number) =>
+    Number.isFinite(v) ? Math.max(0, Math.min(100000, Math.round(v))) : 0;
+  return { mission: clamp(rates.mission), assignment: clamp(rates.assignment) };
+}
+
 /** Re-evaluate one kid's badges and union them with what's already earned. */
 function recomputeBadges(state: AppState, kidId: KidId): AppState {
+  // A removed kid's Firebase data can resurrect via INGEST_* after the kid is
+  // gone from state.kids — skip rather than throw on the missing record.
+  if (!state.kids[kidId]) return state;
   const stats = computeStats(state, kidId);
   const earned = new Set(state.kids[kidId].badges);
   for (const badge of BADGES) {
@@ -383,17 +420,8 @@ function reducer(state: AppState, action: Action): AppState {
       return reviewedKid ? recomputeBadges(next, reviewedKid) : next;
     }
 
-    case "SET_REWARD_RATES": {
-      const clamp = (v: number) =>
-        Number.isFinite(v) ? Math.max(0, Math.min(100000, Math.round(v))) : 0;
-      return {
-        ...state,
-        rewardRates: {
-          mission: clamp(action.rates.mission),
-          assignment: clamp(action.rates.assignment),
-        },
-      };
-    }
+    case "SET_REWARD_RATES":
+      return { ...state, rewardRates: clampRewardRates(action.rates) };
 
     case "SET_PARENT_PIN":
       return { ...state, parentPin: action.pin || state.parentPin };
@@ -517,13 +545,24 @@ function reducer(state: AppState, action: Action): AppState {
 
     case "BUY_AVATAR_ITEM": {
       const { kidId, item } = action;
-      if (item.price <= 0) return state; // free items never need buying
+      // Trust the manifest for price/levelReq/slot, not the dispatch payload —
+      // only honor the caller's price when it exactly matches the documented
+      // Daily Deals discount (75% off, floor 1 coin); otherwise charge the
+      // real price. Closes a hole where a crafted dispatch could set an
+      // arbitrary price (e.g. 1 coin for anything).
+      const canonical = itemById(item.id);
+      if (!canonical) return state; // unknown item id
+      const dealPrice = Math.max(1, Math.round(canonical.price * 0.75));
+      const price = item.price === dealPrice ? dealPrice : canonical.price;
+      const levelReq = canonical.levelReq;
+      const slot = canonical.slot;
+      if (price <= 0) return state; // free items never need buying
       if (state.purchasesLocked?.[kidId]) return state; // grown-up lock
       if ((state.ownedGear[kidId] ?? []).includes(item.id)) return state;
-      if (coinBalance(state, kidId) < item.price) return state;
+      if (coinBalance(state, kidId) < price) return state;
       if (
-        item.levelReq &&
-        getLevelInfo(getKidXp(state, kidId)).rank.level < item.levelReq
+        levelReq &&
+        getLevelInfo(getKidXp(state, kidId)).rank.level < levelReq
       ) {
         return state;
       }
@@ -532,13 +571,13 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         coinsSpent: {
           ...state.coinsSpent,
-          [kidId]: (state.coinsSpent[kidId] ?? 0) + item.price,
+          [kidId]: (state.coinsSpent[kidId] ?? 0) + price,
         },
         ownedGear: { ...state.ownedGear, [kidId]: [...owned, item.id] },
         // Auto-equip the freshly bought piece.
         avatar3d: {
           ...state.avatar3d,
-          [kidId]: { ...(state.avatar3d[kidId] ?? {}), [item.slot]: item.id },
+          [kidId]: { ...(state.avatar3d[kidId] ?? {}), [slot]: item.id },
         },
       };
     }
@@ -565,20 +604,25 @@ function reducer(state: AppState, action: Action): AppState {
         }
         return { ...state, avatar3d: { ...state.avatar3d, [kidId]: next } };
       }
+      // Reject equipping an item the kid doesn't own/hasn't unlocked — only
+      // the UI enforced this before, so a direct dispatch could mint a paid
+      // item for free (equip it, then un-equip to auto-grant ownership).
+      if (!reducerOwnsItem(state, kidId, itemId)) return state;
       next[slot] = itemId;
       return { ...state, avatar3d: { ...state.avatar3d, [kidId]: next } };
     }
 
     case "GRANT_COINS": {
-      // Grown-up add (+) or remove (−) coins. coinBalance() floors at 0, so a
-      // big negative just zeroes the spendable balance.
+      // Grown-up add (+) or remove (−) coins. Floor the ledger itself at 0 (not
+      // just the derived coinBalance) so other readers of coinsBonus never see
+      // a negative "lifetime bonus" value.
       const { kidId, amount } = action;
       if (!amount) return state;
       return {
         ...state,
         coinsBonus: {
           ...state.coinsBonus,
-          [kidId]: (state.coinsBonus[kidId] ?? 0) + amount,
+          [kidId]: Math.max(0, (state.coinsBonus[kidId] ?? 0) + amount),
         },
       };
     }
@@ -753,6 +797,11 @@ function reducer(state: AppState, action: Action): AppState {
         if (!r || !r.id) continue;
         const l = byId.get(r.id);
         if (!l) {
+          // Re-check the friends-only rule for messages we haven't already
+          // accepted — SEND_MESSAGE enforces this locally, but anything
+          // written straight to Firebase (another client, a stale write)
+          // must pass the same check before it's trusted and rendered.
+          if (!canKidMessage(state, r.from, r.to)) continue;
           byId.set(r.id, r);
           changed = true;
         } else if (r.deleted && !l.deleted) {
@@ -848,6 +897,10 @@ function reducer(state: AppState, action: Action): AppState {
         if (!r || !r.id) continue;
         const l = byId.get(r.id);
         if (!l) {
+          // Same re-check as INGEST_MESSAGES: TOGGLE_REACTION enforces the
+          // friends-only rule locally; re-validate anything arriving from
+          // Firebase before trusting it.
+          if (!canKidReactToSubmission(state, r.by, r.submissionId)) continue;
           byId.set(r.id, r);
           changed = true;
         } else if (r.deleted && !l.deleted) {
@@ -868,7 +921,14 @@ function reducer(state: AppState, action: Action): AppState {
       if (!state.kidProfiles.some((k) => k.id === action.to)) return state;
       const id = friendshipId(action.from, action.to);
       const existing = friendshipBetween(state, action.from, action.to);
-      if (existing?.status === "friends" || existing?.status === "pending") {
+      if (
+        existing?.status === "friends" ||
+        existing?.status === "pending" ||
+        existing?.status === "blocked"
+      ) {
+        // A block must be explicitly lifted (no UNBLOCK action exists yet) —
+        // otherwise a re-request would silently erase it and reopen
+        // messaging/reactions once accepted.
         return state;
       }
       const [kidA, kidB] = [action.from, action.to].sort();
@@ -1126,8 +1186,16 @@ function reducer(state: AppState, action: Action): AppState {
         friendships,
         familyGoal:
           cfg.familyGoal !== undefined ? cfg.familyGoal : state.familyGoal,
-        rewardRates: cfg.rewardRates ?? state.rewardRates ?? DEFAULT_REWARD_RATES,
-        parentPin: cfg.parentPin || state.parentPin,
+        rewardRates: cfg.rewardRates
+          ? clampRewardRates(cfg.rewardRates)
+          : state.rewardRates ?? DEFAULT_REWARD_RATES,
+        // Match the same "at least 3 characters" rule the Grown-Ups PIN form
+        // enforces locally — a malformed/empty remote value must never
+        // silently replace a real PIN.
+        parentPin:
+          typeof cfg.parentPin === "string" && cfg.parentPin.trim().length >= 3
+            ? cfg.parentPin
+            : state.parentPin,
         activeKid,
       };
     }
@@ -1142,6 +1210,18 @@ function reducer(state: AppState, action: Action): AppState {
         if (!r || !r.id) continue;
         const l = byId.get(r.id);
         if (!l) {
+          // "Not found locally" can mean genuinely new, OR an old attempt
+          // that SUBMIT_TASK already replaced (it drops the prior submission
+          // locally but its Firebase row is never deleted, so it keeps
+          // round-tripping back). Don't resurrect a superseded attempt.
+          const superseded = [...byId.values()].some(
+            (s) =>
+              s.kidId === r.kidId &&
+              s.refId === r.refId &&
+              s.date === r.date &&
+              s.submittedAt >= r.submittedAt,
+          );
+          if (superseded) continue;
           byId.set(r.id, r);
           changed = true;
           affected.add(r.kidId);

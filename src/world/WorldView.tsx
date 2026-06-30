@@ -1466,6 +1466,9 @@ export default function WorldView() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [stats, setStats] = useState<PlayerStats[]>([]);
   const [badgeToast, setBadgeToast] = useState<Achievement | null>(null);
+  // Badges earned in the same batch as the one currently toasting — shown one
+  // after another instead of being silently dropped.
+  const badgeQueueRef = useRef<Achievement[]>([]);
   const [levelUp, setLevelUp] = useState<number | null>(null);
   const prevLevel = useRef(levelForXp(academy.xp));
   // True whenever any modal/panel is open — read by Rig to freeze avatar input.
@@ -1511,6 +1514,7 @@ export default function WorldView() {
     setQuestLogOpen(false);
     setLevelUp(null);
     setBadgeToast(null);
+    badgeQueueRef.current = [];
     const citySpawn = developmentCitySpawn();
     self.current = citySpawn
       ? { ...citySpawn, moving: false }
@@ -1837,22 +1841,35 @@ export default function WorldView() {
   // Subscribe to the family leaderboard.
   useEffect(() => subscribeStats(setStats), [syncReady, syncCode]);
 
-  // Detect + persist newly-earned achievements, and pop a one-time toast.
+  // Detect + persist newly-earned achievements, and queue a toast for each —
+  // a single update (e.g. finishing the last chapter of a quest) can satisfy
+  // more than one achievement at once, and every one of them should get its
+  // own celebration rather than only fresh[0].
   useEffect(() => {
     const earned = earnedAchievements(academy, worldSave);
     const fresh = earned.filter((id) => !academy.achievements.includes(id));
     if (fresh.length === 0) return;
     commitAcademy({ ...academy, achievements: earned });
-    const badge = achievementById(fresh[0]);
-    if (badge) {
-      setBadgeToast(badge);
-      celebrate();
-    }
+    const badges = fresh
+      .map((id) => achievementById(id))
+      .filter((b): b is Achievement => !!b);
+    if (badges.length === 0) return;
+    celebrate();
+    setBadgeToast((current) => {
+      if (current === null) {
+        badgeQueueRef.current.push(...badges.slice(1));
+        return badges[0];
+      }
+      badgeQueueRef.current.push(...badges);
+      return current;
+    });
   }, [academy, worldSave, commitAcademy, celebrate]);
 
   useEffect(() => {
     if (badgeToast === null) return;
-    const id = window.setTimeout(() => setBadgeToast(null), 4200);
+    const id = window.setTimeout(() => {
+      setBadgeToast(badgeQueueRef.current.shift() ?? null);
+    }, 4200);
     return () => window.clearTimeout(id);
   }, [badgeToast]);
 
