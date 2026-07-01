@@ -1,6 +1,19 @@
 import { initializeApp, type FirebaseApp } from "firebase/app";
 import { getDatabase, type Database } from "firebase/database";
-import { getAuth, onAuthStateChanged, signInAnonymously } from "firebase/auth";
+import {
+  browserLocalPersistence,
+  getAuth,
+  getRedirectResult,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  setPersistence,
+  signInAnonymously,
+  signInWithPopup,
+  signInWithRedirect,
+  signOut,
+  type Auth,
+  type User,
+} from "firebase/auth";
 import { FIREBASE_CONFIG } from "./firebase.config";
 
 /** True once a real Firebase project is configured. */
@@ -20,32 +33,136 @@ export function getDb(): Database | null {
   return db;
 }
 
+export function getAuthInstance(): Auth | null {
+  if (!FIREBASE_READY) return null;
+  if (!getDb() || !app) return null;
+  return getAuth(app);
+}
+
+// --- Auth error surfacing --------------------------------------------------
+// The single most common failure is that the Authentication product / the
+// Anonymous or Google provider isn't enabled in the Firebase console
+// (CONFIGURATION_NOT_FOUND). We DELIBERATELY surface that instead of swallowing
+// it, so a misconfiguration is visible before any rules are tightened.
+
+let lastAuthError: string | null = null;
+
+export function getAuthError(): string | null {
+  return lastAuthError;
+}
+
+function recordAuthError(e: unknown): void {
+  const msg = e instanceof Error ? e.message : String(e);
+  lastAuthError = msg;
+  const hint = /configuration_not_found|operation-not-allowed/i.test(msg)
+    ? " → Enable Authentication and the Google + Anonymous providers in the Firebase console (Build → Authentication → Sign-in method)."
+    : "";
+  console.error(`[KidsCorner] Firebase auth failed: ${msg}${hint}`);
+}
+
+// --- Baseline (anonymous) auth for the shared kids' device -----------------
+
 let authPromise: Promise<void> | null = null;
 
 /**
- * Sign in anonymously so the database's security rules can require
- * `auth != null` for every read/write — without this, ANY unauthenticated
- * client (including a bare curl request) can read/write any room. This is
- * invisible to kids/parents: no sign-in screen, just a background token.
- * FamilySync and worldSync must await this before touching the database.
+ * Ensure we have SOME authenticated session so security rules can require
+ * `auth != null`. If a session is already restored (e.g. a parent's Google
+ * sign-in), we keep it; otherwise we sign in anonymously as the baseline for a
+ * shared/kids' device. Never hangs the app — records and surfaces failures.
  */
 export function ensureAuth(): Promise<void> {
   if (!FIREBASE_READY) return Promise.resolve();
   if (authPromise) return authPromise;
-  if (!getDb() || !app) return Promise.resolve();
-  const auth = getAuth(app);
-  authPromise = new Promise<void>((resolve) => {
-    const unsub = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        unsub();
-        resolve();
-      }
+  const auth = getAuthInstance();
+  if (!auth) return Promise.resolve();
+
+  authPromise = (async () => {
+    try {
+      await setPersistence(auth, browserLocalPersistence);
+    } catch {
+      /* non-fatal — fall back to default persistence */
+    }
+    // Complete a pending redirect sign-in, if any (Google popup fallback).
+    try {
+      await getRedirectResult(auth);
+    } catch (e) {
+      recordAuthError(e);
+    }
+    await new Promise<void>((resolve) => {
+      let triedAnon = false;
+      let done = false;
+      const finish = () => {
+        if (!done) {
+          done = true;
+          resolve();
+        }
+      };
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          finish();
+          return;
+        }
+        if (!triedAnon) {
+          triedAnon = true;
+          signInAnonymously(auth).catch((e) => {
+            recordAuthError(e);
+            finish(); // surface the error but don't block the app
+          });
+        }
+      });
     });
-    signInAnonymously(auth).catch(() => {
-      // Network/config issue — resolve anyway so the app doesn't hang;
-      // reads/writes will simply fail under strict rules until retried.
-      resolve();
-    });
-  });
+  })();
   return authPromise;
+}
+
+// --- Grown-up (Google SSO) identity ----------------------------------------
+
+/**
+ * Sign a grown-up in with Google. Uses a popup (best UX under the GitHub Pages
+ * project subpath); falls back to a full-page redirect only when the popup is
+ * blocked (some in-app webviews). Returns the user, or null when a redirect was
+ * started (the result is completed by ensureAuth's getRedirectResult on return).
+ */
+export async function signInWithGoogle(): Promise<User | null> {
+  const auth = getAuthInstance();
+  if (!auth) return null;
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+  try {
+    const res = await signInWithPopup(auth, provider);
+    lastAuthError = null;
+    return res.user;
+  } catch (e) {
+    const code = (e as { code?: string })?.code ?? "";
+    if (
+      code === "auth/popup-blocked" ||
+      code === "auth/cancelled-popup-request" ||
+      code === "auth/operation-not-supported-in-this-environment"
+    ) {
+      await signInWithRedirect(auth, provider);
+      return null;
+    }
+    // A cancelled popup is a normal user action, not an error to surface.
+    if (code !== "auth/popup-closed-by-user") recordAuthError(e);
+    throw e;
+  }
+}
+
+export async function signOutUser(): Promise<void> {
+  const auth = getAuthInstance();
+  if (auth) await signOut(auth);
+}
+
+/** Subscribe to auth-state changes. Returns an unsubscribe fn. */
+export function onAuthChange(cb: (user: User | null) => void): () => void {
+  const auth = getAuthInstance();
+  if (!auth) {
+    cb(null);
+    return () => {};
+  }
+  return onAuthStateChanged(auth, cb);
+}
+
+export function currentUser(): User | null {
+  return getAuthInstance()?.currentUser ?? null;
 }

@@ -1,0 +1,88 @@
+{
+  "rules": {
+    // Deny by default. Every path below must explicitly opt in.
+    ".read": false,
+    ".write": false,
+
+    // Reverse lookup: which families a signed-in grown-up belongs to.
+    // Shape: users/{uid}/families/{familyId} = true  (multi-household).
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+
+    // The tenant boundary. A family's data is readable/writable ONLY by its
+    // members (parents + enrolled devices). Isolation is enforced HERE, never
+    // in the client reducer.
+    "families": {
+      "$familyId": {
+        // Members can read the whole family subtree.
+        ".read": "auth != null && data.child('members').child(auth.uid).exists()",
+
+        // Members can write; OR a signed-in user may CREATE a brand-new family
+        // as long as the same write installs themselves as a parent member
+        // (the bootstrap clause — no server needed for Phase 1 family creation).
+        // NOTE: Phase 2 moves creation to a Cloud Function; this clause can then
+        // be tightened/removed.
+        ".write": "auth != null && (data.child('members').child(auth.uid).exists() || (!data.exists() && newData.child('members').child(auth.uid).child('role').val() === 'parent'))",
+
+        // --- Abuse caps (the write is allowed above; these only constrain
+        // shape/size so a member can't blow up egress/storage). ---
+        "submissions": {
+          "$sid": {
+            "photo": {
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300000)"
+            },
+            "title": {
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)"
+            }
+          }
+        },
+        "messages": {
+          "$mid": {
+            "text": {
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 4000)"
+            },
+            "photo": {
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300000)"
+            }
+          }
+        },
+        "announcements": {
+          "$aid": {
+            "text": {
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 2000)"
+            }
+          }
+        }
+      }
+    },
+
+    // Co-parent invites are handled by a Cloud Function (admin SDK, Phase 2),
+    // which bypasses these rules. No direct client access.
+    "invites": {
+      ".read": false,
+      ".write": false
+    },
+
+    // Phase 2 device-revocation index — Function-managed only.
+    "deviceGrants": {
+      ".read": false,
+      ".write": false
+    },
+
+    // LEGACY single-family room. Kept reachable (auth-gated) ONLY during the
+    // migration window so the current live family keeps working until their
+    // data is copied to families/{familyId}. This finally closes the open-DB
+    // hole (was fully public). Remove this block once the live family is
+    // migrated and confirmed.
+    "rooms": {
+      "$roomCode": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}
