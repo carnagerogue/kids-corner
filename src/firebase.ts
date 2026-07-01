@@ -8,6 +8,7 @@ import {
   onAuthStateChanged,
   setPersistence,
   signInAnonymously,
+  signInWithPopup,
   signInWithRedirect,
   signOut,
   type Auth,
@@ -117,12 +118,13 @@ export function ensureAuth(): Promise<void> {
 // --- Grown-up (Google SSO) identity ----------------------------------------
 
 /**
- * Sign a grown-up in with Google via a full-page REDIRECT (not a popup).
- * Popups are unreliable here: on GitHub Pages / strict popup-blockers /
- * mobile, signInWithPopup can be silently blocked and then HANG forever on the
- * cross-origin handshake (the "Opening Google…" that never opens). A redirect
- * navigates away cleanly; the result is completed by ensureAuth's
- * getRedirectResult when we return.
+ * Sign a grown-up in with Google. POPUP first: now that the app is served from
+ * the same origin as authDomain (kids-corner-45fc2.firebaseapp.com), the popup
+ * handshake completes in-page and returns the user directly — avoiding the
+ * redirect flow, whose result browsers increasingly drop (partitioned
+ * third-party storage / Safari ITP), which is exactly the "I pick my account
+ * but never land in the dashboard" symptom. Redirect stays as a fallback only
+ * when a popup can't open (blocked, or an in-app browser that forbids popups).
  */
 export async function signInWithGoogle(): Promise<User | null> {
   const auth = getAuthInstance();
@@ -134,8 +136,27 @@ export async function signInWithGoogle(): Promise<User | null> {
   } catch {
     /* non-fatal */
   }
-  await signInWithRedirect(auth, provider); // navigates away
-  return null;
+  lastAuthError = null;
+  try {
+    const cred = await signInWithPopup(auth, provider);
+    return cred.user;
+  } catch (e) {
+    const code = (e as { code?: string })?.code ?? "";
+    // User closed/cancelled the popup themselves — not an error, just stop.
+    if (/popup-closed-by-user|cancelled-popup-request|user-cancelled/i.test(code)) {
+      return null;
+    }
+    // Popup couldn't open (blocked, or unsupported in-app browser) — fall back
+    // to the full-page redirect; ensureAuth completes it via getRedirectResult.
+    if (/popup-blocked|operation-not-supported-in-this-environment|web-storage-unsupported/i.test(code)) {
+      await signInWithRedirect(auth, provider);
+      return null;
+    }
+    // A real failure (unauthorized domain, provider disabled, network) — record
+    // it so GrownUpGate can show the reason instead of silently looping.
+    recordAuthError(e);
+    throw e;
+  }
 }
 
 export async function signOutUser(): Promise<void> {
