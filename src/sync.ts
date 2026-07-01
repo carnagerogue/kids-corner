@@ -7,7 +7,7 @@
 // app out, but real family data should move to a private code (see
 // migrateRoom below) generated with generatePrivateCode, never left on the
 // default room long-term.
-import { get, ref, set } from "firebase/database";
+import { get, ref, set, update } from "firebase/database";
 import { ensureAuth, FIREBASE_READY, getDb } from "./firebase";
 
 const SYNC_KEY = "kids-corner:syncCode";
@@ -72,6 +72,65 @@ export async function migrateRoom(
     const config = data.config as
       | { kidProfiles?: unknown[] }
       | undefined;
+    const counts = {
+      kids: Array.isArray(config?.kidProfiles) ? config.kidProfiles.length : 0,
+      messages: Object.keys((data.messages as object) ?? {}).length,
+      submissions: Object.keys((data.submissions as object) ?? {}).length,
+    };
+    return { ok: true, counts };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * Copy a legacy room's DATA (config + id-keyed maps) into families/{familyId}.
+ * Deliberately NOT migrateRoom (that's rooms/->rooms/): this leaves the
+ * family's own meta/members intact (preserving ownership), refuses if the
+ * family already has data, and NEVER deletes or mutates the source room, so
+ * the legacy room stays as a rollback.
+ */
+export async function copyRoomToFamily(
+  fromRoomCode: string,
+  familyId: string,
+): Promise<MigrateResult> {
+  if (!FIREBASE_READY) return { ok: false, error: "Cloud sync isn't set up." };
+  const db = getDb();
+  if (!db) return { ok: false, error: "Cloud sync isn't set up." };
+  try {
+    await ensureAuth();
+    const fam = sanitizeCode(familyId);
+    const existing = await get(ref(db, `families/${fam}/config`));
+    if (existing.exists()) {
+      return {
+        ok: false,
+        error: "This family already has data — import skipped so nothing is overwritten.",
+      };
+    }
+    const src = await get(ref(db, `rooms/${sanitizeCode(fromRoomCode)}`));
+    const data = src.val() as Record<string, unknown> | null;
+    if (!data) return { ok: false, error: "No data found in the room to import." };
+
+    // Copy only data nodes — never meta/members (ownership stays with the
+    // family's creator), and never touch the source room.
+    const NODES = [
+      "config",
+      "submissions",
+      "choreAssignments",
+      "messages",
+      "announcements",
+      "reactions",
+    ];
+    const updates: Record<string, unknown> = {};
+    for (const node of NODES) {
+      if (data[node] !== undefined) updates[`families/${fam}/${node}`] = data[node];
+    }
+    if (Object.keys(updates).length === 0) {
+      return { ok: false, error: "The room had no data to import." };
+    }
+    await update(ref(db), updates);
+
+    const config = data.config as { kidProfiles?: unknown[] } | undefined;
     const counts = {
       kids: Array.isArray(config?.kidProfiles) ? config.kidProfiles.length : 0,
       messages: Object.keys((data.messages as object) ?? {}).length,

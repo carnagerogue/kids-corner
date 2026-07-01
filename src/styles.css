@@ -3356,6 +3356,30 @@ button {
   border-color: #ef4444;
   animation: shake 0.3s;
 }
+/* Free-text variant (family name) — no PIN dot spacing. */
+.pin__input--text {
+  font-family: var(--sans);
+  font-size: 1.05rem;
+  text-align: left;
+  letter-spacing: normal;
+}
+.grownup-id {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  margin-bottom: 6px;
+  border-bottom: 2px dashed var(--line);
+}
+.grownup-import {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
 @keyframes shake {
   25% { transform: translateX(-6px); }
   75% { transform: translateX(6px); }

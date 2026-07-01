@@ -44,8 +44,10 @@ import { MessageThread } from "../components/MessageThread";
 import { MessageNotifier } from "../components/MessageNotifier";
 import { CopyField } from "../components/AppCard";
 import { hashPin, pinMatches } from "../lib/hash";
-import { FIREBASE_READY } from "../firebase";
+import { FIREBASE_READY, signInWithGoogle, signOutUser } from "../firebase";
+import { useFamily } from "../store/FamilyContext";
 import {
+  copyRoomToFamily,
   DEFAULT_SYNC_CODE,
   generatePrivateCode,
   migrateRoom,
@@ -63,15 +65,79 @@ import type {
 } from "../types";
 
 export function ParentZone({ onExit }: { onExit: () => void }) {
-  const [unlocked, setUnlocked] = useState(false);
+  const fam = useFamily();
+  const [pinOk, setPinOk] = useState(false);
 
-  if (!unlocked) {
-    return <PinGate onUnlock={() => setUnlocked(true)} onExit={onExit} />;
+  // A signed-in grown-up with no family yet must create/join one first.
+  if (fam.isParent && fam.needsFamily) {
+    return <CreateFamilyScreen onExit={onExit} />;
   }
-  return <ParentDashboard onLock={() => setUnlocked(false)} />;
+  // The parent PIN still gates the dashboard (blocks a kid on a shared tablet),
+  // even once a grown-up's Google session is active for family identity.
+  if (!pinOk) {
+    return <GrownUpGate onUnlock={() => setPinOk(true)} onExit={onExit} />;
+  }
+  return <ParentDashboard onLock={() => setPinOk(false)} />;
 }
 
-function PinGate({
+function CreateFamilyScreen({ onExit }: { onExit: () => void }) {
+  const { user, createFamily } = useFamily();
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await createFamily(name.trim()); // reloads into the new family
+    } catch (err) {
+      setBusy(false);
+      setError(err instanceof Error ? err.message : "Couldn't create the family.");
+    }
+  };
+
+  return (
+    <div className="view">
+      <div className="pin">
+        <span className="pin__lock">👋</span>
+        <h2 className="pin__title">Welcome!</h2>
+        <p className="pin__sub">
+          Signed in as {user?.email ?? "your account"}. Name your family to get
+          started — you'll add your kids next.
+        </p>
+        <form className="pin__form" onSubmit={submit}>
+          <input
+            className="pin__input pin__input--text"
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. The Moon-Lee Family"
+            aria-label="Family name"
+          />
+          <button
+            className="btn btn--primary btn--big"
+            type="submit"
+            disabled={busy || !name.trim()}
+          >
+            {busy ? "Creating…" : "Create family"}
+          </button>
+        </form>
+        {error && <p className="pin__error">{error}</p>}
+        <button className="link-btn" onClick={() => signOutUser()}>
+          Sign out
+        </button>
+        <button className="link-btn" onClick={onExit}>
+          ← Back to Kids Corner
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function GrownUpGate({
   onUnlock,
   onExit,
 }: {
@@ -79,24 +145,86 @@ function PinGate({
   onExit: () => void;
 }) {
   const { state } = useApp();
+  const fam = useFamily();
   const [entry, setEntry] = useState("");
   const [error, setError] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (await pinMatches(entry, state.parentPin)) {
-      onUnlock();
-    } else {
+    if (await pinMatches(entry, state.parentPin)) onUnlock();
+    else {
       setError(true);
       setEntry("");
     }
   };
+
+  const google = async () => {
+    setSigningIn(true);
+    try {
+      await signInWithGoogle();
+    } catch {
+      /* cancelled or blocked — surfaced in console; the user can retry */
+    } finally {
+      setSigningIn(false);
+    }
+  };
+
+  const activeName = fam.families.find(
+    (f) => f.id === fam.activeFamilyId,
+  )?.name;
 
   return (
     <div className="view">
       <div className="pin">
         <span className="pin__lock">🔒</span>
         <h2 className="pin__title">Grown-Ups Only</h2>
+
+        {FIREBASE_READY && (
+          <div className="grownup-id">
+            {fam.isParent ? (
+              <>
+                <p className="pin__sub">
+                  Signed in as <strong>{fam.user?.email}</strong>
+                  {activeName ? ` · ${activeName}` : ""}
+                </p>
+                {fam.families.length > 1 && (
+                  <select
+                    className="settings__input"
+                    value={fam.activeFamilyId ?? ""}
+                    onChange={(e) => fam.setActiveFamilyId(e.target.value)}
+                    aria-label="Switch family"
+                  >
+                    {fam.families.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <ImportLegacyData familyId={fam.activeFamilyId} />
+                <button className="link-btn" onClick={() => signOutUser()}>
+                  Sign out of Google
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  className="btn btn--primary btn--full"
+                  onClick={google}
+                  disabled={signingIn}
+                >
+                  {signingIn ? "Opening Google…" : "🔐 Sign in with Google"}
+                </button>
+                <p className="settings__hint">
+                  For multiple families. Or just enter the PIN below to use this
+                  device's family.
+                </p>
+              </>
+            )}
+          </div>
+        )}
+
         <p className="pin__sub">Enter the PIN to review and approve work.</p>
         <form className="pin__form" onSubmit={submit}>
           <input
@@ -121,6 +249,40 @@ function PinGate({
           ← Back to Kids Corner
         </button>
       </div>
+    </div>
+  );
+}
+
+/** One-time import of the legacy shared-room data into this family. */
+function ImportLegacyData({ familyId }: { familyId: string | null }) {
+  const [status, setStatus] = useState("");
+  const [busy, setBusy] = useState(false);
+  if (!familyId) return null;
+
+  const run = async () => {
+    if (
+      !window.confirm(
+        "Import your existing Kids Corner data (kids, photos, messages) into this family? It copies from the shared room and never deletes anything.",
+      )
+    )
+      return;
+    setBusy(true);
+    setStatus("");
+    const res = await copyRoomToFamily(DEFAULT_SYNC_CODE, familyId);
+    setBusy(false);
+    setStatus(
+      res.ok
+        ? `✓ Imported ${res.counts.kids} kids, ${res.counts.submissions} submissions, ${res.counts.messages} messages.`
+        : `⚠️ ${res.error}`,
+    );
+  };
+
+  return (
+    <div className="grownup-import">
+      <button className="btn btn--ghost" onClick={run} disabled={busy}>
+        {busy ? "Importing…" : "⤵ Import existing Kids Corner data"}
+      </button>
+      {status && <p className="settings__hint">{status}</p>}
     </div>
   );
 }
