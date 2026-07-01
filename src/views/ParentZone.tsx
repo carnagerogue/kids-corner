@@ -43,6 +43,7 @@ import { newId } from "../store/storage";
 import { MessageThread } from "../components/MessageThread";
 import { MessageNotifier } from "../components/MessageNotifier";
 import { CopyField } from "../components/AppCard";
+import { isAllowedParent } from "../data/accessAllowlist";
 import { hashPin, pinMatches } from "../lib/hash";
 import { FIREBASE_READY, signInWithGoogle, signOutUser } from "../firebase";
 import { useFamily } from "../store/FamilyContext";
@@ -85,6 +86,28 @@ function CreateFamilyScreen({ onExit }: { onExit: () => void }) {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  // Only approved grown-ups may create a family.
+  if (!isAllowedParent(user?.email)) {
+    return (
+      <div className="view">
+        <div className="pin">
+          <span className="pin__lock">🚫</span>
+          <h2 className="pin__title">Not on the access list</h2>
+          <p className="pin__sub">
+            {user?.email ?? "This account"} isn't approved yet. Ask the Kids
+            Corner admin to add you, then sign in again.
+          </p>
+          <button className="btn btn--primary btn--big" onClick={() => signOutUser()}>
+            Sign out
+          </button>
+          <button className="link-btn" onClick={onExit}>
+            ← Back to Kids Corner
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

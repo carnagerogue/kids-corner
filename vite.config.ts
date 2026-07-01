@@ -2,10 +2,11 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 // https://vite.dev/config/
-// On GitHub Pages the app is served from /kids-corner/, so the production build
-// needs that base path. Local dev / preview stay at the root.
+// Base path differs per host: Firebase Hosting serves at root ("/"), GitHub
+// Pages at "/kids-corner/". The Firebase Hosting workflow sets APP_BASE="/".
+// Local dev / preview stay at the root.
 export default defineConfig(({ mode }) => ({
-  base: mode === "production" ? "/kids-corner/" : "/",
+  base: process.env.APP_BASE ?? (mode === "production" ? "/kids-corner/" : "/"),
   plugins: [react()],
   server: {
     host: true,

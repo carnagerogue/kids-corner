@@ -1,0 +1,32 @@
+name: Deploy to Firebase Hosting
+
+# Same-origin hosting so Google sign-in (Firebase Auth) works reliably — the
+# app and the auth handler share the kids-corner-45fc2 origin. Requires the
+# repo secret FIREBASE_SERVICE_ACCOUNT_KIDS_CORNER_45FC2 (a Firebase service-
+# account JSON). Until that's set, this workflow is expected to fail — the
+# GitHub Pages deploy keeps serving the current app in the meantime.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+        env:
+          APP_BASE: "/"
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KIDS_CORNER_45FC2 }}
+          channelId: live
+          projectId: kids-corner-45fc2
