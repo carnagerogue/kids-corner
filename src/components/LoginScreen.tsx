@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useApp } from "../store/AppContext";
 import { getKid, kidList } from "../store/selectors";
 import { pinMatches } from "../lib/hash";
@@ -6,6 +6,9 @@ import { PinDots, PinPad } from "./PinPad";
 import type { KidId } from "../types";
 
 const MAX_PIN_LEN = 8;
+/** Wrong tries before a gentle cooldown — stops a sibling guessing a PIN. */
+const MAX_TRIES = 5;
+const COOLDOWN_MS = 30_000;
 
 export function LoginScreen({
   onLogin,
@@ -20,6 +23,18 @@ export function LoginScreen({
   const [picked, setPicked] = useState<KidId | null>(null);
   const [entry, setEntry] = useState("");
   const [error, setError] = useState(false);
+  const [fails, setFails] = useState(0);
+  const [lockUntil, setLockUntil] = useState(0);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+
+  const locked = lockUntil > nowTick;
+  // While cooling down, tick each second so the countdown updates and the pad
+  // wakes back up on its own.
+  useEffect(() => {
+    if (!locked) return;
+    const t = window.setInterval(() => setNowTick(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, [locked]);
 
   const kid = picked ? getKid(state, picked) : null;
 
@@ -27,24 +42,38 @@ export function LoginScreen({
     setPicked(null);
     setEntry("");
     setError(false);
+    setFails(0);
+  };
+
+  const fail = () => {
+    setError(true);
+    setEntry("");
+    const next = fails + 1;
+    if (next >= MAX_TRIES) {
+      setFails(0);
+      setNowTick(Date.now());
+      setLockUntil(Date.now() + COOLDOWN_MS);
+    } else {
+      setFails(next);
+    }
   };
 
   // PINs are stored hashed, so we no longer know the real PIN's length up
   // front — re-check after every digit (once at least 3 are typed, the
-  // shortest allowed PIN) instead of waiting for a known target length.
+  // shortest allowed PIN). A right entry logs in instantly; a wrong one is
+  // only knowable when the kid taps ✓ (or the pad fills up).
   const checkEntry = async (kidId: KidId, next: string) => {
     if (next.length < 3) return;
     const stored = state.kidPins[kidId] ?? "";
     if (await pinMatches(next, stored)) {
       onLogin(kidId);
     } else if (next.length >= MAX_PIN_LEN) {
-      setError(true);
-      setEntry("");
+      fail();
     }
   };
 
   const press = (d: string) => {
-    if (!picked) return;
+    if (!picked || locked) return;
     const kidId = picked;
     setError(false);
     setEntry((prev) => {
@@ -53,6 +82,20 @@ export function LoginScreen({
       return next;
     });
   };
+
+  // The ✓ key: instant "that wasn't it" feedback at any length, instead of
+  // silently waiting for all 8 slots to fill.
+  const submit = async () => {
+    if (!picked || locked) return;
+    const stored = state.kidPins[picked] ?? "";
+    if (entry.length >= 3 && (await pinMatches(entry, stored))) {
+      onLogin(picked);
+    } else {
+      fail();
+    }
+  };
+
+  const secondsLeft = Math.max(0, Math.ceil((lockUntil - nowTick) / 1000));
 
   const back = () => setEntry((e) => e.slice(0, -1));
 
@@ -107,6 +150,9 @@ export function LoginScreen({
                 🔒 Grown-Ups
               </button>
             </div>
+            <button className="login__hint" onClick={onParent}>
+              Not your family? Ask a grown-up →
+            </button>
           </>
         ) : (
           <div
@@ -122,8 +168,21 @@ export function LoginScreen({
             <div className={error ? "is-error" : ""}>
               <PinDots count={entry.length} total={Math.max(entry.length, 4)} />
             </div>
-            {error && <p className="login__error">Oops, try again!</p>}
-            <PinPad onDigit={press} onBack={back} />
+            {locked ? (
+              <p className="login__error">
+                Let's take a little break — try again in {secondsLeft}s 🐢
+              </p>
+            ) : error ? (
+              <p className="login__error">Oops, try again!</p>
+            ) : (
+              <p className="login__padhint">Tap ✓ when you're done</p>
+            )}
+            <PinPad
+              onDigit={press}
+              onBack={back}
+              onSubmit={() => void submit()}
+              disabled={locked}
+            />
             <button className="login__parent" onClick={reset}>
               ← Not {kid!.firstName}? Go back
             </button>

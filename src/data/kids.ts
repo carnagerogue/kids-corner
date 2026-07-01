@@ -2,10 +2,14 @@ import type { Kid, ThemeId } from "../types";
 
 // The kids that ship by default. The roster is editable in the Grown-Ups area,
 // so this is only the starting point (stored in app state thereafter).
+// PRIVACY: first names only — this file ships in the public JS bundle, so no
+// surnames here, ever. On cloud builds these seeds are never loaded at runtime
+// (fresh devices start with an EMPTY roster; see storage.freshState) — they
+// exist for the offline/dev experience.
 export const DEFAULT_KIDS: Kid[] = [
   {
     id: "claire",
-    name: "Claire Moon",
+    name: "Claire",
     firstName: "Claire",
     emoji: "🌙",
     color: "#e21b3c",
@@ -15,7 +19,7 @@ export const DEFAULT_KIDS: Kid[] = [
   },
   {
     id: "coby",
-    name: "Coby Lee",
+    name: "Coby",
     firstName: "Coby",
     emoji: "🚀",
     color: "#a8174f",
@@ -25,7 +29,7 @@ export const DEFAULT_KIDS: Kid[] = [
   },
   {
     id: "hailee",
-    name: "Hailee Lee",
+    name: "Hailee",
     firstName: "Hailee",
     emoji: "☀️",
     color: "#ff5a1f",

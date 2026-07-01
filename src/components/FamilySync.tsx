@@ -100,7 +100,7 @@ const reactHash = (r: Reaction) => (r.deleted ? "d" : "");
  */
 export function FamilySync() {
   const { state, dispatch } = useApp();
-  const { basePath } = useFamily();
+  const { basePath, bound } = useFamily();
   const [ready, setReady] = useState(false);
   // The database's rules require auth != null — sign in (invisibly,
   // anonymously) before any read/write is attempted.
@@ -125,8 +125,10 @@ export function FamilySync() {
   const syncedReact = useRef<Map<string, string>>(new Map());
 
   // Subscribe to every shared slice and ingest remote changes.
+  // Gated on `bound` too (not just basePath): an unbound device must never
+  // fetch a roster, so a stranger who opens the app pulls zero child data.
   useEffect(() => {
-    if (!FIREBASE_READY || !basePath || !authReady) return;
+    if (!FIREBASE_READY || !basePath || !bound || !authReady) return;
     const db = getDb();
     if (!db) return;
     setReady(false);
@@ -182,7 +184,7 @@ export function FamilySync() {
       }),
     ];
     return () => unsubs.forEach((u) => u());
-  }, [basePath, dispatch, authReady]);
+  }, [basePath, bound, dispatch, authReady]);
 
   // Push config (last-write-wins) — only after we've seen the cloud's copy, so
   // a fresh device doesn't clobber an existing roster.

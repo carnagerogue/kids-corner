@@ -7,22 +7,36 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { get, ref, update } from "firebase/database";
+import { get, ref, set, update } from "firebase/database";
 import type { User } from "firebase/auth";
-import { ensureAuth, FIREBASE_READY, getDb, onAuthChange } from "../firebase";
-import { readSyncCode } from "../sync";
-import { newId } from "./storage";
+import {
+  currentUser,
+  ensureAuth,
+  FIREBASE_READY,
+  getDb,
+  onAuthChange,
+} from "../firebase";
+import { normalizePairingCode, readSyncCode, redeemPairing } from "../sync";
+import { clearState, newId, writeSession } from "./storage";
 import { ACTIVE_KEY, PAIRED_KEY, scopedFamilyId } from "./familyScope";
 
 // ---------------------------------------------------------------------------
-// FamilyContext — resolves WHICH family subtree this device/parent syncs to.
+// FamilyContext — resolves WHICH family subtree this device/parent syncs to,
+// and whether this device is BOUND to a family at all.
 //
 // Priority:
 //   1. Signed-in grown-up (Google) -> their active family (users/{uid}/families;
 //      multi-household — the active one is a local preference in ACTIVE_KEY).
 //   2. Anonymous kids' device PAIRED to a family -> that family (PAIRED_KEY).
-//   3. Otherwise -> the LEGACY rooms/{syncCode} room, so the current single
-//      family keeps working untouched until it's migrated.
+//   3. Otherwise -> UNBOUND: basePath is null so NOTHING is fetched (see the
+//      privacy note below) and the app shows a "connect this device" prompt.
+//
+// PRIVACY: `basePath` is the single source of truth that drives FamilySync's
+// reads. An UNBOUND device MUST resolve basePath = null (not a legacy room), so
+// FamilySync never subscribes and no child's name is ever pulled into memory or
+// shown to a stranger who reaches the kid entry. The lone exception is
+// !FIREBASE_READY (local/offline dev), which is treated as bound to the seeded
+// legacy room since there is no cloud and thus no cross-family exposure.
 //
 // Storage is scoped per family (see storage.storageKey), so a scope change must
 // re-init AppProvider — we do that with a one-time page reload whenever the
@@ -55,8 +69,14 @@ type Resolved = {
   isParent: boolean;
   families: FamilySummary[];
   activeFamilyId: string | null;
-  /** families/{id} or rooms/{code}; null while resolving or a parent has no family. */
+  /** families/{id}; null when unbound (nothing is fetched) or still resolving. */
   basePath: string | null;
+  /**
+   * Whether this device is scoped to a real family (a signed-in parent with an
+   * active family, or a paired kids' device). When false, the kid entry shows
+   * the connect-this-device prompt instead of any roster.
+   */
+  bound: boolean;
   /** Parent signed in but belongs to no family yet — must create/join one. */
   needsFamily: boolean;
 };
@@ -64,8 +84,10 @@ type Resolved = {
 type FamilyContextValue = Resolved & {
   setActiveFamilyId: (id: string) => void;
   createFamily: (name: string) => Promise<string>;
-  pairDevice: (familyId: string) => void;
-  unpairDevice: () => void;
+  /** Redeem a grown-up's setup code -> enroll this device + bind it. Throws on a bad/expired code. */
+  pairDevice: (code: string) => Promise<void>;
+  /** Revoke this device's membership server-side, then unbind + reload. */
+  unpairDevice: () => Promise<void>;
   reload: () => void;
 };
 
@@ -79,6 +101,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     families: [],
     activeFamilyId: null,
     basePath: null,
+    bound: false,
     needsFamily: false,
   });
 
@@ -99,7 +122,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      // No cloud configured: local-only, legacy scope.
+      // No cloud configured: local-only. With no cloud there's no multi-family
+      // exposure, so treat offline/dev as bound to the seeded legacy room.
       if (!FIREBASE_READY) {
         if (!cancelled)
           setState({
@@ -109,15 +133,22 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
             families: [],
             activeFamilyId: null,
             basePath: legacyBasePath(),
+            bound: true,
             needsFamily: false,
           });
         return;
       }
 
-      // Auth still resolving — don't sync anywhere yet.
+      // Auth still resolving — don't sync anywhere yet, and stay unbound so
+      // nothing is fetched against a stale scope in the meantime.
       if (!user) {
         if (!cancelled)
-          setState((s) => ({ ...s, loading: true, basePath: null }));
+          setState((s) => ({
+            ...s,
+            loading: true,
+            basePath: null,
+            bound: false,
+          }));
         return;
       }
 
@@ -143,7 +174,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
             isParent: false,
             families: [],
             activeFamilyId: paired,
-            basePath: paired ? `families/${safe(paired)}` : legacyBasePath(),
+            // A paired kids' device binds to its family; an unpaired one stays
+            // UNBOUND with a null basePath so no roster is ever fetched or shown
+            // (the kid entry renders ConnectDevice instead). No legacy fallback.
+            basePath: paired ? `families/${safe(paired)}` : null,
+            bound: !!paired,
             needsFamily: false,
           });
         return;
@@ -186,6 +221,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           families: [],
           activeFamilyId: null,
           basePath: null,
+          bound: false,
           needsFamily: true,
         });
         return;
@@ -211,6 +247,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         families,
         activeFamilyId: active,
         basePath: `families/${safe(active)}`,
+        bound: true,
         needsFamily: false,
       });
     })();
@@ -237,18 +274,22 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       const fid = newId();
       const uid = user.uid;
       const now = Date.now();
-      // Matches the rules bootstrap clause: the same write installs the caller
-      // as a parent member of the brand-new family.
+      // Write the whole family node in ONE location so the rules bootstrap
+      // clause (`!data.exists() && newData.members[uid].role === 'parent'`) sees
+      // meta AND members together. Splitting these into sibling paths of a
+      // multi-path update makes the rule evaluate each location with only its
+      // own newData — the meta write then can't see the members child and the
+      // whole atomic update is denied. This nesting is the robust pattern.
       await update(ref(db), {
-        [`families/${fid}/meta`]: {
-          name: name.trim().slice(0, 60) || "My Family",
-          ownerUid: uid,
-          createdAt: now,
-        },
-        [`families/${fid}/members/${uid}`]: {
-          role: "parent",
-          addedAt: now,
-          addedBy: uid,
+        [`families/${fid}`]: {
+          meta: {
+            name: name.trim().slice(0, 60) || "My Family",
+            ownerUid: uid,
+            createdAt: now,
+          },
+          members: {
+            [uid]: { role: "parent", addedAt: now, addedBy: uid },
+          },
         },
         [`users/${uid}/families/${fid}`]: true,
       });
@@ -263,16 +304,71 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     [user],
   );
 
-  const pairDevice = useCallback((familyId: string) => {
+  // Redeem a grown-up's setup code: validate it, self-enroll this device as a
+  // 'device' member of the family it points to (so it survives read-isolation),
+  // then bind + reload. Throws on a bad/expired code so the UI can shake.
+  const pairDevice = useCallback(async (code: string): Promise<void> => {
+    const db = getDb();
+    const u = currentUser() ?? (await ensureAuth().then(() => currentUser()));
+    if (!db || !u) throw new Error("Cloud sync isn't ready — try again.");
+    const fid = await redeemPairing(code); // validates; throws if invalid
+    const uid = u.uid;
+    const now = Date.now();
+    const normalized = normalizePairingCode(code);
+    await update(ref(db), {
+      [`families/${fid}/members/${uid}`]: {
+        role: "device",
+        addedAt: now,
+        addedBy: uid,
+        viaCode: normalized,
+      },
+      [`users/${uid}/families/${fid}`]: true,
+    });
+    // Best-effort: burn the code so it can't be redeemed again in its window
+    // (shrinks the replay/observation blast radius; strict single-use is a
+    // Phase 2 Cloud Function). Ignore failure — enrollment already succeeded.
     try {
-      localStorage.setItem(PAIRED_KEY, familyId);
+      await set(ref(db, `pairings/${normalized}`), null);
+    } catch {
+      /* best-effort */
+    }
+    try {
+      localStorage.setItem(PAIRED_KEY, fid);
     } catch {
       /* ignore */
     }
     window.location.reload();
   }, []);
 
-  const unpairDevice = useCallback(() => {
+  // Disconnecting must revoke server-side, not just locally: an anonymous auth
+  // token is a bearer credential, so a device that only forgot PAIRED_KEY could
+  // still read the family directly once reads are member-gated. Delete the
+  // membership first, then unbind. Best-effort — always unbinds locally.
+  const unpairDevice = useCallback(async (): Promise<void> => {
+    const db = getDb();
+    const u = currentUser();
+    const fid = readLocal(PAIRED_KEY);
+    if (db && u && fid) {
+      try {
+        await update(ref(db), {
+          [`families/${fid}/members/${u.uid}`]: null,
+          [`users/${u.uid}/families/${fid}`]: null,
+        });
+      } catch {
+        /* best-effort revoke — still unbind locally below */
+      }
+    }
+    // Wipe this family's local footprint off the device: the scoped cache
+    // (roster, PIN hashes, messages, photos) and any logged-in kid session.
+    // clearState() keys off the CURRENT scope, so run it while PAIRED_KEY is
+    // still set, THEN drop PAIRED_KEY. Otherwise a "disconnected" hand-me-down
+    // tablet still holds the family's data at rest.
+    try {
+      clearState();
+      writeSession(null);
+    } catch {
+      /* ignore */
+    }
     try {
       localStorage.removeItem(PAIRED_KEY);
     } catch {

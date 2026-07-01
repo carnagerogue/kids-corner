@@ -39,17 +39,24 @@ import {
   hhmmToMinutes,
   minutesToHHMM,
 } from "../data/schedule";
-import { newId } from "../store/storage";
+import { DEFAULT_PARENT_PIN, newId } from "../store/storage";
 import { MessageThread } from "../components/MessageThread";
 import { MessageNotifier } from "../components/MessageNotifier";
 import { CopyField } from "../components/AppCard";
 import { isAllowedParent } from "../data/accessAllowlist";
 import { hashPin, pinMatches } from "../lib/hash";
-import { FIREBASE_READY, signInWithGoogle, signOutUser } from "../firebase";
+import {
+  FIREBASE_READY,
+  getAuthError,
+  signInWithGoogle,
+  signOutUser,
+} from "../firebase";
 import { useFamily } from "../store/FamilyContext";
 import {
   copyRoomToFamily,
+  createPairing,
   DEFAULT_SYNC_CODE,
+  formatPairingCode,
   generatePrivateCode,
   migrateRoom,
   readSyncOverride,
@@ -171,10 +178,19 @@ function GrownUpGate({
   onExit: () => void;
 }) {
   const { state } = useApp();
-  const fam = useFamily();
   const [entry, setEntry] = useState("");
   const [error, setError] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
+
+  // The PIN unlocks a family ALREADY on this device (a paired kids' tablet, or
+  // the offline/dev family). A fresh device has no family to unlock, so the
+  // PIN form is hidden there — Google sign-in is the only door, and a stranger
+  // can't get anywhere by guessing a default PIN.
+  const hasLocalFamily = kidList(state).length > 0;
+  // Sign-in failures (blocked popups, unauthorized domain, disabled provider)
+  // used to die silently in the console and look like "it went in a circle" —
+  // surface them here instead.
+  const authError = getAuthError();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,15 +206,11 @@ function GrownUpGate({
     try {
       await signInWithGoogle();
     } catch {
-      /* cancelled or blocked — surfaced in console; the user can retry */
+      /* cancelled or blocked — shown via getAuthError on the next render */
     } finally {
       setSigningIn(false);
     }
   };
-
-  const activeName = fam.families.find(
-    (f) => f.id === fam.activeFamilyId,
-  )?.name;
 
   return (
     <div className="view">
@@ -208,69 +220,57 @@ function GrownUpGate({
 
         {FIREBASE_READY && (
           <div className="grownup-id">
-            {fam.isParent ? (
-              <>
-                <p className="pin__sub">
-                  Signed in as <strong>{fam.user?.email}</strong>
-                  {activeName ? ` · ${activeName}` : ""}
-                </p>
-                {fam.families.length > 1 && (
-                  <select
-                    className="settings__input"
-                    value={fam.activeFamilyId ?? ""}
-                    onChange={(e) => fam.setActiveFamilyId(e.target.value)}
-                    aria-label="Switch family"
-                  >
-                    {fam.families.map((f) => (
-                      <option key={f.id} value={f.id}>
-                        {f.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                <ImportLegacyData familyId={fam.activeFamilyId} />
-                <button className="link-btn" onClick={() => signOutUser()}>
-                  Sign out of Google
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  className="btn btn--primary btn--full"
-                  onClick={google}
-                  disabled={signingIn}
-                >
-                  {signingIn ? "Opening Google…" : "🔐 Sign in with Google"}
-                </button>
-                <p className="settings__hint">
-                  For multiple families. Or just enter the PIN below to use this
-                  device's family.
-                </p>
-              </>
+            <button
+              className="btn btn--primary btn--full"
+              onClick={google}
+              disabled={signingIn}
+            >
+              {signingIn ? "Opening Google…" : "🔐 Sign in with Google"}
+            </button>
+            <p className="settings__hint">
+              {hasLocalFamily
+                ? "Sign in to manage your family from any device."
+                : "Sign in to open your dashboard — or set up your family for the first time."}
+            </p>
+            {authError && (
+              <p className="pin__error">
+                Sign-in didn't finish: {authError}
+              </p>
             )}
           </div>
         )}
 
-        <p className="pin__sub">Enter the PIN to review and approve work.</p>
-        <form className="pin__form" onSubmit={submit}>
-          <input
-            className={`pin__input ${error ? "is-error" : ""}`}
-            type="password"
-            inputMode="numeric"
-            autoFocus
-            value={entry}
-            onChange={(e) => {
-              setEntry(e.target.value);
-              setError(false);
-            }}
-            placeholder="••••"
-            aria-label="Parent PIN"
-          />
-          <button className="btn btn--primary btn--big" type="submit">
-            Unlock
-          </button>
-        </form>
-        {error && <p className="pin__error">That PIN didn't match. Try again.</p>}
+        {hasLocalFamily && (
+          <>
+            <p className="pin__sub">
+              {FIREBASE_READY
+                ? "Or unlock this device's family with the grown-up PIN."
+                : "Enter the grown-up PIN to review and approve work."}
+            </p>
+            <form className="pin__form" onSubmit={submit}>
+              <input
+                className={`pin__input ${error ? "is-error" : ""}`}
+                type="password"
+                inputMode="numeric"
+                autoFocus={!FIREBASE_READY}
+                value={entry}
+                onChange={(e) => {
+                  setEntry(e.target.value);
+                  setError(false);
+                }}
+                placeholder="••••"
+                aria-label="Parent PIN"
+              />
+              <button className="btn btn--primary btn--big" type="submit">
+                Unlock
+              </button>
+            </form>
+            {error && (
+              <p className="pin__error">That PIN didn't match. Try again.</p>
+            )}
+          </>
+        )}
+
         <button className="link-btn" onClick={onExit}>
           ← Back to Kids Corner
         </button>
@@ -377,6 +377,17 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
         </button>
       </div>
 
+      {state.parentPin === DEFAULT_PARENT_PIN && (
+        <button
+          className="pinnag"
+          onClick={() => setTab("settings")}
+          title="Go to Settings"
+        >
+          🔑 Your grown-up PIN is still the default <strong>1234</strong> — tap
+          to set your own so kids (and guests) can't open this area.
+        </button>
+      )}
+
       <nav className="gnav" aria-label="Grown-up sections">
         {GTABS.map((t) => {
           const badge =
@@ -422,6 +433,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
         {tab === "avatar" && <ParentAvatarControls />}
         {tab === "settings" && (
           <>
+            <ConnectKidDevice />
             <CloudSync />
             <ParentSettings />
           </>
@@ -1389,6 +1401,116 @@ function ParentExplore() {
           Controls what {selKid.firstName} sees on the Explore tab. (Everything
           is on by default.)
         </p>
+      </div>
+    </>
+  );
+}
+
+type PairState =
+  | { phase: "idle" }
+  | { phase: "working" }
+  | { phase: "shown"; code: string; expiresAt: number }
+  | { phase: "error"; message: string };
+
+/**
+ * Connect a shared kids' tablet to this family. Kids' devices have no Google
+ * account — they bind with a short-lived setup code so an unbound device (a
+ * stranger's browser, another family's tablet) never sees a roster. Also lets a
+ * paired device disconnect itself, and lets a parent turn their own device into
+ * the kids' tablet.
+ */
+function ConnectKidDevice() {
+  const fam = useFamily();
+  const [pair, setPair] = useState<PairState>({ phase: "idle" });
+
+  if (!FIREBASE_READY) return null;
+
+  // A paired kids' device reaching the dashboard (through the PIN gate) is a
+  // non-parent session whose active family is the paired one.
+  const isPairedDevice = !fam.isParent && !!fam.activeFamilyId;
+
+  const generate = async () => {
+    if (!fam.activeFamilyId) return;
+    setPair({ phase: "working" });
+    try {
+      const { code, expiresAt } = await createPairing(fam.activeFamilyId);
+      setPair({ phase: "shown", code, expiresAt });
+    } catch (e) {
+      setPair({
+        phase: "error",
+        message: e instanceof Error ? e.message : "Couldn't make a code.",
+      });
+    }
+  };
+
+  const disconnect = () => {
+    if (
+      window.confirm(
+        "Disconnect this device from the family? Kids will need a new setup code to use it again.",
+      )
+    ) {
+      void fam.unpairDevice(); // revokes membership, then reloads
+    }
+  };
+
+  return (
+    <>
+      <h3 className="section-title">📱 Kids' Devices</h3>
+      <div className="settings">
+        {isPairedDevice ? (
+          <>
+            <p className="settings__hint">
+              ✅ This device is <strong>connected</strong> as a kids' tablet — it
+              shows only your family's kid login.
+            </p>
+            <button className="btn btn--reject" onClick={disconnect}>
+              Disconnect this device
+            </button>
+          </>
+        ) : fam.activeFamilyId ? (
+          <>
+            <p className="settings__hint">
+              Kids' tablets don't sign in with Google. Connect each one with a
+              short setup code so it shows <strong>only your family</strong> — a
+              stranger who opens the app never sees your children's names.
+            </p>
+
+            {pair.phase !== "shown" && (
+              <button
+                className="btn btn--primary"
+                onClick={generate}
+                disabled={pair.phase === "working"}
+              >
+                {pair.phase === "working" ? "Making a code…" : "➕ Get a setup code"}
+              </button>
+            )}
+            {pair.phase === "error" && <p className="pin__error">{pair.message}</p>}
+            {pair.phase === "shown" && (
+              <div className="pairing">
+                <CopyField label="Setup code" value={formatPairingCode(pair.code)} />
+                <p className="settings__hint">
+                  On the kids' tablet, tap <strong>I'm a Kid</strong> and enter
+                  this code. It works for <strong>5 minutes</strong>, then stops
+                  — make a fresh one anytime. Treat it like a key: don't share or
+                  post it.
+                </p>
+                <button className="btn btn--ghost btn--sm" onClick={generate}>
+                  Make a new code
+                </button>
+              </div>
+            )}
+
+            <p className="settings__hint pairing__self">
+              Setting up on <em>this</em> device? Tap <strong>🔒 Grown-Ups → Sign
+              out</strong>, then choose <strong>I'm a Kid</strong> and enter a
+              setup code — the tablet enrolls itself the moment it's paired.
+            </p>
+          </>
+        ) : (
+          <p className="settings__hint">
+            Create your family first (above), then connect kids' tablets here.
+          </p>
+        )}
       </div>
     </>
   );

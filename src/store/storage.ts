@@ -41,6 +41,7 @@ import { DEFAULT_NEW_KID_APPS, DEFAULT_VISIBLE_APPS } from "../data/applications
 import { THEME_BY_ID } from "../data/themes";
 import { FAMILY_PLAN_ID, defaultSchedules } from "../data/schedule";
 import { scopedFamilyId } from "./familyScope";
+import { FIREBASE_READY } from "../firebase";
 
 const STORAGE_BASE = "kids-corner:v2";
 const STATE_VERSION = 2;
@@ -349,10 +350,14 @@ export function emptyFamilyState(): AppState {
   };
 }
 
-/** The right blank slate for the current scope: an empty family when scoped to
- * one, the seeded defaults for the legacy/unmigrated single family. */
+/**
+ * The right blank slate for the current scope. PRIVACY: on any cloud build a
+ * fresh device starts with an EMPTY roster — a family's kids arrive only by
+ * being bound to that family (pairing / parent sign-in). The seeded demo
+ * family exists solely for the offline/dev experience (no cloud, no exposure).
+ */
 function freshState(): AppState {
-  return scopedFamilyId() ? emptyFamilyState() : defaultState();
+  return scopedFamilyId() || FIREBASE_READY ? emptyFamilyState() : defaultState();
 }
 
 /** How many approved photos to keep for the grown-up's per-kid gallery. */
@@ -389,20 +394,27 @@ function prunePhotos(
 /** Defensive load: tolerate missing keys without crashing; reset on version change. */
 export function loadState(): AppState {
   try {
+    // Cloud build + UNBOUND device: never read the unscoped legacy cache. An
+    // unbound device syncs nothing, so that cache is a dead sandbox — and on
+    // devices that ran an older build it holds a seeded roster a stranger
+    // could open with the default PIN. Kids arrive only via family binding.
+    // (The cache itself is left untouched for rollback.)
+    if (FIREBASE_READY && !scopedFamilyId()) return emptyFamilyState();
     const raw = localStorage.getItem(storageKey());
     if (!raw) return freshState();
     const parsed = JSON.parse(raw) as Partial<AppState>;
     if (parsed.version !== STATE_VERSION) return freshState();
 
-    // The roster: use saved profiles if present & valid; else empty for a
-    // scoped family, or the seeded defaults for the legacy single family.
+    // The roster: use saved profiles if present & valid; else EMPTY on any
+    // cloud build (kids arrive only via family binding — never seeded where a
+    // stranger could see them), or the demo seeds for offline/dev.
     const profiles: Kid[] =
       Array.isArray(parsed.kidProfiles) && parsed.kidProfiles.length
         ? (parsed.kidProfiles as Kid[]).filter(
             (k) =>
               k && typeof k.id === "string" && typeof k.firstName === "string",
           )
-        : scopedFamilyId()
+        : scopedFamilyId() || FIREBASE_READY
           ? []
           : DEFAULT_KIDS.map((k) => ({ ...k }));
     const ids = profiles.map((p) => p.id);
@@ -596,6 +608,10 @@ export function loadState(): AppState {
 }
 
 export function saveState(state: AppState): void {
+  // Cloud build + UNBOUND device: never write the unscoped legacy cache either
+  // (mirror of the loadState guard) — an older device's real cached data must
+  // survive untouched until the family is migrated.
+  if (FIREBASE_READY && !scopedFamilyId()) return;
   try {
     const serialized = JSON.stringify(state);
     // Skip no-op writes so cross-tab sync (storage events) can't ping-pong.

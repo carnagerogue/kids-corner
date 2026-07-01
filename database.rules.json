@@ -2,32 +2,65 @@
   "rules": {
     // TRANSITIONAL (Phase 1 launch-in-progress): reads stay OPEN so no kid on
     // the legacy room loses access during the multi-family migration, but every
-    // WRITE is locked down. Read-isolation (per-family) is the next tightening,
-    // once families are migrated and the flow is verified.
+    // WRITE is locked down. Read-isolation (per-family) is the next tightening
+    // (the "D4" step): flip root ".read" to false, gate families/$fid reads on
+    // membership, and retire rooms/ — do that ONLY after every kids' device has
+    // been paired (enrolled as a member), or a live tablet loses access.
     ".read": true,
     ".write": false,
 
-    // A grown-up manages only their own reverse-lookup of families.
+    // A grown-up manages only their own reverse-lookup of families. A paired
+    // kids' device also writes its own users/{uid}/families/{fid} on enroll.
     "users": {
       "$uid": {
         ".write": "auth != null && auth.uid === $uid"
       }
     },
 
-    // Family data: writable by members; OR a signed-in user may CREATE a new
-    // family as long as the same write installs them as a parent member
-    // (the bootstrap clause — no backend needed).
     "families": {
       "$familyId": {
-        ".write": "auth != null && (data.child('members').child(auth.uid).exists() || (!data.exists() && newData.child('members').child(auth.uid).child('role').val() === 'parent'))",
+        // Full-subtree write is granted ONLY to PARENT members (and to the
+        // bootstrap that creates a brand-new family installing the caller as a
+        // parent). Device members are deliberately NOT granted blanket write
+        // here — RTDB .write cascades and cannot be revoked deeper, so a
+        // device that inherited this grant could rewrite members/ to promote
+        // itself to 'parent'. Devices instead get scoped writes on the data
+        // collections below (config/submissions/…), never on members/ or meta/.
+        ".write": "auth != null && (data.child('members').child(auth.uid).child('role').val() === 'parent' || (!data.exists() && newData.child('members').child(auth.uid).child('role').val() === 'parent'))",
+
+        "members": {
+          "$memberUid": {
+            // A device may ONLY (a) self-enroll once — first write, role pinned
+            // to 'device', proving a valid unexpired pairing (carried in the
+            // written viaCode) that points at THIS family; or (b) self-delete
+            // (unpair). Parents manage members via the ancestor parent grant
+            // above. A device can never write another uid's member row, nor
+            // overwrite its own row to 'parent' (both fall through to denied).
+            ".write": "auth != null && $memberUid === auth.uid && (!newData.exists() || (!data.exists() && newData.child('role').val() === 'device' && root.child('pairings').child(newData.child('viaCode').val()).child('fid').val() === $familyId && root.child('pairings').child(newData.child('viaCode').val()).child('expiresAt').val() > now))",
+            ".validate": "newData.child('role').val() === 'parent' || newData.child('role').val() === 'device'"
+          }
+        },
+
+        // Data collections any member (parent OR enrolled device) may write.
+        // The membership check is what lets a device sync kid activity without
+        // the dangerous blanket grant. Parents also satisfy these via the
+        // ancestor rule; devices rely on them.
+        "config": {
+          ".write": "auth != null && root.child('families').child($familyId).child('members').child(auth.uid).exists()"
+        },
         "submissions": {
+          ".write": "auth != null && root.child('families').child($familyId).child('members').child(auth.uid).exists()",
           "$sid": {
             "photo": {
               ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300000)"
             }
           }
         },
+        "choreAssignments": {
+          ".write": "auth != null && root.child('families').child($familyId).child('members').child(auth.uid).exists()"
+        },
         "messages": {
+          ".write": "auth != null && root.child('families').child($familyId).child('members').child(auth.uid).exists()",
           "$mid": {
             "text": {
               ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 4000)"
@@ -36,7 +69,32 @@
               ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300000)"
             }
           }
+        },
+        "announcements": {
+          ".write": "auth != null && root.child('families').child($familyId).child('members').child(auth.uid).exists()"
+        },
+        "reactions": {
+          ".write": "auth != null && root.child('families').child($familyId).child('members').child(auth.uid).exists()"
         }
+      }
+    },
+
+    // Short-lived device-pairing codes (pairings/{code} = {fid, createdBy,
+    // createdAt, expiresAt}). Only a PARENT member of the target family may mint
+    // one, self-authored, expiring within 15 minutes, and NOT overwriting a
+    // still-live code someone else minted (anti-hijack). A code may be deleted
+    // by its creator, any member of its family (the redeeming device burns it),
+    // or by anyone once expired (cleanup). The collection is unlistable (.read
+    // false) and a single code is readable to redeem — "unlistable" only truly
+    // binds once root reads are locked (D4); until then the open root read
+    // cascades. Strict single-use is a Phase 2 Cloud Function; here entropy + a
+    // short TTL + best-effort burn-on-redeem bound the window.
+    "pairings": {
+      ".read": false,
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((newData.exists() && newData.child('createdBy').val() === auth.uid && newData.child('fid').isString() && root.child('families').child(newData.child('fid').val()).child('members').child(auth.uid).child('role').val() === 'parent' && newData.child('expiresAt').isNumber() && newData.child('expiresAt').val() > now && newData.child('expiresAt').val() <= now + 900000 && (!data.exists() || data.child('expiresAt').val() < now || data.child('createdBy').val() === auth.uid)) || (!newData.exists() && data.exists() && (data.child('createdBy').val() === auth.uid || root.child('families').child(data.child('fid').val()).child('members').child(auth.uid).exists() || data.child('expiresAt').val() < now)))",
+        ".validate": "newData.hasChildren(['fid', 'createdBy', 'createdAt', 'expiresAt'])"
       }
     },
 

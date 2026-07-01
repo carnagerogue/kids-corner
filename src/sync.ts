@@ -8,7 +8,7 @@
 // migrateRoom below) generated with generatePrivateCode, never left on the
 // default room long-term.
 import { get, ref, set, update } from "firebase/database";
-import { ensureAuth, FIREBASE_READY, getDb } from "./firebase";
+import { currentUser, ensureAuth, FIREBASE_READY, getDb } from "./firebase";
 
 const SYNC_KEY = "kids-corner:syncCode";
 export const SYNC_EVENT = "kids-corner:synccode";
@@ -32,6 +32,90 @@ export function generatePrivateCode(): string {
   return [chars.slice(0, 4), chars.slice(4, 8), chars.slice(8, 12)]
     .map((g) => g.join(""))
     .join("-");
+}
+
+// --- Device pairing --------------------------------------------------------
+// A kids' shared tablet doesn't sign in with Google; it BINDS to exactly one
+// family via a short-lived setup code a grown-up generates from their
+// dashboard. This is the boundary that keeps a stranger (or a kid from another
+// family) from ever reaching a screen that shows the family's children — an
+// unbound device is shown a "connect this device" prompt, never a roster.
+//
+// A pairing lives at pairings/{code} = { fid, createdBy, createdAt, expiresAt }.
+// The code carries ~50 bits of entropy and expires fast, so it can't be guessed
+// within its window. It stays a bearer secret until Phase 2 (a Cloud Function)
+// makes redemption strictly single-use — see database.rules.json.
+
+/** How long a freshly generated pairing code stays valid. */
+export const PAIRING_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * A random 10-char setup code (~50 bits over the unambiguous alphabet), shown
+ * grouped as "ABCDE-FGHIJ". Never numeric — it's a credential, not a PIN.
+ */
+export function generatePairingCode(): string {
+  const bytes = new Uint8Array(10);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
+}
+
+/** Display form of a raw code: "ABCDEFGHIJ" -> "ABCDE-FGHIJ". */
+export function formatPairingCode(code: string): string {
+  return code.length === 10 ? `${code.slice(0, 5)}-${code.slice(5)}` : code;
+}
+
+/** Normalise typed input back to the raw key: uppercase, digits/letters only. */
+export function normalizePairingCode(input: string): string {
+  return input.toUpperCase().replace(/[^0-9A-Z]/g, "");
+}
+
+export type PairingInfo = { code: string; expiresAt: number };
+
+/**
+ * Create a setup code bound to `familyId`. Requires the caller to be a signed-in
+ * member of that family (enforced again by the rules). Returns the code + expiry
+ * for the grown-up to read to the tablet.
+ */
+export async function createPairing(familyId: string): Promise<PairingInfo> {
+  if (!FIREBASE_READY) throw new Error("Cloud sync isn't set up.");
+  const db = getDb();
+  if (!db) throw new Error("Cloud sync isn't set up.");
+  await ensureAuth();
+  const uid = currentUser()?.uid;
+  if (!uid) throw new Error("Please sign in again, then retry.");
+  const code = generatePairingCode();
+  const now = Date.now();
+  const expiresAt = now + PAIRING_TTL_MS;
+  await set(ref(db, `pairings/${code}`), {
+    fid: familyId,
+    createdBy: uid,
+    createdAt: now,
+    expiresAt,
+  });
+  return { code, expiresAt };
+}
+
+/**
+ * Redeem a typed setup code -> the family id it points to. Throws (uniform
+ * "didn't work") on missing/expired, so the kid UI never distinguishes
+ * wrong-vs-expired-vs-nonexistent. The caller enrolls the device as a member.
+ */
+export async function redeemPairing(rawCode: string): Promise<string> {
+  if (!FIREBASE_READY) throw new Error("Cloud sync isn't set up.");
+  const db = getDb();
+  if (!db) throw new Error("Cloud sync isn't set up.");
+  await ensureAuth();
+  const code = normalizePairingCode(rawCode);
+  if (code.length < 8) throw new Error("That code didn't work.");
+  const snap = await get(ref(db, `pairings/${code}`));
+  const val = snap.val() as { fid?: string; expiresAt?: number } | null;
+  if (!val || typeof val.fid !== "string" || !val.fid) {
+    throw new Error("That code didn't work.");
+  }
+  if (typeof val.expiresAt === "number" && val.expiresAt < Date.now()) {
+    throw new Error("That code didn't work.");
+  }
+  return val.fid;
 }
 
 export type MigrateResult =

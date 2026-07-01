@@ -2,10 +2,13 @@
 export function PinPad({
   onDigit,
   onBack,
+  onSubmit,
   disabled,
 }: {
   onDigit: (d: string) => void;
   onBack: () => void;
+  /** When provided, the bottom-left slot becomes a ✓ "I'm done" key. */
+  onSubmit?: () => void;
   disabled?: boolean;
 }) {
   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
@@ -21,7 +24,18 @@ export function PinPad({
           {k}
         </button>
       ))}
-      <span className="pinpad__spacer" />
+      {onSubmit ? (
+        <button
+          className="pinpad__key pinpad__key--go"
+          disabled={disabled}
+          onClick={onSubmit}
+          aria-label="Done"
+        >
+          ✓
+        </button>
+      ) : (
+        <span className="pinpad__spacer" />
+      )}
       <button
         className="pinpad__key"
         disabled={disabled}

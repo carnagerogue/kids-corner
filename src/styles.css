@@ -3951,6 +3951,103 @@ button {
   color: #c0392b;
   font-weight: 800;
 }
+.login__hint {
+  border: none;
+  background: none;
+  color: var(--ink-soft);
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding: 4px 8px;
+  opacity: 0.85;
+}
+.login__hint:hover {
+  color: var(--ink);
+  opacity: 1;
+}
+
+/* --- Connect this device (kid entry, unbound) ----------------------------- */
+.connect__mascot {
+  font-size: 3.2rem;
+  filter: drop-shadow(0 6px 10px rgba(120, 80, 255, 0.28));
+  animation: rise 0.4s ease both;
+}
+.connect__sub {
+  margin: 0;
+  font-weight: 700;
+  color: var(--ink-soft);
+  max-width: 32ch;
+}
+.connect__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  align-items: center;
+}
+.connect__code {
+  width: min(320px, 100%);
+  font-family: var(--display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  text-align: center;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 14px 12px;
+  border-radius: var(--radius-sm);
+  border: 3px solid var(--line);
+  background: var(--paper-2);
+  outline: none;
+}
+.connect__code:focus {
+  border-color: #a855f7;
+  background: var(--paper);
+}
+.connect__code.is-error {
+  border-color: #ef4444;
+  animation: shake 0.3s;
+}
+.connect__go {
+  width: min(320px, 100%);
+}
+
+.pinnag {
+  width: 100%;
+  text-align: left;
+  border: 2px solid #f4c430;
+  background: #fff8e1;
+  color: #7a5b00;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin-bottom: 8px;
+}
+.pinnag:hover {
+  background: #fff2cc;
+}
+
+/* --- Grown-up: connect a kids' device ------------------------------------- */
+.pairing {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--kid-soft, var(--paper-2));
+  border: 2px dashed var(--line);
+}
+.pairing .copyfield {
+  font-size: 1.15rem;
+}
+.pairing__self {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 2px dashed var(--line);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
 
 /* --- PIN dots + keypad ----------------------------------------------------*/
 .pindots {
@@ -3991,6 +4088,23 @@ button {
   color: var(--ink);
   box-shadow: var(--shadow-sm);
   transition: transform 0.08s ease, background 0.12s ease;
+}
+.pinpad__key.pinpad__key--go {
+  background: var(--kid, #16a34a);
+  color: #fff;
+}
+.pinpad__key.pinpad__key--go:hover {
+  background: var(--kid-dark, #136f37);
+}
+.pinpad__key:disabled {
+  opacity: 0.45;
+  transform: none;
+}
+.login__padhint {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ink-soft);
 }
 .pinpad__key:hover {
   background: var(--kid-soft);

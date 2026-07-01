@@ -11,6 +11,7 @@ import { AnnouncementNotifier } from "./components/AnnouncementNotifier";
 import { ReactionNotifier } from "./components/ReactionNotifier";
 import { Celebrations } from "./components/Celebrations";
 import { LoginScreen } from "./components/LoginScreen";
+import { ConnectDevice } from "./components/ConnectDevice";
 import { CommandCenter } from "./views/CommandCenter";
 import { ScheduleView } from "./views/ScheduleView";
 import { ApplicationsView } from "./views/ApplicationsView";
@@ -77,6 +78,17 @@ export function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, state.kidProfiles]);
+
+  // If the device becomes UNBOUND while a kid is mid-session (parent
+  // disconnected it, or a legacy tablet reloaded after migration), drop the
+  // session — the kid session lives in sessionStorage and would otherwise keep
+  // rendering the full UI from cache, bypassing the connect-this-device gate.
+  useEffect(() => {
+    if (user !== null && !fam.loading && !fam.bound) {
+      logout();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, fam.bound, fam.loading]);
 
   // Keep the shared activeKid pinned to whoever is logged in on this device, so
   // a page reload or a cross-tab/cross-device state merge can never leave the
@@ -146,11 +158,18 @@ export function App() {
         </div>
       );
     }
-    // Kid picked -> the family's own kid login.
+    // Kid picked. A BOUND device shows the family's own kid login; an unbound
+    // one shows the connect-this-device prompt — never a roster, so a stranger
+    // (or another family's child) can't see who lives here.
     if (entry === "child") {
-      return (
+      return fam.bound ? (
         <LoginScreen
           onLogin={login}
+          onParent={() => setTab("parent")}
+          onBack={() => setEntry("choose")}
+        />
+      ) : (
+        <ConnectDevice
           onParent={() => setTab("parent")}
           onBack={() => setEntry("choose")}
         />
