@@ -61,7 +61,7 @@ import {
   loadState,
   newId,
   saveState,
-  STORAGE_KEY,
+  storageKey,
   todayKey,
 } from "./storage";
 import { FAMILY_PLAN_ID, defaultSchedules } from "../data/schedule";
@@ -1399,7 +1399,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // key (e.g. sends a message), reload and replace state here.
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY && e.newValue) {
+      if (e.key === storageKey() && e.newValue) {
         dispatch({ type: "REPLACE_STATE", state: loadState() });
       }
     };

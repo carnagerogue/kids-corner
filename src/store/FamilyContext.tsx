@@ -12,28 +12,39 @@ import type { User } from "firebase/auth";
 import { ensureAuth, FIREBASE_READY, getDb, onAuthChange } from "../firebase";
 import { readSyncCode } from "../sync";
 import { newId } from "./storage";
+import { ACTIVE_KEY, PAIRED_KEY, scopedFamilyId } from "./familyScope";
 
 // ---------------------------------------------------------------------------
 // FamilyContext — resolves WHICH family subtree this device/parent syncs to.
 //
 // Priority:
-//   1. Signed-in grown-up (Google) -> one of users/{uid}/families (multi-
-//      household; the active one is a local preference).
-//   2. Anonymous kids' device that's been PAIRED to a family -> that family.
+//   1. Signed-in grown-up (Google) -> their active family (users/{uid}/families;
+//      multi-household — the active one is a local preference in ACTIVE_KEY).
+//   2. Anonymous kids' device PAIRED to a family -> that family (PAIRED_KEY).
 //   3. Otherwise -> the LEGACY rooms/{syncCode} room, so the current single
 //      family keeps working untouched until it's migrated.
 //
-// The resolved `basePath` (families/{id} OR rooms/{code}) is what FamilySync
-// reads. Nothing here re-roots sync yet on its own — it just resolves.
+// Storage is scoped per family (see storage.storageKey), so a scope change must
+// re-init AppProvider — we do that with a one-time page reload whenever the
+// resolved scope differs from what's on disk (sign-in / sign-out / switch).
+// These are deliberate, infrequent actions, so a reload is acceptable and
+// keeps the model dead-simple and correct (no cross-family cache pollution).
 // ---------------------------------------------------------------------------
-
-const PAIRED_KEY = "kids-corner:pairedFamily";
-const ACTIVE_KEY = "kids-corner:activeFamily";
 
 /** Firebase keys can't contain . # $ / [ ] — matches FamilySync's safe(). */
 function safe(code: string): string {
   return code.replace(/[.#$/[\]]/g, "_");
 }
+
+function readLocal(key: string): string | null {
+  try {
+    return localStorage.getItem(key) || null;
+  } catch {
+    return null;
+  }
+}
+
+const legacyBasePath = () => `rooms/${safe(readSyncCode())}`;
 
 export type FamilySummary = { id: string; name: string };
 
@@ -44,7 +55,7 @@ type Resolved = {
   isParent: boolean;
   families: FamilySummary[];
   activeFamilyId: string | null;
-  /** families/{id} or rooms/{code}; null while a signed-in parent has no family. */
+  /** families/{id} or rooms/{code}; null while resolving or a parent has no family. */
   basePath: string | null;
   /** Parent signed in but belongs to no family yet — must create/join one. */
   needsFamily: boolean;
@@ -60,20 +71,6 @@ type FamilyContextValue = Resolved & {
 
 const FamilyContext = createContext<FamilyContextValue | null>(null);
 
-function readLocal(key: string): string | null {
-  try {
-    return localStorage.getItem(key) || null;
-  } catch {
-    return null;
-  }
-}
-
-/** The family this device is scoped to, resolvable synchronously (for storage
- * key scoping outside React). Mirrors the provider's priority order. */
-export function scopedFamilyId(): string | null {
-  return readLocal(ACTIVE_KEY) || readLocal(PAIRED_KEY);
-}
-
 export function FamilyProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<Resolved>({
     loading: true,
@@ -84,11 +81,6 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     basePath: null,
     needsFamily: false,
   });
-  const [activePref, setActivePref] = useState<string | null>(() =>
-    readLocal(ACTIVE_KEY),
-  );
-  const [bump, setBump] = useState(0);
-  const reload = useCallback(() => setBump((b) => b + 1), []);
 
   // Baseline anonymous auth so security rules can require auth != null.
   useEffect(() => {
@@ -107,29 +99,42 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const legacyBase = `rooms/${safe(readSyncCode())}`;
-      const setLegacy = () =>
-        !cancelled &&
-        setState({
-          loading: false,
-          user,
-          isParent: false,
-          families: [],
-          activeFamilyId: null,
-          basePath: legacyBase,
-          needsFamily: false,
-        });
+      // No cloud configured: local-only, legacy scope.
+      if (!FIREBASE_READY) {
+        if (!cancelled)
+          setState({
+            loading: false,
+            user: null,
+            isParent: false,
+            families: [],
+            activeFamilyId: null,
+            basePath: legacyBasePath(),
+            needsFamily: false,
+          });
+        return;
+      }
 
-      if (!FIREBASE_READY || !user) {
-        setLegacy();
+      // Auth still resolving — don't sync anywhere yet.
+      if (!user) {
+        if (!cancelled)
+          setState((s) => ({ ...s, loading: true, basePath: null }));
         return;
       }
 
       const db = getDb();
-      const isParent = !user.isAnonymous;
 
-      if (!isParent) {
-        // Kids' shared device: use its paired family, else legacy room.
+      if (user.isAnonymous) {
+        // Kids' shared device. A stale ACTIVE_KEY means a grown-up signed out
+        // here — clear it and reload so the device reverts to paired/legacy.
+        if (readLocal(ACTIVE_KEY)) {
+          try {
+            localStorage.removeItem(ACTIVE_KEY);
+          } catch {
+            /* ignore */
+          }
+          window.location.reload();
+          return;
+        }
         const paired = readLocal(PAIRED_KEY);
         if (!cancelled)
           setState({
@@ -138,7 +143,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
             isParent: false,
             families: [],
             activeFamilyId: paired,
-            basePath: paired ? `families/${safe(paired)}` : legacyBase,
+            basePath: paired ? `families/${safe(paired)}` : legacyBasePath(),
             needsFamily: false,
           });
         return;
@@ -164,6 +169,16 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
 
       if (families.length === 0) {
+        // Parent with no family yet — clear any stale scope, then prompt create.
+        if (readLocal(ACTIVE_KEY)) {
+          try {
+            localStorage.removeItem(ACTIVE_KEY);
+          } catch {
+            /* ignore */
+          }
+          window.location.reload();
+          return;
+        }
         setState({
           loading: false,
           user,
@@ -175,10 +190,20 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         });
         return;
       }
+
+      const pref = readLocal(ACTIVE_KEY);
       const active =
-        activePref && families.some((f) => f.id === activePref)
-          ? activePref
-          : families[0].id;
+        pref && families.some((f) => f.id === pref) ? pref : families[0].id;
+      // Align the local-cache scope; reload once if it changed (sign-in).
+      if (scopedFamilyId() !== active) {
+        try {
+          localStorage.setItem(ACTIVE_KEY, active);
+        } catch {
+          /* ignore */
+        }
+        window.location.reload();
+        return;
+      }
       setState({
         loading: false,
         user,
@@ -192,15 +217,17 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [user, activePref, bump]);
+  }, [user]);
 
+  // All scope changes reload so AppProvider re-inits storage under the new
+  // per-family key (no cross-family cache pollution).
   const setActiveFamilyId = useCallback((id: string) => {
     try {
       localStorage.setItem(ACTIVE_KEY, id);
     } catch {
       /* ignore */
     }
-    setActivePref(id);
+    window.location.reload();
   }, []);
 
   const createFamily = useCallback(
@@ -210,8 +237,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       const fid = newId();
       const uid = user.uid;
       const now = Date.now();
-      // Matches the rules bootstrap clause: same write installs the caller as a
-      // parent member of the brand-new family.
+      // Matches the rules bootstrap clause: the same write installs the caller
+      // as a parent member of the brand-new family.
       await update(ref(db), {
         [`families/${fid}/meta`]: {
           name: name.trim().slice(0, 60) || "My Family",
@@ -225,24 +252,25 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         },
         [`users/${uid}/families/${fid}`]: true,
       });
-      setActiveFamilyId(fid);
-      reload();
-      return fid;
-    },
-    [user, setActiveFamilyId, reload],
-  );
-
-  const pairDevice = useCallback(
-    (familyId: string) => {
       try {
-        localStorage.setItem(PAIRED_KEY, familyId);
+        localStorage.setItem(ACTIVE_KEY, fid);
       } catch {
         /* ignore */
       }
-      reload();
+      window.location.reload();
+      return fid;
     },
-    [reload],
+    [user],
   );
+
+  const pairDevice = useCallback((familyId: string) => {
+    try {
+      localStorage.setItem(PAIRED_KEY, familyId);
+    } catch {
+      /* ignore */
+    }
+    window.location.reload();
+  }, []);
 
   const unpairDevice = useCallback(() => {
     try {
@@ -250,8 +278,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
-    reload();
-  }, [reload]);
+    window.location.reload();
+  }, []);
 
   const value = useMemo<FamilyContextValue>(
     () => ({
@@ -260,9 +288,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       createFamily,
       pairDevice,
       unpairDevice,
-      reload,
+      reload: () => window.location.reload(),
     }),
-    [state, setActiveFamilyId, createFamily, pairDevice, unpairDevice, reload],
+    [state, setActiveFamilyId, createFamily, pairDevice, unpairDevice],
   );
 
   return (

@@ -40,9 +40,20 @@ import {
 import { DEFAULT_NEW_KID_APPS, DEFAULT_VISIBLE_APPS } from "../data/applications";
 import { THEME_BY_ID } from "../data/themes";
 import { FAMILY_PLAN_ID, defaultSchedules } from "../data/schedule";
+import { scopedFamilyId } from "./familyScope";
 
-export const STORAGE_KEY = "kids-corner:v2";
+const STORAGE_BASE = "kids-corner:v2";
 const STATE_VERSION = 2;
+
+/**
+ * The local-cache key, scoped per family so multiple households on one device
+ * keep separate caches (and a switch can never cross-pollinate). Falls back to
+ * the shared key for the legacy/unmigrated single family.
+ */
+export function storageKey(): string {
+  const fid = scopedFamilyId();
+  return fid ? `${STORAGE_BASE}:${fid}` : STORAGE_BASE;
+}
 
 /** Keep at most this many messages to bound storage growth. */
 const MAX_MESSAGES = 300;
@@ -300,6 +311,50 @@ export function defaultState(): AppState {
   };
 }
 
+/**
+ * A brand-new family's starting state: NO kids, no data. Distinct from
+ * defaultState (which seeds Claire/Coby/Hailee for the original single family).
+ * Grown-ups add their own kids from the Grown-Ups area after creating a family.
+ */
+export function emptyFamilyState(): AppState {
+  return {
+    version: STATE_VERSION,
+    kidProfiles: [],
+    removedKids: [],
+    activeKid: "",
+    parentPin: DEFAULT_PARENT_PIN,
+    kidPins: {},
+    kids: {},
+    submissions: [],
+    choreAssignments: [],
+    schedules: defaultSchedules(),
+    customActivities: [],
+    activityImages: {},
+    coinsSpent: {},
+    coinsBonus: {},
+    lastSpin: {},
+    ownedGear: {},
+    avatar3d: {},
+    loadouts3d: {},
+    purchasesLocked: {},
+    themes: {},
+    messages: [],
+    announcements: [],
+    reactions: [],
+    friendships: [],
+    familyGoal: null,
+    rewardRates: { ...DEFAULT_REWARD_RATES },
+    appVisibility: {},
+    exploreHidden: {},
+  };
+}
+
+/** The right blank slate for the current scope: an empty family when scoped to
+ * one, the seeded defaults for the legacy/unmigrated single family. */
+function freshState(): AppState {
+  return scopedFamilyId() ? emptyFamilyState() : defaultState();
+}
+
 /** How many approved photos to keep for the grown-up's per-kid gallery. */
 const MAX_GALLERY_PHOTOS = 48;
 
@@ -334,19 +389,22 @@ function prunePhotos(
 /** Defensive load: tolerate missing keys without crashing; reset on version change. */
 export function loadState(): AppState {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultState();
+    const raw = localStorage.getItem(storageKey());
+    if (!raw) return freshState();
     const parsed = JSON.parse(raw) as Partial<AppState>;
-    if (parsed.version !== STATE_VERSION) return defaultState();
+    if (parsed.version !== STATE_VERSION) return freshState();
 
-    // The roster: use saved profiles if present & valid, else the defaults.
+    // The roster: use saved profiles if present & valid; else empty for a
+    // scoped family, or the seeded defaults for the legacy single family.
     const profiles: Kid[] =
       Array.isArray(parsed.kidProfiles) && parsed.kidProfiles.length
         ? (parsed.kidProfiles as Kid[]).filter(
             (k) =>
               k && typeof k.id === "string" && typeof k.firstName === "string",
           )
-        : DEFAULT_KIDS.map((k) => ({ ...k }));
+        : scopedFamilyId()
+          ? []
+          : DEFAULT_KIDS.map((k) => ({ ...k }));
     const ids = profiles.map((p) => p.id);
 
     const base = defaultState();
@@ -533,7 +591,7 @@ export function loadState(): AppState {
       exploreHidden,
     };
   } catch {
-    return defaultState();
+    return freshState();
   }
 }
 
@@ -541,8 +599,8 @@ export function saveState(state: AppState): void {
   try {
     const serialized = JSON.stringify(state);
     // Skip no-op writes so cross-tab sync (storage events) can't ping-pong.
-    if (localStorage.getItem(STORAGE_KEY) === serialized) return;
-    localStorage.setItem(STORAGE_KEY, serialized);
+    if (localStorage.getItem(storageKey()) === serialized) return;
+    localStorage.setItem(storageKey(), serialized);
   } catch {
     // Storage might be full (lots of photos) — shrink the photo gallery to the
     // most recent few and retry.
@@ -551,7 +609,7 @@ export function saveState(state: AppState): void {
         ...state,
         submissions: prunePhotos(state.submissions, 12),
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(slimmed));
+      localStorage.setItem(storageKey(), JSON.stringify(slimmed));
     } catch {
       // Give up quietly (e.g. private mode).
     }
@@ -560,7 +618,7 @@ export function saveState(state: AppState): void {
 
 export function clearState(): void {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(storageKey());
   } catch {
     /* ignore */
   }
