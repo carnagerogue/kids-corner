@@ -14,6 +14,8 @@ import {
   choreAssignmentsFor,
   choreCatalog,
   customPlans,
+  DAILY_GOAL,
+  dailyGoalDone,
   familyGoalProgress,
   familyPlan,
   getKid,
@@ -26,7 +28,7 @@ import {
   taskStatus,
 } from "../store/selectors";
 import { Avatar3DThumb } from "../features/avatar/Avatar3DThumb";
-import { computeStats } from "../store/selectors";
+import { computeStats, computeStreak } from "../store/selectors";
 import { getLevelInfo } from "../data/levels";
 import { BADGES } from "../data/badges";
 import { CATEGORY_META, NON_CHORE_ACTIVITIES } from "../data/activities";
@@ -252,6 +254,7 @@ function ImportLegacyData({ familyId }: { familyId: string | null }) {
 }
 
 type GTab =
+  | "home"
   | "review"
   | "progress"
   | "messages"
@@ -261,24 +264,37 @@ type GTab =
   | "chores"
   | "missions"
   | "avatar"
+  | "devices"
   | "settings";
 
-const GTABS: { id: GTab; emoji: string; label: string }[] = [
-  { id: "review", emoji: "📥", label: "Review" },
-  { id: "progress", emoji: "📊", label: "Progress" },
-  { id: "messages", emoji: "💬", label: "Messages" },
-  { id: "kids", emoji: "👧", label: "Kids" },
-  { id: "schedule", emoji: "🗓️", label: "Schedule" },
-  { id: "apps", emoji: "🧭", label: "Apps" },
-  { id: "chores", emoji: "🧹", label: "Chores" },
-  { id: "missions", emoji: "🖼️", label: "Examples" },
-  { id: "avatar", emoji: "🧢", label: "Avatar" },
-  { id: "settings", emoji: "⚙️", label: "Settings" },
+const GTAB_META: Record<GTab, { emoji: string; label: string }> = {
+  home: { emoji: "🏠", label: "Home" },
+  review: { emoji: "📥", label: "Review" },
+  messages: { emoji: "💬", label: "Messages" },
+  kids: { emoji: "👧", label: "Kids" },
+  progress: { emoji: "📊", label: "Progress" },
+  avatar: { emoji: "🧢", label: "Rewards" },
+  schedule: { emoji: "🗓️", label: "Schedule" },
+  apps: { emoji: "🧭", label: "Apps" },
+  chores: { emoji: "🧹", label: "Chores" },
+  missions: { emoji: "🖼️", label: "Examples" },
+  devices: { emoji: "📱", label: "Devices" },
+  settings: { emoji: "⚙️", label: "Settings" },
+};
+
+// Group the sections by intent so a parent scans by what they came to do,
+// instead of hunting a flat wall of equal tabs.
+const NAV_GROUPS: { label: string; ids: GTab[] }[] = [
+  { label: "Today", ids: ["home", "review", "messages"] },
+  { label: "Family", ids: ["kids", "progress", "avatar"] },
+  { label: "Plan", ids: ["schedule", "apps", "chores", "missions"] },
+  { label: "Setup", ids: ["devices", "settings"] },
 ];
 
 function ParentDashboard({ onLock }: { onLock: () => void }) {
   const { state } = useApp();
-  const [tab, setTab] = useState<GTab>("review");
+  const fam = useFamily();
+  const [tab, setTab] = useState<GTab>("home");
   const [zoom, setZoom] = useState<string>("");
 
   const pendingN = pendingSubmissions(state).length;
@@ -286,8 +302,12 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
     (n, k) => n + parentUnreadCount(state, k.id),
     0,
   );
+  const badgeFor = (id: GTab) =>
+    id === "review" ? pendingN : id === "messages" ? unreadN : 0;
 
-  const subtitle: Record<GTab, string> = {
+  // A short line under the section title telling the parent what it does.
+  const eyebrow: Record<GTab, string> = {
+    home: "",
     review: pendingN
       ? `${pendingN} item${pendingN === 1 ? "" : "s"} waiting for your review`
       : "All caught up — nothing waiting right now",
@@ -298,85 +318,125 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
     apps: "Choose what each child sees in Apps and Explore",
     chores: "Assign chores for the kids to finish with photo proof",
     missions: "Add an example photo so kids can see the finished result",
-    avatar: "Coins, rewards, unlocks, and avatar controls for each child",
-    settings: "Cross-device sync, PINs, and resetting the summer",
+    avatar: "Coins, rewards, and avatar unlocks for each child",
+    devices: "Connect the kids' tablets to your family",
+    settings: "Cross-device sync, your PIN, and resetting the summer",
   };
 
+  const familyName =
+    fam.families.find((f) => f.id === fam.activeFamilyId)?.name ??
+    fam.user?.email ??
+    "Your family";
+  const meta = GTAB_META[tab];
+
   return (
-    <div className="view gzone">
+    <div className="gdash">
       <MessageNotifier viewer="parent" />
-      <div className="view__header">
-        <div>
-          <h2 className="view__title">🧑‍🍼 Grown-Ups Dashboard</h2>
-          <p className="view__sub">{subtitle[tab]}</p>
+
+      <aside className="gside">
+        <div className="gside__brand">
+          <span className="gside__glyph" aria-hidden="true">
+            ☀️
+          </span>
+          <div className="gside__id">
+            <span className="gside__name">{familyName}</span>
+            <span className="gside__eyebrow">Grown-up dashboard</span>
+          </div>
+          <button
+            className="gside__lock"
+            onClick={onLock}
+            title="Lock"
+            aria-label="Lock the grown-up area"
+          >
+            <span aria-hidden="true">🔒</span>
+          </button>
         </div>
-        <button className="btn btn--ghost" onClick={onLock}>
-          🔒 Lock
-        </button>
-      </div>
 
-      {state.parentPin === DEFAULT_PARENT_PIN && (
-        <button
-          className="pinnag"
-          onClick={() => setTab("settings")}
-          title="Go to Settings"
-        >
-          🔑 Your grown-up PIN is still the default <strong>1234</strong> — tap
-          to set your own so kids (and guests) can't open this area.
-        </button>
-      )}
+        <nav className="gside__nav" aria-label="Grown-up sections">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label} className="gside__group">
+              <span className="gside__grouplabel">{group.label}</span>
+              {group.ids.map((id) => {
+                const badge = badgeFor(id);
+                const m = GTAB_META[id];
+                return (
+                  <button
+                    key={id}
+                    className={`gside__item ${tab === id ? "is-active" : ""}`}
+                    onClick={() => setTab(id)}
+                    aria-current={tab === id ? "page" : undefined}
+                  >
+                    <span className="gside__emoji" aria-hidden="true">
+                      {m.emoji}
+                    </span>
+                    <span className="gside__label">{m.label}</span>
+                    {badge > 0 && <span className="gside__pip">{badge}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+      </aside>
 
-      <nav className="gnav" aria-label="Grown-up sections">
-        {GTABS.map((t) => {
-          const badge =
-            t.id === "review" ? pendingN : t.id === "messages" ? unreadN : 0;
-          return (
-            <button
-              key={t.id}
-              className={`gnav__btn ${tab === t.id ? "is-active" : ""}`}
-              onClick={() => setTab(t.id)}
-            >
-              <span className="gnav__emoji">{t.emoji}</span>
-              <span className="gnav__label">{t.label}</span>
-              {badge > 0 && <span className="gnav__pip">{badge}</span>}
-            </button>
-          );
-        })}
-      </nav>
+      <main className="gmain">
+        {state.parentPin === DEFAULT_PARENT_PIN && (
+          <button
+            className="pinnag"
+            onClick={() => setTab("settings")}
+            title="Go to Settings"
+          >
+            🔑 Your grown-up PIN is still the default <strong>1234</strong> — tap
+            to set your own so kids (and guests) can't open this area.
+          </button>
+        )}
 
-      <div className="gpanel" key={tab}>
-        {tab === "review" && <ParentReview onZoom={setZoom} />}
-        {tab === "progress" && (
-          <>
-            <ParentProgress onZoom={setZoom} />
-            <WorldLearningReport />
-          </>
+        {tab !== "home" && eyebrow[tab] && (
+          <p className="gmain__eyebrow">
+            <span className="gmain__eyebrow-tab">
+              {meta.emoji} {meta.label}
+            </span>
+            {eyebrow[tab]}
+          </p>
         )}
-        {tab === "messages" && <ParentMessages />}
-        {tab === "kids" && (
-          <>
-            <ParentKids />
-            <ParentPins />
-          </>
-        )}
-        {tab === "schedule" && <ScheduleEditor />}
-        {tab === "apps" && (
-          <>
-            <ParentApps />
-            <ParentExplore />
-          </>
-        )}
-        {tab === "chores" && <ChoreAssigner />}
-        {tab === "missions" && <MissionExamples />}
-        {tab === "avatar" && <ParentAvatarControls />}
-        {tab === "settings" && (
-          <>
-            <ConnectKidDevice />
-            <CloudSync />
-            <ParentSettings />
-          </>
-        )}
-      </div>
+
+        <div className="gpanel" key={tab}>
+          {tab === "home" && (
+            <ParentHome onGo={setTab} pendingN={pendingN} unreadN={unreadN} />
+          )}
+          {tab === "review" && <ParentReview onZoom={setZoom} />}
+          {tab === "progress" && (
+            <>
+              <ParentProgress onZoom={setZoom} />
+              <WorldLearningReport />
+            </>
+          )}
+          {tab === "messages" && <ParentMessages />}
+          {tab === "kids" && (
+            <>
+              <ParentKids />
+              <ParentPins />
+            </>
+          )}
+          {tab === "schedule" && <ScheduleEditor />}
+          {tab === "apps" && (
+            <>
+              <ParentApps />
+              <ParentExplore />
+            </>
+          )}
+          {tab === "chores" && <ChoreAssigner />}
+          {tab === "missions" && <MissionExamples />}
+          {tab === "avatar" && <ParentAvatarControls />}
+          {tab === "devices" && <ConnectKidDevice />}
+          {tab === "settings" && (
+            <>
+              <CloudSync />
+              <ParentSettings />
+            </>
+          )}
+        </div>
+      </main>
 
       {zoom &&
         createPortal(
@@ -385,6 +445,191 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
           </div>,
           document.body,
         )}
+    </div>
+  );
+}
+
+/** The calm landing view: what needs you, how each kid's doing, quick actions. */
+function ParentHome({
+  onGo,
+  pendingN,
+  unreadN,
+}: {
+  onGo: (t: GTab) => void;
+  pendingN: number;
+  unreadN: number;
+}) {
+  const { state } = useApp();
+  const fam = useFamily();
+  const kids = kidList(state);
+  const pending = pendingSubmissions(state);
+
+  const familyName = fam.families.find(
+    (f) => f.id === fam.activeFamilyId,
+  )?.name;
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+
+  const goal = state.familyGoal;
+  const goalDone = goal ? familyGoalProgress(state) : 0;
+
+  return (
+    <div className="home">
+      <div className="home__greet">
+        <h2 className="home__hi">{greeting} 👋</h2>
+        <p className="home__fam">
+          {familyName ? `The ${familyName}` : "Your family"} · a quick look at
+          today
+        </p>
+      </div>
+
+      {pendingN > 0 || unreadN > 0 ? (
+        <div className="home-card home-attn">
+          {pendingN > 0 && (
+            <button className="home-attn__row" onClick={() => onGo("review")}>
+              <span className="home-attn__icon">📥</span>
+              <span className="home-attn__text">
+                {pendingN} photo{pendingN === 1 ? "" : "s"} waiting for your
+                review
+              </span>
+              <span className="home-attn__go">Review →</span>
+            </button>
+          )}
+          {unreadN > 0 && (
+            <button className="home-attn__row" onClick={() => onGo("messages")}>
+              <span className="home-attn__icon">💬</span>
+              <span className="home-attn__text">
+                {unreadN} new message{unreadN === 1 ? "" : "s"} from the kids
+              </span>
+              <span className="home-attn__go">Open →</span>
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="home-card home-caughtup">
+          <span className="home-caughtup__emoji">🎉</span>
+          <span>You're all caught up — nothing needs you right now.</span>
+        </div>
+      )}
+
+      {kids.length > 0 && (
+        <section className="home-sec">
+          <h3 className="home-sec__title">👧 Your kids</h3>
+          <div className="homekids">
+            {kids.map((k) => {
+              const xp = getKidXp(state, k.id);
+              const level = getLevelInfo(xp);
+              const streak = computeStreak(state, k.id);
+              const done = dailyGoalDone(state, k.id);
+              const kidPending = pending.filter((s) => s.kidId === k.id).length;
+              const kidUnread = parentUnreadCount(state, k.id);
+              return (
+                <div
+                  key={k.id}
+                  className="homekid"
+                  style={{ ["--this-kid" as string]: k.color }}
+                >
+                  <div className="homekid__top">
+                    <Avatar3DThumb
+                      kidId={k.id}
+                      size={44}
+                      className="homekid__avatar"
+                    />
+                    <div className="homekid__id">
+                      <strong className="homekid__name">{k.firstName}</strong>
+                      <span className="homekid__rank">
+                        {level.rank.emoji} {level.rank.title} · Lv{" "}
+                        {level.rank.level}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="homekid__bar">
+                    <span
+                      style={{ width: `${Math.round(level.progress * 100)}%` }}
+                    />
+                  </div>
+                  <div className="homekid__stats">
+                    <span>🔥 {streak}</span>
+                    <span>
+                      {done}/{DAILY_GOAL} today
+                    </span>
+                    <span>{xp} XP</span>
+                  </div>
+                  <div className="homekid__actions">
+                    <button
+                      className="btn btn--ghost btn--sm"
+                      onClick={() => onGo("messages")}
+                      aria-label={`Open messages${
+                        kidUnread > 0 ? ` — ${kidUnread} unread from ${k.firstName}` : ""
+                      }`}
+                    >
+                      <span aria-hidden="true">💬</span>
+                      {kidUnread > 0 ? ` ${kidUnread}` : ""}
+                    </button>
+                    <button
+                      className="btn btn--ghost btn--sm"
+                      onClick={() => onGo("review")}
+                      aria-label={`Review work${
+                        kidPending > 0 ? ` — ${kidPending} waiting from ${k.firstName}` : ""
+                      }`}
+                    >
+                      <span aria-hidden="true">📥</span>
+                      {kidPending > 0 ? ` ${kidPending}` : ""}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      <section className="home-sec">
+        <h3 className="home-sec__title">🏡 Family goal</h3>
+        {goal ? (
+          <button
+            className="home-card home-goal"
+            onClick={() => onGo("progress")}
+          >
+            <div className="home-goal__line">
+              <strong>
+                {goalDone}/{goal.target}
+              </strong>{" "}
+              → {goal.reward}
+            </div>
+            <div className="home-goal__bar">
+              <span
+                style={{
+                  width: `${Math.min(100, (goalDone / goal.target) * 100)}%`,
+                }}
+              />
+            </div>
+          </button>
+        ) : (
+          <button
+            className="btn btn--ghost home-goal__set"
+            onClick={() => onGo("progress")}
+          >
+            🏡 Set a family goal →
+          </button>
+        )}
+      </section>
+
+      <section className="home-sec">
+        <h3 className="home-sec__title">⚡ Quick actions</h3>
+        <div className="home-actions">
+          <button className="btn btn--ghost" onClick={() => onGo("kids")}>
+            ➕ Add a child
+          </button>
+          <button className="btn btn--ghost" onClick={() => onGo("devices")}>
+            📱 Connect a tablet
+          </button>
+          <button className="btn btn--ghost" onClick={() => onGo("chores")}>
+            🧹 Assign a chore
+          </button>
+        </div>
+      </section>
     </div>
   );
 }

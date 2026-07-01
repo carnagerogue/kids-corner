@@ -309,76 +309,401 @@ button {
 }
 
 /* --- Grown-ups sub-navigation ---------------------------------------------*/
-.gzone {
+/* ===========================================================================
+   Grown-up dashboard shell — grouped sidebar + Home overview
+   =========================================================================== */
+:root {
+  --ok: #34c759;
+  --ok-soft: #e8f8ec;
+  --pip: #ff3b6b;
+}
+
+.gdash {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  animation: rise 0.3s ease both;
+}
+
+/* --- Sidebar --------------------------------------------------------------*/
+.gside {
+  position: sticky;
+  top: 12px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 14px;
   display: flex;
   flex-direction: column;
+  gap: 16px;
 }
-.gnav {
-  display: flex;
-  gap: 6px;
-  padding: 6px;
-  margin-bottom: 22px;
-  background: var(--paper);
-  border-radius: 999px;
-  box-shadow: var(--shadow-sm);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.gnav::-webkit-scrollbar {
-  display: none;
-}
-.gnav__btn {
-  position: relative;
-  flex: 1 0 auto;
-  border: none;
-  background: transparent;
-  border-radius: 999px;
-  padding: 10px 16px;
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: 0.98rem;
-  color: var(--ink-soft);
-  white-space: nowrap;
+.gside__brand {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease;
+  gap: 10px;
 }
-.gnav__btn:hover {
+.gside__glyph {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--kid-soft);
+  font-size: 1.3rem;
+}
+.gside__id {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.gside__name {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.02rem;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gside__eyebrow {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+.gside__lock {
+  flex: none;
+  border: none;
+  background: var(--paper-2);
+  border-radius: 10px;
+  padding: 6px 9px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.gside__lock:hover {
+  background: var(--kid-soft);
+}
+.gside__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.gside__group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.gside__grouplabel {
+  font-size: 0.64rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ink-soft);
+  padding: 2px 8px 4px;
+}
+.gside__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 12px;
+  padding: 9px 10px;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+  text-align: left;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.gside__item:hover {
+  background: var(--paper-2);
   color: var(--ink);
 }
-.gnav__btn.is-active {
-  background: linear-gradient(135deg, var(--kid), var(--kid-dark));
-  color: #fff;
-  box-shadow: var(--shadow-sm);
+.gside__item.is-active {
+  background: var(--kid-soft);
+  color: var(--kid-dark);
+  font-weight: 800;
 }
-.gnav__emoji {
-  font-size: 1.15rem;
+.gside__emoji {
+  font-size: 1.1rem;
+  flex: none;
 }
-.gnav__pip {
+.gside__label {
+  flex: 1;
+}
+.gside__pip {
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
   border-radius: 999px;
-  background: #ff3b6b;
+  background: var(--pip);
   color: #fff;
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   font-weight: 800;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  line-height: 1;
+  box-shadow: 0 0 0 2px var(--paper);
 }
-.gnav__btn.is-active .gnav__pip {
-  background: rgba(255, 255, 255, 0.28);
+
+/* --- Main column ----------------------------------------------------------*/
+.gmain {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.gmain__eyebrow {
+  margin: 0 0 18px;
+  color: var(--ink-soft);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.gmain__eyebrow-tab {
+  font-family: var(--display);
+  font-weight: 800;
+  color: var(--ink);
+}
+.gmain__eyebrow-tab::after {
+  content: " · ";
+  color: var(--ink-soft);
+  font-weight: 700;
 }
 .gpanel {
-  animation: rise 0.22s ease both;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  animation: rise 0.2s ease both;
 }
 .gpanel > .section-title:first-child {
   margin-top: 0;
+}
+
+/* Mobile: sidebar becomes a top block with grouped wrapping pills */
+@media (max-width: 899px) {
+  .gdash {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .gside {
+    position: static;
+  }
+  .gside__nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .gside__group {
+    flex: 1 1 auto;
+  }
+  .gside__grouplabel {
+    padding: 0 0 4px;
+  }
+  .gside__item {
+    width: auto;
+    min-height: 44px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 8px 14px;
+    margin: 0 6px 6px 0;
+  }
+  .gside__item.is-active {
+    border-color: var(--kid);
+  }
+}
+
+/* --- Home overview --------------------------------------------------------*/
+.home {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.home__hi {
+  font-family: var(--display);
+  font-size: 1.5rem;
+  margin: 0;
+}
+.home__fam {
+  margin: 2px 0 0;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.home-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 6px;
+}
+.home-attn {
+  display: flex;
+  flex-direction: column;
+}
+.home-attn__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-weight: 700;
+}
+.home-attn__row:hover {
+  background: var(--paper-2);
+}
+.home-attn__row + .home-attn__row {
+  border-top: 1px solid var(--line);
+}
+.home-attn__icon {
+  font-size: 1.4rem;
+  flex: none;
+}
+.home-attn__text {
+  flex: 1;
+}
+.home-attn__go {
+  color: var(--kid-dark);
+  font-weight: 800;
+  white-space: nowrap;
+}
+.home-caughtup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px;
+  background: var(--ok-soft);
+  border-color: #bfe9c8;
+  color: #1a7a33;
+  font-weight: 700;
+}
+.home-caughtup__emoji {
+  font-size: 1.5rem;
+}
+.home-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.home-sec__title {
+  font-family: var(--display);
+  font-size: 1.05rem;
+  margin: 0;
+}
+.homekids {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+.homekid {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--this-kid, var(--kid));
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.homekid__top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.homekid__avatar {
+  flex: none;
+  border-radius: 50%;
+}
+.homekid__id {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.homekid__name {
+  font-family: var(--display);
+  font-size: 1.05rem;
+}
+.homekid__rank {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.homekid__bar {
+  height: 7px;
+  border-radius: 999px;
+  background: var(--paper-2);
+  overflow: hidden;
+}
+.homekid__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--this-kid, var(--kid));
+}
+.homekid__stats {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.homekid__actions {
+  display: flex;
+  gap: 8px;
+}
+.homekid__actions .btn {
+  flex: 1;
+}
+.home-goal {
+  display: block;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  padding: 14px;
+}
+.home-goal__line {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.home-goal__bar {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--paper-2);
+  overflow: hidden;
+}
+.home-goal__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--kid), var(--kid-dark));
+}
+.home-goal__set {
+  align-self: flex-start;
+}
+.home-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gdash,
+  .gpanel,
+  .home {
+    animation: none;
+  }
 }
 
 /* --- Schedule editor (grown-ups) ------------------------------------------*/
