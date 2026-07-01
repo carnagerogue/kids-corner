@@ -11,6 +11,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Serialize deploys — two overlapping runs deploy the same version and the
+# second fails with "version is already the current active version".
+concurrency:
+  group: firebase-hosting
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
