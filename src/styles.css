@@ -5156,6 +5156,37 @@ body.fun-cursor-on * {
   color: var(--ink-soft);
 }
 
+/* "New version ready" self-update banner (see UpdateWatcher). */
+.update-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 24px);
+  padding: 10px 12px 10px 18px;
+  border-radius: 999px;
+  background: #2a1a3e;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  box-shadow: 0 12px 34px -10px rgba(0, 0, 0, 0.55);
+  animation: rise 0.3s ease both;
+}
+.update-banner__btn {
+  border: none;
+  background: #fff;
+  color: #2a1a3e;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 /* "Do it with a friend" partner picker on missions */
 .partnerpick {
   display: flex;
