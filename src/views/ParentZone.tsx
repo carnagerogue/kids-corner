@@ -1401,6 +1401,7 @@ type MigrateState =
   | { phase: "error"; message: string };
 
 function CloudSync() {
+  const fam = useFamily();
   const [code, setCode] = useState(() => readSyncOverride());
   const [saved, setSaved] = useState(false);
   const override = readSyncOverride();
@@ -1447,6 +1448,16 @@ function CloudSync() {
               Corner shares the same family automatically — kids, photos,
               messages, and progress show up everywhere, no setup needed.
             </p>
+
+            {fam.isParent && fam.activeFamilyId && (
+              <div className="cloudsync__import">
+                <p className="settings__hint">
+                  <strong>Moving in?</strong> Bring your existing kids, photos,
+                  messages, and progress into this family:
+                </p>
+                <ImportLegacyData familyId={fam.activeFamilyId} />
+              </div>
+            )}
 
             {!usingPrivate && (
               <div className="cloudsync__warning">
