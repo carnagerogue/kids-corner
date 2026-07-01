@@ -1,5 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useApp } from "./store/AppContext";
+import { useFamily } from "./store/FamilyContext";
+import { signOutUser } from "./firebase";
 import { getKid } from "./store/selectors";
 import { readSession, writeSession } from "./store/storage";
 import { TopBar } from "./components/TopBar";
@@ -48,8 +50,12 @@ export const TABS: { id: TabId; label: string; emoji: string }[] = [
 
 export function App() {
   const { state, dispatch } = useApp();
+  const fam = useFamily();
   const [user, setUser] = useState<KidId | null>(() => readSession());
   const [tab, setTab] = useState<TabId>("home");
+  // Entry choice on a device that isn't a signed-in grown-up: pick Kid or
+  // Grown-Up. "child" reveals the family's kid login.
+  const [entry, setEntry] = useState<"choose" | "child">("choose");
 
   const login = (kidId: KidId) => {
     setUser(kidId);
@@ -91,20 +97,71 @@ export function App() {
     else root.removeAttribute("data-theme");
   }, [user, state.themes]);
 
-  // Not logged in: show the login screen — unless a grown-up is heading to the
-  // parent area, which has its own PIN gate.
+  // While family/auth is still resolving, hold on a splash so we don't flash
+  // the entry choice and then jump to the parent area.
+  if (fam.loading) {
+    return (
+      <div className="app">
+        <main className="app__main">
+          <div className="world world--msg">Loading Kids Corner… ☀️</div>
+        </main>
+      </div>
+    );
+  }
+
+  // A grown-up signed in with Google -> straight into their area (their
+  // dashboard, or "create your family" the first time). No PIN — the Google
+  // sign-in IS the gate. This is what "brought right into their dashboard
+  // after signin" means; it also survives the sign-in redirect.
+  if (fam.isParent) {
+    return (
+      <div className="app">
+        <main className="app__main">
+          <ParentZone
+            onExit={() => {
+              void signOutUser();
+              setEntry("choose");
+              setTab("home");
+            }}
+          />
+        </main>
+      </div>
+    );
+  }
+
+  // Not logged in as anyone yet.
   if (user === null) {
+    // Grown-up entry (not yet signed in): Google sign-in + the legacy PIN gate.
     if (tab === "parent") {
       return (
         <div className="app">
           <main className="app__main">
-            <ParentZone onExit={() => setTab("home")} />
+            <ParentZone
+              onExit={() => {
+                setTab("home");
+                setEntry("choose");
+              }}
+            />
           </main>
         </div>
       );
     }
+    // Kid picked -> the family's own kid login.
+    if (entry === "child") {
+      return (
+        <LoginScreen
+          onLogin={login}
+          onParent={() => setTab("parent")}
+          onBack={() => setEntry("choose")}
+        />
+      );
+    }
+    // First screen: choose Grown-Up or Kid.
     return (
-      <LoginScreen onLogin={login} onParent={() => setTab("parent")} />
+      <EntryChoice
+        onChild={() => setEntry("child")}
+        onGrownup={() => setTab("parent")}
+      />
     );
   }
 
@@ -147,6 +204,47 @@ export function App() {
           {kid.emoji} {kid.motto}
         </span>
       </footer>
+    </div>
+  );
+}
+
+function EntryChoice({
+  onChild,
+  onGrownup,
+}: {
+  onChild: () => void;
+  onGrownup: () => void;
+}) {
+  return (
+    <div className="login">
+      <div className="login__card">
+        <div className="login__brand">
+          <span className="login__logo">☀️</span>
+          <div>
+            <h1 className="login__title">Kids Corner</h1>
+            <p className="login__subtitle">Summer Command Center</p>
+          </div>
+        </div>
+        <h2 className="login__prompt">Who's here? 👋</h2>
+        <div className="entrychoice">
+          <button
+            className="entrychoice__btn entrychoice__btn--kid"
+            onClick={onChild}
+          >
+            <span className="entrychoice__emoji">🧒</span>
+            <span className="entrychoice__label">I'm a Kid</span>
+            <span className="entrychoice__sub">Pick your face &amp; PIN</span>
+          </button>
+          <button
+            className="entrychoice__btn entrychoice__btn--grown"
+            onClick={onGrownup}
+          >
+            <span className="entrychoice__emoji">🧑</span>
+            <span className="entrychoice__label">I'm a Grown-Up</span>
+            <span className="entrychoice__sub">Sign in to your dashboard</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

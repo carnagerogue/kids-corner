@@ -3870,6 +3870,65 @@ button {
 .login__parent:hover {
   color: var(--ink);
 }
+.login__foot {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.login__empty {
+  color: var(--ink-soft);
+  font-weight: 700;
+  text-align: center;
+  padding: 18px 8px;
+}
+
+/* Grown-Up vs Kid entry choice */
+.entrychoice {
+  display: flex;
+  gap: 14px;
+  width: 100%;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.entrychoice__btn {
+  flex: 1;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 22px 14px;
+  border-radius: 22px;
+  border: 3px solid var(--line);
+  background: var(--paper);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+.entrychoice__btn:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-sm);
+}
+.entrychoice__btn--kid:hover {
+  border-color: #ff8a3d;
+}
+.entrychoice__btn--grown:hover {
+  border-color: #3b82f6;
+}
+.entrychoice__emoji {
+  font-size: 2.6rem;
+}
+.entrychoice__label {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 1.15rem;
+}
+.entrychoice__sub {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
 .login__pin {
   display: flex;
   flex-direction: column;

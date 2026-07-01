@@ -10,9 +10,11 @@ const MAX_PIN_LEN = 8;
 export function LoginScreen({
   onLogin,
   onParent,
+  onBack,
 }: {
   onLogin: (kidId: KidId) => void;
   onParent: () => void;
+  onBack?: () => void;
 }) {
   const { state } = useApp();
   const [picked, setPicked] = useState<KidId | null>(null);
@@ -67,30 +69,44 @@ export function LoginScreen({
 
         {!picked ? (
           <>
-            <h2 className="login__prompt">Who's here? 👋</h2>
-            <div className="login__pick">
-              {kidList(state).map((k) => (
-                <button
-                  key={k.id}
-                  className="loginkid"
-                  style={{
-                    ["--this-kid" as string]: k.color,
-                    ["--this-kid-soft" as string]: k.colorSoft,
-                  }}
-                  onClick={() => {
-                    setPicked(k.id);
-                    setEntry("");
-                    setError(false);
-                  }}
-                >
-                  <span className="loginkid__avatar">{k.emoji}</span>
-                  <span className="loginkid__name">{k.firstName}</span>
+            <h2 className="login__prompt">Which kid? 👋</h2>
+            {kidList(state).length === 0 ? (
+              <p className="login__empty">
+                No kids set up yet — a grown-up can add them in the Grown-Ups
+                area.
+              </p>
+            ) : (
+              <div className="login__pick">
+                {kidList(state).map((k) => (
+                  <button
+                    key={k.id}
+                    className="loginkid"
+                    style={{
+                      ["--this-kid" as string]: k.color,
+                      ["--this-kid-soft" as string]: k.colorSoft,
+                    }}
+                    onClick={() => {
+                      setPicked(k.id);
+                      setEntry("");
+                      setError(false);
+                    }}
+                  >
+                    <span className="loginkid__avatar">{k.emoji}</span>
+                    <span className="loginkid__name">{k.firstName}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="login__foot">
+              {onBack && (
+                <button className="login__parent" onClick={onBack}>
+                  ← Back
                 </button>
-              ))}
+              )}
+              <button className="login__parent" onClick={onParent}>
+                🔒 Grown-Ups
+              </button>
             </div>
-            <button className="login__parent" onClick={onParent}>
-              🔒 Grown-Ups
-            </button>
           </>
         ) : (
           <div

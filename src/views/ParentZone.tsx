@@ -69,12 +69,15 @@ export function ParentZone({ onExit }: { onExit: () => void }) {
   const fam = useFamily();
   const [pinOk, setPinOk] = useState(false);
 
-  // A signed-in grown-up with no family yet must create/join one first.
-  if (fam.isParent && fam.needsFamily) {
-    return <CreateFamilyScreen onExit={onExit} />;
+  // A signed-in grown-up (Google) goes straight to their area — no PIN, since
+  // the Google sign-in IS the gate. First time: name your family. "Lock" (which
+  // maps to onExit here) signs them out.
+  if (fam.isParent) {
+    if (fam.needsFamily) return <CreateFamilyScreen onExit={onExit} />;
+    return <ParentDashboard onLock={onExit} />;
   }
-  // The parent PIN still gates the dashboard (blocks a kid on a shared tablet),
-  // even once a grown-up's Google session is active for family identity.
+  // Legacy (no Google account, current single-family device): the parent PIN
+  // gates the dashboard so a kid on the shared tablet can't open it.
   if (!pinOk) {
     return <GrownUpGate onUnlock={() => setPinOk(true)} onExit={onExit} />;
   }
