@@ -43,14 +43,13 @@ import { DEFAULT_PARENT_PIN, newId } from "../store/storage";
 import { MessageThread } from "../components/MessageThread";
 import { MessageNotifier } from "../components/MessageNotifier";
 import { CopyField } from "../components/AppCard";
-import { isAllowedParent } from "../data/accessAllowlist";
-import { hashPin, pinMatches } from "../lib/hash";
 import {
-  FIREBASE_READY,
-  getAuthError,
-  signInWithGoogle,
-  signOutUser,
-} from "../firebase";
+  OnboardingWizard,
+  isOnboarded,
+  setOnboarded,
+} from "../components/OnboardingWizard";
+import { hashPin, pinMatches } from "../lib/hash";
+import { FIREBASE_READY, getAuthError, signInWithGoogle } from "../firebase";
 import { useFamily } from "../store/FamilyContext";
 import {
   copyRoomToFamily,
@@ -74,13 +73,34 @@ import type {
 
 export function ParentZone({ onExit }: { onExit: () => void }) {
   const fam = useFamily();
+  const { state } = useApp();
   const [pinOk, setPinOk] = useState(false);
+  // First run: a parent with no family, or a fresh family with no kids that
+  // hasn't been through setup yet, gets the guided wizard instead of the full
+  // dashboard. Once a kid exists the family can never return to zero (the
+  // reducer keeps at least one), so this can't nag a set-up family.
+  const [showSetup, setShowSetup] = useState(
+    () =>
+      fam.needsFamily ||
+      (!!fam.activeFamilyId &&
+        kidList(state).length === 0 &&
+        !isOnboarded(fam.activeFamilyId)),
+  );
 
   // A signed-in grown-up (Google) goes straight to their area — no PIN, since
-  // the Google sign-in IS the gate. First time: name your family. "Lock" (which
-  // maps to onExit here) signs them out.
+  // the Google sign-in IS the gate. "Lock" (which maps to onExit here) signs
+  // them out.
   if (fam.isParent) {
-    if (fam.needsFamily) return <CreateFamilyScreen onExit={onExit} />;
+    if (showSetup) {
+      return (
+        <OnboardingWizard
+          onFinish={() => {
+            setOnboarded(fam.activeFamilyId);
+            setShowSetup(false);
+          }}
+        />
+      );
+    }
     return <ParentDashboard onLock={onExit} />;
   }
   // Legacy (no Google account, current single-family device): the parent PIN
@@ -89,85 +109,6 @@ export function ParentZone({ onExit }: { onExit: () => void }) {
     return <GrownUpGate onUnlock={() => setPinOk(true)} onExit={onExit} />;
   }
   return <ParentDashboard onLock={() => setPinOk(false)} />;
-}
-
-function CreateFamilyScreen({ onExit }: { onExit: () => void }) {
-  const { user, createFamily } = useFamily();
-  const [name, setName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-
-  // Only approved grown-ups may create a family.
-  if (!isAllowedParent(user?.email)) {
-    return (
-      <div className="view">
-        <div className="pin">
-          <span className="pin__lock">🚫</span>
-          <h2 className="pin__title">Not on the access list</h2>
-          <p className="pin__sub">
-            {user?.email ?? "This account"} isn't approved yet. Ask the Kids
-            Corner admin to add you, then sign in again.
-          </p>
-          <button className="btn btn--primary btn--big" onClick={() => signOutUser()}>
-            Sign out
-          </button>
-          <button className="link-btn" onClick={onExit}>
-            ← Back to Kids Corner
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || busy) return;
-    setBusy(true);
-    setError("");
-    try {
-      await createFamily(name.trim()); // reloads into the new family
-    } catch (err) {
-      setBusy(false);
-      setError(err instanceof Error ? err.message : "Couldn't create the family.");
-    }
-  };
-
-  return (
-    <div className="view">
-      <div className="pin">
-        <span className="pin__lock">👋</span>
-        <h2 className="pin__title">Welcome!</h2>
-        <p className="pin__sub">
-          Signed in as {user?.email ?? "your account"}. Name your family to get
-          started — you'll add your kids next.
-        </p>
-        <form className="pin__form" onSubmit={submit}>
-          <input
-            className="pin__input pin__input--text"
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. The Moon-Lee Family"
-            aria-label="Family name"
-          />
-          <button
-            className="btn btn--primary btn--big"
-            type="submit"
-            disabled={busy || !name.trim()}
-          >
-            {busy ? "Creating…" : "Create family"}
-          </button>
-        </form>
-        {error && <p className="pin__error">{error}</p>}
-        <button className="link-btn" onClick={() => signOutUser()}>
-          Sign out
-        </button>
-        <button className="link-btn" onClick={onExit}>
-          ← Back to Kids Corner
-        </button>
-      </div>
-    </div>
-  );
 }
 
 function GrownUpGate({
