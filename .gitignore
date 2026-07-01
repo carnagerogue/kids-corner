@@ -8,3 +8,8 @@ dist-ssr
 
 # Private logins — keep these off GitHub and out of the public build
 src/data/credentials.local.ts
+
+# Skill installs (npx skills add) — not part of the app
+.agents/
+.claude/skills/
+skills-lock.json
