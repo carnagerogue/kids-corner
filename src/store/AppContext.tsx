@@ -1107,7 +1107,14 @@ function reducer(state: AppState, action: Action): AppState {
       for (const k of kidProfiles) {
         kids[k.id] = state.kids[k.id] ?? emptyKidState();
         kidPins[k.id] = pick(cfg.kidPins, state.kidPins, k.id, FALLBACK_KID_PIN);
-        themes[k.id] = pick(cfg.themes, state.themes, k.id, "sparkle");
+        // The kid using THIS device owns their look: never let a synced config
+        // snapshot revert the active kid's own local pick (an incoming snapshot
+        // may still carry the old look, or the write may be pending/blocked).
+        // Other kids' looks still propagate normally.
+        themes[k.id] =
+          k.id === state.activeKid
+            ? state.themes[k.id] ?? pick(cfg.themes, state.themes, k.id, "sparkle")
+            : pick(cfg.themes, state.themes, k.id, "sparkle");
         appVisibility[k.id] = pick(cfg.appVisibility, state.appVisibility, k.id, []);
         exploreHidden[k.id] = pick(cfg.exploreHidden, state.exploreHidden, k.id, []);
         coinsSpent[k.id] = pick(cfg.coinsSpent, state.coinsSpent, k.id, 0);
