@@ -4378,6 +4378,19 @@ button {
   width: 100%;
 }
 
+/* Intentional, consistent keyboard focus across the wizard (don't rely on
+   inconsistent UA defaults; the text input suppresses its own outline). */
+.wiz__input:focus-visible,
+.wizadd__btn:focus-visible,
+.wiz__link:focus-visible,
+.wizkids__x:focus-visible,
+.wiz .avatarpick:focus-visible,
+.wiz .colorpick:focus-visible,
+.wiz .btn:focus-visible {
+  outline: 3px solid var(--kid);
+  outline-offset: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .wiz__card,
   .wizstep {

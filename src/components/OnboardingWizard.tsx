@@ -10,24 +10,6 @@ import { isAllowedParent } from "../data/accessAllowlist";
 import { signOutUser } from "../firebase";
 import type { KidId } from "../types";
 
-// A family only sees the first-run setup once. Keyed by family id so a second
-// household on the same device gets its own guided setup.
-const key = (fid: string | null) => `kids-corner:onboarded:${fid ?? "none"}`;
-export function isOnboarded(fid: string | null): boolean {
-  try {
-    return !!fid && localStorage.getItem(key(fid)) === "1";
-  } catch {
-    return false;
-  }
-}
-export function setOnboarded(fid: string | null): void {
-  try {
-    if (fid) localStorage.setItem(key(fid), "1");
-  } catch {
-    /* ignore */
-  }
-}
-
 const STEPS = [
   { label: "Family", emoji: "🏡" },
   { label: "Kids", emoji: "🧒" },
@@ -89,11 +71,21 @@ function Shell({
         <ol className="wizsteps" aria-label="Setup progress">
           {STEPS.map((s, i) => {
             const done = allDone || i < current;
-            const state = done ? "is-done" : i === current ? "is-current" : "";
+            const isCurrent = i === current && !done;
+            const state = done ? "is-done" : isCurrent ? "is-current" : "";
             return (
-              <li key={s.label} className={`wizsteps__node ${state}`}>
-                <span className="wizsteps__dot">{done ? "✓" : s.emoji}</span>
+              <li
+                key={s.label}
+                className={`wizsteps__node ${state}`}
+                aria-current={isCurrent ? "step" : undefined}
+              >
+                <span className="wizsteps__dot" aria-hidden="true">
+                  {done ? "✓" : s.emoji}
+                </span>
                 <span className="wizsteps__label">{s.label}</span>
+                <span className="sr-only">
+                  {done ? " (done)" : isCurrent ? " (current step)" : ""}
+                </span>
               </li>
             );
           })}
@@ -212,6 +204,7 @@ function KidsStep({
 
   return (
     <div className="wizstep">
+      <span className="wizstep__emoji">🧒</span>
       <h2 className="wizstep__h">Who's in your family?</h2>
       <p className="wizstep__p">
         Give each child a name, a look, and a secret PIN they'll type to log in.
@@ -304,7 +297,7 @@ function KidsStep({
           inputMode="numeric"
           value={pin}
           onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, "").slice(0, 8))}
-          placeholder="••••"
+          placeholder="1234"
           aria-label="Child's PIN"
         />
 

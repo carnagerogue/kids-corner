@@ -18,7 +18,12 @@ import {
 } from "../firebase";
 import { normalizePairingCode, readSyncCode, redeemPairing } from "../sync";
 import { clearState, newId, writeSession } from "./storage";
-import { ACTIVE_KEY, PAIRED_KEY, scopedFamilyId } from "./familyScope";
+import {
+  ACTIVE_KEY,
+  markSetupStarted,
+  PAIRED_KEY,
+  scopedFamilyId,
+} from "./familyScope";
 
 // ---------------------------------------------------------------------------
 // FamilyContext — resolves WHICH family subtree this device/parent syncs to,
@@ -298,6 +303,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       } catch {
         /* ignore */
       }
+      // Flag that this device is mid-setup so the wizard resumes at the Kids
+      // step after the reload — and so it only ever shows for a family this
+      // device actually created, never for a returning parent whose roster is
+      // still syncing down on a fresh device.
+      markSetupStarted(fid);
       window.location.reload();
       return fid;
     },

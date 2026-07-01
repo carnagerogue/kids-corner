@@ -43,11 +43,8 @@ import { DEFAULT_PARENT_PIN, newId } from "../store/storage";
 import { MessageThread } from "../components/MessageThread";
 import { MessageNotifier } from "../components/MessageNotifier";
 import { CopyField } from "../components/AppCard";
-import {
-  OnboardingWizard,
-  isOnboarded,
-  setOnboarded,
-} from "../components/OnboardingWizard";
+import { OnboardingWizard } from "../components/OnboardingWizard";
+import { isOnboarded, isSettingUp, setOnboarded } from "../store/familyScope";
 import { hashPin, pinMatches } from "../lib/hash";
 import { FIREBASE_READY, getAuthError, signInWithGoogle } from "../firebase";
 import { useFamily } from "../store/FamilyContext";
@@ -73,17 +70,17 @@ import type {
 
 export function ParentZone({ onExit }: { onExit: () => void }) {
   const fam = useFamily();
-  const { state } = useApp();
   const [pinOk, setPinOk] = useState(false);
-  // First run: a parent with no family, or a fresh family with no kids that
-  // hasn't been through setup yet, gets the guided wizard instead of the full
-  // dashboard. Once a kid exists the family can never return to zero (the
-  // reducer keeps at least one), so this can't nag a set-up family.
+  // First run: a parent with no family yet, or a family THIS device just created
+  // and is still setting up. Gated on the per-family "setup" marker (set at
+  // creation) — NOT on an empty roster — so a returning parent on a second
+  // device or after clearing storage, whose kids haven't synced down yet, goes
+  // straight to the dashboard instead of being re-shown setup.
   const [showSetup, setShowSetup] = useState(
     () =>
       fam.needsFamily ||
       (!!fam.activeFamilyId &&
-        kidList(state).length === 0 &&
+        isSettingUp(fam.activeFamilyId) &&
         !isOnboarded(fam.activeFamilyId)),
   );
 
