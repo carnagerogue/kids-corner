@@ -8,7 +8,6 @@ import {
   onAuthStateChanged,
   setPersistence,
   signInAnonymously,
-  signInWithPopup,
   signInWithRedirect,
   signOut,
   type Auth,
@@ -118,10 +117,12 @@ export function ensureAuth(): Promise<void> {
 // --- Grown-up (Google SSO) identity ----------------------------------------
 
 /**
- * Sign a grown-up in with Google. Uses a popup (best UX under the GitHub Pages
- * project subpath); falls back to a full-page redirect only when the popup is
- * blocked (some in-app webviews). Returns the user, or null when a redirect was
- * started (the result is completed by ensureAuth's getRedirectResult on return).
+ * Sign a grown-up in with Google via a full-page REDIRECT (not a popup).
+ * Popups are unreliable here: on GitHub Pages / strict popup-blockers /
+ * mobile, signInWithPopup can be silently blocked and then HANG forever on the
+ * cross-origin handshake (the "Opening Google…" that never opens). A redirect
+ * navigates away cleanly; the result is completed by ensureAuth's
+ * getRedirectResult when we return.
  */
 export async function signInWithGoogle(): Promise<User | null> {
   const auth = getAuthInstance();
@@ -129,23 +130,12 @@ export async function signInWithGoogle(): Promise<User | null> {
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
   try {
-    const res = await signInWithPopup(auth, provider);
-    lastAuthError = null;
-    return res.user;
-  } catch (e) {
-    const code = (e as { code?: string })?.code ?? "";
-    if (
-      code === "auth/popup-blocked" ||
-      code === "auth/cancelled-popup-request" ||
-      code === "auth/operation-not-supported-in-this-environment"
-    ) {
-      await signInWithRedirect(auth, provider);
-      return null;
-    }
-    // A cancelled popup is a normal user action, not an error to surface.
-    if (code !== "auth/popup-closed-by-user") recordAuthError(e);
-    throw e;
+    await setPersistence(auth, browserLocalPersistence);
+  } catch {
+    /* non-fatal */
   }
+  await signInWithRedirect(auth, provider); // navigates away
+  return null;
 }
 
 export async function signOutUser(): Promise<void> {
