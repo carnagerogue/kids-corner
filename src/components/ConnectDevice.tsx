@@ -41,7 +41,7 @@ export function ConnectDevice({
       <div className="login__card">
         <img
           className="login__logo-full"
-          src="/luminara-logo.png"
+          src={`${import.meta.env.BASE_URL}luminara-logo.png`}
           alt="Luminara — Spark curiosity, Build skills, Light tomorrow"
         />
 

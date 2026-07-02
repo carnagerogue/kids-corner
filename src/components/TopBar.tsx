@@ -32,7 +32,7 @@ export function TopBar({
       <div className="topbar__brand">
         <img
           className="topbar__logo"
-          src="/luminara-icon.png"
+          src={`${import.meta.env.BASE_URL}luminara-icon.png`}
           alt="Luminara"
           width={46}
           height={46}

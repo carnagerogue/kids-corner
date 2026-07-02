@@ -381,7 +381,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
             </div>
           ))}
         </nav>
-        <a className="gside__legal" href="/privacy.html" target="_blank" rel="noreferrer">
+        <a className="gside__legal" href={`${import.meta.env.BASE_URL}privacy.html`} target="_blank" rel="noreferrer">
           Privacy Policy
         </a>
       </aside>

@@ -222,7 +222,7 @@ export function App() {
       <footer className="app__footer">
         <span>
           Luminara · Spark curiosity · Build skills · Light tomorrow ·{" "}
-          <a className="app__footer-link" href="/privacy.html">
+          <a className="app__footer-link" href={`${import.meta.env.BASE_URL}privacy.html`}>
             Privacy
           </a>
         </span>
@@ -246,7 +246,7 @@ function EntryChoice({
       <div className="login__card">
         <img
           className="login__logo-full"
-          src="/luminara-logo.png"
+          src={`${import.meta.env.BASE_URL}luminara-logo.png`}
           alt="Luminara — Spark curiosity, Build skills, Light tomorrow"
         />
         <h2 className="login__prompt">Who's here? 👋</h2>
@@ -270,7 +270,7 @@ function EntryChoice({
         </div>
       </div>
       <footer className="login__legal">
-        <a href="/privacy.html">Privacy Policy</a>
+        <a href={`${import.meta.env.BASE_URL}privacy.html`}>Privacy Policy</a>
       </footer>
     </div>
   );
