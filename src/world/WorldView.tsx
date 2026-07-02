@@ -51,6 +51,7 @@ import {
   type LandmarkId,
   type WorldSave,
 } from "./worldGame";
+import { useWorldProgress } from "./useWorldProgress";
 import {
   AmbientLife,
   CelebrationBurst,
@@ -65,6 +66,7 @@ import {
 } from "./WorldContent";
 import { Weather } from "./Weather";
 import { Minimap } from "./Minimap";
+import { WorldDistricts } from "./WorldDistricts";
 import { TownGround } from "./TownGround";
 import { Skyline } from "./Skyline";
 import { WORLD_PLAYER } from "./worldLabels";
@@ -185,7 +187,15 @@ const clamp = (v: number, lo: number, hi: number) =>
 
 function developmentCitySpawn() {
   if (!import.meta.env.DEV) return null;
-  const buildingId = new URLSearchParams(window.location.search).get("cityDoor");
+  const params = new URLSearchParams(window.location.search);
+  const at = params.get("at"); // dev teleport: ?at=x,z (faces outward from town)
+  if (at) {
+    const [x, z] = at.split(",").map(Number);
+    if (Number.isFinite(x) && Number.isFinite(z)) {
+      return { x, z, heading: Math.atan2(x, z) };
+    }
+  }
+  const buildingId = params.get("cityDoor");
   return buildingId ? cityBuildingEntry(buildingId) : null;
 }
 
@@ -363,7 +373,7 @@ function getWorldMap(): WorldMapDef | null {
 const WORLD_MAP = getWorldMap();
 // Cozy-suburb grid town assembled from the CC0 road kit + house/tree props.
 const SUBURB = true;
-const ROAM = WORLD_MAP ? WORLD_MAP.bound : SUBURB ? 27 : BOUND;
+const ROAM = WORLD_MAP ? WORLD_MAP.bound : SUBURB ? 80 : BOUND;
 
 /** Loads + adds a single pre-built map GLB. */
 function PreloadedMap({ map }: { map: WorldMapDef }) {
@@ -411,19 +421,23 @@ function PreloadedMap({ map }: { map: WorldMapDef }) {
 // --- Town: a cohesive paved town (TownGround) dressed with CC0 props ---------
 
 const LANDMARK_COLLIDERS = [
-  { x: -8, z: -8, r: 2.15 },
-  { x: 8, z: -8, r: 2.15 },
-  { x: 8, z: 8, r: 2.05 },
+  { x: -52, z: 0, r: 2.15 }, // Story Grove (Woods)
+  { x: 52, z: -2, r: 2.15 }, // Maker Yard (Fairground)
+  { x: 10, z: 49, r: 2.05 }, // Sky Lab (Lakeside)
   { x: FOUNTAIN.x, z: FOUNTAIN.z, r: FOUNTAIN.r },
 ];
 
-// Two authored downtown buildings sit immediately behind the northern academy
-// lots. They are inside the roam bounds, so give them explicit lightweight
-// collision proxies instead of letting avatars walk through detailed meshes.
+// The downtown skyline now forms the backdrop of the northern Downtown district
+// (see SKYLINE), so its solid buildings get lightweight collision proxies there
+// instead of letting avatars walk through the detailed meshes.
 const DOWNTOWN_COLLIDERS = [
-  // r covers the building's box corners (~3.6 from centre) so you can't clip in.
-  { x: -8, z: -14.5, r: 3.6 },
-  { x: 8, z: -14.5, r: 3.6 },
+  { x: -27, z: -50, r: 3.6 },
+  { x: 27, z: -50, r: 3.6 },
+  { x: -27, z: -66, r: 3.8 },
+  { x: 27, z: -66, r: 3.8 },
+  { x: -14, z: -77, r: 3.2 },
+  { x: 14, z: -77, r: 3.2 },
+  { x: 0, z: -79, r: 4.2 },
 ];
 
 function pushOutsideCollider(pose: Pose, col: { x: number; z: number; r: number }) {
@@ -698,16 +712,17 @@ type SkylinePlacement = {
 };
 
 const SKYLINE: SkylinePlacement[] = [
-  // The first five placements frame the default north-facing spawn view, so
-  // even the low/iPad tier reads as a city instead of an empty plaza.
-  { model: "medium", position: [-8, 0, -14.5], rotation: 0, height: 9 },
-  { model: "medium", position: [8, 0, -14.5], rotation: 0, height: 9 },
-  { model: "large", position: [0, 0, -31], rotation: 0, height: 20 },
-  { model: "medium", position: [-31, 0, -8], rotation: Math.PI / 2, height: 16 },
-  { model: "large", position: [31, 0, -9], rotation: -Math.PI / 2, height: 18 },
-  { model: "medium", position: [-31, 0, 17], rotation: Math.PI / 2, height: 15 },
-  { model: "medium", position: [31, 0, 17], rotation: -Math.PI / 2, height: 15 },
-  { model: "large", position: [0, 0, 34], rotation: Math.PI, height: 17 },
+  // Tall city buildings forming the backdrop of the northern Downtown district,
+  // framing the clay Town Hall at (0,-66). Ordered so the low/iPad tier (first 5)
+  // still reads as a skyline: the back wall + the two side flankers.
+  { model: "large", position: [0, 0, -79], rotation: 0, height: 22 },
+  { model: "medium", position: [-14, 0, -77], rotation: 0, height: 16 },
+  { model: "medium", position: [14, 0, -77], rotation: 0, height: 17 },
+  { model: "large", position: [-27, 0, -66], rotation: 0.5, height: 18 },
+  { model: "large", position: [27, 0, -66], rotation: -0.5, height: 19 },
+  { model: "medium", position: [-27, 0, -50], rotation: 0.7, height: 14 },
+  { model: "medium", position: [27, 0, -50], rotation: -0.7, height: 14 },
+  { model: "medium", position: [-9, 0, -80], rotation: 0, height: 15 },
 ];
 
 function prepareSkylineModel(source: THREE.Object3D, height: number, shadows: boolean) {
@@ -733,8 +748,8 @@ function prepareSkylineModel(source: THREE.Object3D, height: number, shadows: bo
   return object;
 }
 
-/** Dense CC0 perimeter architecture gives the playable neighborhood a real
- * city silhouette without adding collision work inside the roaming boundary. */
+/** Dense CC0 city architecture forming the Downtown district's tall-building
+ * backdrop (north), so it reads as a real city block behind the clay Town Hall. */
 function DowntownSkyline({
   quality,
   shadows,
@@ -1496,6 +1511,10 @@ export default function WorldView() {
     [kidId],
   );
 
+  // Season of Wonders: the gate that ties awakening a landmark to real,
+  // grown-up-approved work (see useWorldProgress + worldGame's SeasonArc).
+  const progress = useWorldProgress(state, kidId, worldSave, commitWorld);
+
   useEffect(() => {
     const next = loadWorldSave(kidId);
     setWorldSave(next);
@@ -1941,9 +1960,32 @@ export default function WorldView() {
       return;
     }
     if (nearest.kind === "landmark") {
-      // Landmarks are the three Academies — walking up opens that subject's
-      // story-driven learning quest (reading / math / science).
-      openAcademy(nearest.id);
+      const id = nearest.id;
+      const lm = LANDMARKS.find((l) => l.id === id);
+      const name = lm?.name ?? "this Wonder";
+      const emoji = lm?.emoji ?? "✨";
+      // Season of Wonders: an asleep landmark blooms grey→color only once the kid
+      // has enough NEW grown-up-approved work; an awake one opens its learning quest.
+      if (progress.isAwake(id)) {
+        openAcademy(id);
+      } else if (progress.canAwaken(id)) {
+        const res = progress.awaken(id);
+        if (res.awakened) {
+          celebrate();
+          setDialogue({
+            title: `${emoji} ${name} awakened!`,
+            text: res.festivalCompleted
+              ? `Your hard work brought ${name} back to life — and with every Wonder awake, the festival begins! 🎉`
+              : `Your grown-up-approved work brought the color flooding back into ${name}!`,
+          });
+        }
+      } else {
+        const need = progress.remainingFor(id);
+        setDialogue({
+          title: `${emoji} ${name} is sleeping`,
+          text: `Finish ${need} more grown-up-approved mission${need === 1 ? "" : "s"} to awaken ${name} and bring its color back to the town.`,
+        });
+      }
       return;
     }
     if (nearest.kind === "creature") {
@@ -2067,7 +2109,9 @@ export default function WorldView() {
   const activeAcademyQuest = academyOpen ? academyById(academyOpen) : null;
   const promptLabel =
     nearest && nearest.kind === "landmark"
-      ? `Learn at ${academyById(nearest.id as AcademyQuestId)?.title ?? nearest.label}`
+      ? progress.isAwake(nearest.id)
+        ? `Learn at ${academyById(nearest.id as AcademyQuestId)?.title ?? nearest.label}`
+        : `Awaken ${LANDMARKS.find((l) => l.id === nearest.id)?.name ?? "this Wonder"}`
       : nearest?.label;
   const anyPanelOpen = Boolean(
     dialogue ||
@@ -2111,6 +2155,7 @@ export default function WorldView() {
           />
           <WorldLandmarks save={worldSave} />
         </group>
+        <WorldDistricts />
         <MayorNova />
         <Fountain />
         <QuestCollectibles save={worldSave} />

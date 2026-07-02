@@ -12,7 +12,7 @@ import { FOUNTAIN } from "./WorldContent";
 type Pose = { x: number; z: number; heading: number };
 
 const SIZE = 142;
-const R = 28; // world half-extent (a touch beyond ROAM = 27)
+const R = 84; // world half-extent (a touch beyond ROAM = 80)
 const PAD = 11;
 const toX = (x: number) => PAD + ((x + R) / (2 * R)) * (SIZE - 2 * PAD);
 const toY = (z: number) => PAD + ((z + R) / (2 * R)) * (SIZE - 2 * PAD);
@@ -28,6 +28,11 @@ export function Minimap({ self }: { self: React.MutableRefObject<Pose> }) {
     list.push({ x: 0, z: 2.2, emoji: "⭐" }); // Mayor Nova
     list.push({ x: FOUNTAIN.x, z: FOUNTAIN.z, emoji: "⛲" });
     list.push({ x: CHAMPIONS_RING.x, z: CHAMPIONS_RING.z, emoji: "🏆" });
+    // Outer districts (big-map expansion).
+    list.push({ x: 0, z: -58, emoji: "🏙️" }); // Downtown
+    list.push({ x: 58, z: 0, emoji: "🎪" }); // Fairground
+    list.push({ x: 0, z: 58, emoji: "🏖️" }); // Lakeside
+    list.push({ x: -58, z: 0, emoji: "🌲" }); // Woods
     return list;
   }, []);
 

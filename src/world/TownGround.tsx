@@ -108,9 +108,7 @@ export function TownGround() {
   const diagonals = useMemo(
     () =>
       [
-        [-8, -8],
-        [8, -8],
-        [8, 8],
+        // Landmarks moved out to the districts; only the home yard stays here.
         [-8, 8],
       ].map(([lx, lz]) => {
         const ang = Math.atan2(lz, lx);

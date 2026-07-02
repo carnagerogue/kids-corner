@@ -1,0 +1,14 @@
+{
+  "generator": "meshy",
+  "ai_model": "meshy-6",
+  "generatedCount": 1,
+  "assets": [
+    {
+      "id": "clay-wonder-shard",
+      "group": "reward",
+      "role": "prop",
+      "prompt": "a sharp angular faceted crystal gem shard standing upright, a glowing translucent magic gemstone with flat cut facets, no face, not a character, not round. handmade modeling clay, claymation stop-motion style, soft matte plasticine surface with faint fingerprint texture, rounded chunky simple shapes, bright cheerful storybook palette with varied colors, soft even studio lighting, one object floating on its own, no base, no stand, no ground plate, no podium, plain neutral background, no text, no words, wholesome and child-friendly.",
+      "credits": 10
+    }
+  ]
+}

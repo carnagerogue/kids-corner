@@ -17,6 +17,7 @@ import {
   creatureUnlocked,
   type Creature,
 } from "./worldBattles";
+import { CLAY_NPCS } from "./generatedAssets";
 
 const DAY = new THREE.Color("#bfe6ff");
 const SUNSET = new THREE.Color("#f6a56f");
@@ -104,7 +105,7 @@ export function LivingSky({
       />
       <ambientLight intensity={0.14} />
       <mesh ref={ground} receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.035, 0]}>
-        <circleGeometry args={[62, 72]} />
+        <circleGeometry args={[92, 96]} />
         <meshStandardMaterial color="#83c267" roughness={1} />
       </mesh>
     </>
@@ -372,10 +373,10 @@ export function WorldLandmarks({ save }: { save: WorldSave }) {
   );
   return (
     <>
-      <group position={[-8, 0, -8]}>
+      <group position={[-52, 0, 0]}>
         <StoryGrove active={active.has("story-grove")} />
         <NpcAvatar
-          modelPath="/assets/world/npcs/kenney-mini/character-female-f.glb"
+          modelPath={CLAY_NPCS.storyKeeper}
           name="Story Keeper"
           emoji="🐸"
           position={[1.65, 0, 1.2]}
@@ -383,10 +384,10 @@ export function WorldLandmarks({ save }: { save: WorldSave }) {
           scale={0.9}
         />
       </group>
-      <group position={[8, 0, -8]}>
+      <group position={[52, 0, -2]}>
         <MakerYard active={active.has("maker-yard")} />
         <NpcAvatar
-          modelPath="/assets/world/npcs/kenney-mini/character-male-e.glb"
+          modelPath={CLAY_NPCS.makerBuddy}
           name="Maker Buddy"
           emoji="🛠️"
           position={[-1.8, 0, 1.2]}
@@ -394,10 +395,10 @@ export function WorldLandmarks({ save }: { save: WorldSave }) {
           scale={0.88}
         />
       </group>
-      <group position={[8, 0, 8]}>
+      <group position={[10, 0, 49]}>
         <SkyLab active={active.has("sky-lab")} />
         <NpcAvatar
-          modelPath="/assets/world/npcs/kenney-mini/character-male-c.glb"
+          modelPath={CLAY_NPCS.skyCaptain}
           name="Sky Captain"
           emoji="🐱"
           position={[-1.75, 0, 1.35]}
@@ -487,7 +488,7 @@ function StarFountain() {
 export function MayorNova() {
   return (
     <NpcAvatar
-      modelPath="/assets/world/npcs/kenney-mini/character-female-d.glb"
+      modelPath={CLAY_NPCS.mayor}
       name="Mayor Nova"
       emoji="⭐"
       position={[0, 0, 2.2]}

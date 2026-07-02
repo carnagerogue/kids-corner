@@ -8,7 +8,10 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview --host",
-    "optimize:vrms": "python3 scripts/optimize-vrm-textures.py --all public/assets/avatar/models"
+    "optimize:vrms": "python3 scripts/optimize-vrm-textures.py --all public/assets/avatar/models",
+    "world:plan": "node scripts/meshy/generate.mjs",
+    "world:generate": "node scripts/meshy/generate.mjs --run",
+    "world:optimize": "node scripts/meshy/optimize.mjs"
   },
   "dependencies": {
     "@pixiv/three-vrm": "^3.5.4",
@@ -21,10 +24,14 @@
     "three": "^0.169.0"
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.4.1",
+    "@gltf-transform/extensions": "^4.4.1",
+    "@gltf-transform/functions": "^4.4.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@types/three": "^0.169.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "sharp": "^0.35.3",
     "typescript": "^5.6.3",
     "vite": "^6.0.7"
   }

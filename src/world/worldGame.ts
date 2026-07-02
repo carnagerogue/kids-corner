@@ -28,15 +28,16 @@ export const LANDMARKS: LandmarkDef[] = [
     id: "story-grove",
     name: "Story Grove",
     emoji: "📚",
-    position: [-8, 0, -8],
+    position: [-52, 0, 0],
     color: "#49a86f",
     description: "A shady reading tree where every book opens a tiny adventure.",
+    // Relocated into the Woods district (west) so reaching it is a real journey.
   },
   {
     id: "maker-yard",
     name: "Maker Yard",
     emoji: "🛠️",
-    position: [8, 0, -8],
+    position: [52, 0, -2],
     color: "#ff9a4a",
     description: "A cheerful workshop for building, painting, and inventing.",
   },
@@ -44,16 +45,16 @@ export const LANDMARKS: LandmarkDef[] = [
     id: "sky-lab",
     name: "Sky Lab",
     emoji: "🔭",
-    position: [8, 0, 8],
+    position: [10, 0, 49],
     color: "#7667e8",
     description: "A backyard observatory tuned to stars, planets, and big questions.",
   },
 ];
 
 export const STAR_COLLECTIBLES: StarDef[] = [
-  { id: "star-grove", position: [-10.1, 0.8, -7.2], clue: "under the Story Grove" },
-  { id: "star-maker", position: [9.7, 0.8, -9.2], clue: "beside the Maker Yard" },
-  { id: "star-lab", position: [9.4, 1.05, 9.5], clue: "near the Sky Lab" },
+  { id: "star-grove", position: [-50, 0.8, 2], clue: "under the Story Grove" },
+  { id: "star-maker", position: [55, 0.8, -3], clue: "beside the Maker Yard" },
+  { id: "star-lab", position: [13, 1.05, 50], clue: "near the Sky Lab" },
   { id: "star-square", position: [1.8, 0.75, 0.4], clue: "in the town square" },
   { id: "star-yard", position: [-9.6, 0.75, 9.4], clue: "by your home yard" },
 ];
@@ -106,6 +107,20 @@ export function currentSeasonalEvent(date = new Date()): SeasonalEvent {
   };
 }
 
+/**
+ * Season of Wonders arc (World 2.0). The town starts each season grey/asleep;
+ * a landmark "awakens" (blooms grey -> color) only once the kid has enough NEW
+ * parent-approved work since that landmark's chapter began. The baseline is the
+ * SET OF APPROVED SUBMISSION IDS already counted — not a timestamp — so logging
+ * in on a second device can't double-count, and pre-season backlog never counts.
+ */
+export type SeasonArc = {
+  seasonId: string; // e.g. "summer-2026" (from currentSeasonalEvent + year)
+  awakened: LandmarkId[]; // Wonders bloomed THIS season
+  chapterProgress: Record<LandmarkId, number>; // chapters completed per landmark
+  baseline: Record<LandmarkId, string[]>; // approved ids counted at each chapter's start
+};
+
 export type WorldSave = {
   version: 1;
   quest: {
@@ -118,6 +133,7 @@ export type WorldSave = {
   unlockedDecorations: DecorationId[];
   selectedDecoration: DecorationId;
   seasonalRewardId?: string;
+  seasonArc?: SeasonArc;
 };
 
 const DEFAULT_SAVE: WorldSave = {
@@ -237,6 +253,115 @@ export function activateLandmarks(
           )
         : save.unlockedDecorations,
     },
+  };
+}
+
+// --- Season of Wonders arc ------------------------------------------------
+
+/** How many NEW approved tasks a landmark's Nth chapter needs to awaken.
+ *  Gentle first chapter (reachable for the youngest kid), escalating after. */
+const CHAPTER_REQUIREMENTS = [1, 2, 3] as const;
+export function chapterRequirement(chapterIndex: number): number {
+  return CHAPTER_REQUIREMENTS[
+    Math.min(Math.max(0, chapterIndex), CHAPTER_REQUIREMENTS.length - 1)
+  ];
+}
+
+/** Stable season id used to reseed the arc: matches activateLandmarks' rewardId. */
+export function seasonIdFor(date = new Date()): string {
+  return `${currentSeasonalEvent(date).id}-${date.getFullYear()}`;
+}
+
+function landmarkRecord<T>(fn: (id: LandmarkId) => T): Record<LandmarkId, T> {
+  const out = {} as Record<LandmarkId, T>;
+  for (const l of LANDMARKS) out[l.id] = fn(l.id);
+  return out;
+}
+
+/** Count approved submission ids not yet credited to this landmark's chapter. */
+export function newApprovalsFor(
+  arc: SeasonArc,
+  id: LandmarkId,
+  approvedIds: readonly string[],
+): number {
+  const counted = new Set(arc.baseline[id] ?? []);
+  let n = 0;
+  for (const sid of approvedIds) if (!counted.has(sid)) n++;
+  return n;
+}
+
+/**
+ * Make sure the save carries a fresh arc for `seasonId`. First-ever init carries
+ * any already-powered landmarks into the season (no surprise reset for current
+ * players); a genuine season change resets the town asleep and lets the festival
+ * be re-earned. Only NEW approved work (after this point) counts, so the baseline
+ * snapshots the current approved ids.
+ */
+export function ensureSeason(
+  save: WorldSave,
+  approvedIds: readonly string[],
+  seasonId = seasonIdFor(),
+): WorldSave {
+  const prev = save.seasonArc;
+  if (prev && prev.seasonId === seasonId) return save;
+  const firstEver = !prev;
+  const awakened = firstEver ? [...save.activatedLandmarks] : [];
+  const arc: SeasonArc = {
+    seasonId,
+    awakened,
+    chapterProgress: landmarkRecord((id) => (awakened.includes(id) ? 1 : 0)),
+    baseline: landmarkRecord(() => [...approvedIds]),
+  };
+  const reset = !firstEver; // town sleeps again on a real season turnover
+  return {
+    ...save,
+    seasonArc: arc,
+    activatedLandmarks: reset ? [] : save.activatedLandmarks,
+    seasonalRewardId: reset ? undefined : save.seasonalRewardId,
+  };
+}
+
+/** Can this landmark's current chapter be awakened with the kid's approved work? */
+export function canAwaken(
+  save: WorldSave,
+  id: LandmarkId,
+  approvedIds: readonly string[],
+): boolean {
+  const arc = save.seasonArc;
+  if (!arc) return false;
+  const need = chapterRequirement(arc.chapterProgress[id] ?? 0);
+  return newApprovalsFor(arc, id, approvedIds) >= need;
+}
+
+/**
+ * Awaken a landmark: blooms it (reusing activateLandmarks for the emissive
+ * toggle + festival award), advances its chapter, and resets its baseline so the
+ * next chapter needs fresh work. No-op (awakened:false) if the gate isn't met.
+ */
+export function awakenLandmark(
+  save: WorldSave,
+  id: LandmarkId,
+  approvedIds: readonly string[],
+  event = currentSeasonalEvent(),
+): { save: WorldSave; festivalCompleted: boolean; awakened: boolean } {
+  const arc = save.seasonArc;
+  if (!arc || !canAwaken(save, id, approvedIds)) {
+    return { save, festivalCompleted: false, awakened: false };
+  }
+  const lit = activateLandmarks(save, [id], event);
+  const nextArc: SeasonArc = {
+    ...arc,
+    awakened: Array.from(new Set<LandmarkId>([...arc.awakened, id])),
+    chapterProgress: {
+      ...arc.chapterProgress,
+      [id]: (arc.chapterProgress[id] ?? 0) + 1,
+    },
+    baseline: { ...arc.baseline, [id]: [...approvedIds] },
+  };
+  return {
+    save: { ...lit.save, seasonArc: nextArc },
+    festivalCompleted: lit.festivalCompleted,
+    awakened: true,
   };
 }
 

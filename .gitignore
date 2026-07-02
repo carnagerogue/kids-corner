@@ -19,3 +19,8 @@ kids-corner-guardian-*.zip
 
 # Kids Corner Guardian self-host signing key — NEVER commit
 extension/guardian-signing-key.pem
+
+# Meshy asset pipeline — secrets + large intermediates (never commit these)
+scripts/meshy/.env
+scripts/meshy/.state.json
+scripts/meshy/.raw/
