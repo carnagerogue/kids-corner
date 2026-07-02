@@ -11736,3 +11736,161 @@ body::before {
     }
   }
 }
+
+/* Aurora edge light -------------------------------------------------------
+   Soft, separated shadows read as light escaping from behind the material.
+   The center stays clean; color is concentrated just beyond the edges. */
+:root {
+  --glow-teal: rgba(8, 184, 176, 0.2);
+  --glow-violet: rgba(117, 85, 216, 0.19);
+  --glow-pink: rgba(223, 87, 148, 0.16);
+  --glow-orange: rgba(255, 137, 35, 0.16);
+  --glow-gold: rgba(255, 197, 72, 0.15);
+}
+
+:is(
+    .topbar,
+    .login__card,
+    .wiz__card,
+    .gside,
+    .gpanel,
+    .moresheet__panel,
+    .modal__card,
+    .party__card
+  ) {
+  box-shadow:
+    -18px -14px 58px -33px var(--glow-teal),
+    20px -10px 60px -34px var(--glow-violet),
+    18px 20px 64px -37px var(--glow-pink),
+    -14px 22px 62px -37px var(--glow-orange),
+    0 24px 76px -44px rgba(10, 23, 74, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
+.hero {
+  box-shadow:
+    -22px -16px 70px -36px rgba(8, 184, 176, 0.3),
+    24px -14px 74px -38px rgba(117, 85, 216, 0.27),
+    26px 24px 76px -39px rgba(223, 87, 148, 0.23),
+    -18px 24px 72px -40px rgba(255, 137, 35, 0.23),
+    0 30px 86px -48px rgba(10, 23, 74, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.dash__schedule {
+  box-shadow:
+    -15px -12px 52px -31px rgba(8, 184, 176, 0.28),
+    14px 18px 54px -33px rgba(117, 85, 216, 0.16),
+    0 22px 66px -40px rgba(10, 23, 74, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.86);
+}
+
+:is(.goalcard, .famgoal, .home-goal, .rankcard, .badge) {
+  box-shadow:
+    -13px -11px 46px -29px rgba(117, 85, 216, 0.24),
+    14px 15px 48px -30px rgba(223, 87, 148, 0.2),
+    0 19px 56px -36px rgba(10, 23, 74, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+:is(.appcard, .assignment, .weekcard) {
+  box-shadow:
+    -13px -11px 46px -29px rgba(255, 197, 72, 0.23),
+    15px 14px 50px -31px rgba(255, 137, 35, 0.2),
+    0 19px 56px -36px rgba(8, 127, 156, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+:is(.dmission, .mission, .reviewcard) {
+  box-shadow:
+    -13px -11px 46px -29px rgba(223, 87, 148, 0.23),
+    15px 14px 50px -31px rgba(117, 85, 216, 0.21),
+    0 19px 56px -36px rgba(10, 23, 74, 0.23),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+:is(.wallpeek, .crewcard, .friendcard, .wallpost, .guardrep__kid, .wreport__kid) {
+  box-shadow:
+    -13px -11px 46px -29px rgba(8, 184, 176, 0.23),
+    15px 14px 50px -31px rgba(75, 133, 121, 0.18),
+    0 19px 56px -36px rgba(117, 85, 216, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.homekid {
+  box-shadow:
+    -12px -10px 42px -27px color-mix(in srgb, var(--this-kid) 26%, transparent),
+    12px 15px 46px -29px color-mix(in srgb, var(--this-kid) 18%, var(--glow-violet)),
+    0 17px 52px -34px rgba(10, 23, 74, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.morefeature {
+  box-shadow:
+    -14px -10px 50px -30px rgba(8, 184, 176, 0.26),
+    16px 14px 54px -32px rgba(255, 137, 35, 0.22),
+    0 18px 54px -34px rgba(117, 85, 216, 0.19),
+    inset 0 1px 0 rgba(255, 255, 255, 0.84);
+}
+
+@media (hover: hover) {
+  :is(.dmission, .mission, .appcard, .weekcard, .badge, .friendcard, .wallpost):hover {
+    box-shadow:
+      -16px -13px 56px -30px color-mix(in srgb, var(--kid) 25%, var(--glow-teal)),
+      17px 17px 58px -31px color-mix(in srgb, var(--kid) 20%, var(--glow-pink)),
+      0 26px 70px -38px rgba(10, 23, 74, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  }
+}
+
+:root:is([data-theme="midnight"], [data-theme="neon"]) {
+  --glow-teal: rgba(8, 229, 179, 0.26);
+  --glow-violet: rgba(125, 92, 252, 0.28);
+  --glow-pink: rgba(239, 120, 151, 0.21);
+  --glow-orange: rgba(255, 155, 42, 0.2);
+  --glow-gold: rgba(255, 197, 72, 0.18);
+}
+
+:root:is([data-theme="midnight"], [data-theme="neon"]) :is(
+    .topbar,
+    .hero,
+    .dash__schedule,
+    .goalcard,
+    .famgoal,
+    .wallpeek,
+    .dmission,
+    .mission,
+    .assignment,
+    .appcard,
+    .weekcard,
+    .rankcard,
+    .badge,
+    .friendcard,
+    .wallpost
+  ) {
+  box-shadow:
+    -18px -14px 62px -34px var(--glow-teal),
+    20px -12px 64px -35px var(--glow-violet),
+    20px 20px 66px -36px var(--glow-pink),
+    -14px 22px 64px -37px var(--glow-orange),
+    0 26px 76px -42px rgba(0, 0, 0, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(
+      .topbar,
+      .hero,
+      .dash__schedule,
+      .goalcard,
+      .dmission,
+      .mission,
+      .appcard,
+      .homekid,
+      .gside,
+      .gpanel,
+      .moresheet__panel
+    ) {
+    transition: none;
+  }
+}
