@@ -20,6 +20,27 @@ listing for those.
 
 ---
 
+## Quickest install, no admin — "Load unpacked" (Windows/Mac, Chrome or Edge)
+
+Best while the Web Store listing is in review. It installs in ~30 seconds with
+no policy setup. (Trade-off: the child can turn it off, and Chrome shows a
+"developer mode extensions" reminder on startup. For a lock they can't remove,
+use the force-install method below instead.)
+
+1. Download and unzip:
+   `https://kids-corner-45fc2.firebaseapp.com/guardian/kids-corner-guardian-unpacked.zip`
+2. Open `chrome://extensions` (or `edge://extensions`).
+3. Turn on **Developer mode** (top-right toggle).
+4. Click **Load unpacked** and select the unzipped **kids-corner-guardian** folder.
+
+Sign in to Kids Corner and it turns on automatically.
+
+> ChromeOS note: "Load unpacked" needs Developer Mode (a device powerwash) on a
+> **personal** Chromebook, so it isn't practical there — a personal Chromebook
+> should wait for the Web Store listing.
+
+---
+
 ## Windows (Chrome) — run in an **Administrator** Command Prompt
 
 ```

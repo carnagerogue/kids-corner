@@ -14,6 +14,8 @@ src/data/credentials.local.ts
 .claude/skills/
 skills-lock.json
 kids-corner-guardian-*.zip
+# ...except the load-unpacked package, which must be committed so hosting serves it
+!public/guardian/kids-corner-guardian-unpacked.zip
 
 # Kids Corner Guardian self-host signing key — NEVER commit
 extension/guardian-signing-key.pem
