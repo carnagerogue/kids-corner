@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ref, set } from "firebase/database";
+import { increment, ref, set, update } from "firebase/database";
 import { useApp } from "../store/AppContext";
 import { useFamily } from "../store/FamilyContext";
 import { getDb, FIREBASE_READY } from "../firebase";
@@ -21,6 +21,12 @@ import type { KidId } from "../types";
 
 const DISMISS_KEY = "kids-corner:guardian-dismissed";
 
+function todayKey(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 /**
  * Runs on a logged-in child's screen. Hands the Guardian extension this child's
  * allow-list (their enabled apps' domains), reports the extension's time-on-task
@@ -38,7 +44,6 @@ export function GuardianBridge({ kidId }: { kidId: KidId }) {
       return false;
     }
   });
-  const lastPersisted = useRef(0);
   const alertedRemoval = useRef(false);
   const absentStreak = useRef(0);
 
@@ -149,25 +154,65 @@ export function GuardianBridge({ kidId }: { kidId: KidId }) {
     };
   }, [kidId, basePath, activeFamilyId]);
 
-  // Pull the extension's activity every minute and store today's totals in the
-  // family cloud (idempotent per day; only when it changed).
+  // While the extension is present, check in every minute: record active time
+  // ON Kids Corner + whatever the extension logged (learning-app time, opens,
+  // blocked attempts), and stamp lastSeen. This is what tells the grown-up
+  // dashboard the child is protected and shows what they've been doing — even
+  // before they open an app (the extension alone logs nothing on this page).
   useEffect(() => {
     if (present !== "yes" || !FIREBASE_READY || !basePath) return;
     let stop = false;
-    const tick = async () => {
+    const path = `${basePath}/activity/${kidId}`;
+
+    // Merge the extension's latest totals — ONLY when it actually answers.
+    // update() (not set()) touches just these fields, so a getActivity timeout
+    // can never wipe the app time / opens / blocked already recorded today.
+    const syncExtension = async () => {
       const act = await requestActivity();
-      if (stop || !act || !act.day || act.day.updatedAt <= lastPersisted.current) return;
       const db = getDb();
-      if (!db) return;
-      lastPersisted.current = act.day.updatedAt;
+      if (stop || !db || !act?.day) return;
+      const day = act.day;
       try {
-        await set(ref(db, `${basePath}/activity/${kidId}/${act.date}`), act.day);
+        await update(ref(db, `${path}/${act.date}`), {
+          apps: day.apps ?? {},
+          opens: day.opens ?? [],
+          blocked: day.blocked ?? {},
+          updatedAt: day.updatedAt ?? 0,
+          lastSeen: Date.now(),
+        });
       } catch {
         /* best-effort — device may not be an enrolled member yet */
       }
     };
-    void tick();
-    const id = window.setInterval(() => void tick(), 60_000);
+
+    // Presence heartbeat: stamp lastSeen, and add a minute of on-site time while
+    // the child is actually looking at Kids Corner. increment() is atomic, so a
+    // reload, a second tab, or a midnight rollover can't corrupt the tally (each
+    // day is its own doc, so the new day starts fresh).
+    const heartbeat = async (addMinute: boolean) => {
+      const db = getDb();
+      if (stop || !db) return;
+      const patch: Record<string, unknown> = { lastSeen: Date.now() };
+      if (
+        addMinute &&
+        (typeof document === "undefined" ||
+          document.visibilityState === "visible")
+      ) {
+        patch.onSite = increment(60);
+      }
+      try {
+        await update(ref(db, `${path}/${todayKey()}`), patch);
+      } catch {
+        /* best-effort */
+      }
+    };
+
+    void heartbeat(false); // immediate check-in -> dashboard shows "protected" fast
+    void syncExtension();
+    const id = window.setInterval(() => {
+      void heartbeat(true);
+      void syncExtension();
+    }, 60_000);
     return () => {
       stop = true;
       window.clearInterval(id);

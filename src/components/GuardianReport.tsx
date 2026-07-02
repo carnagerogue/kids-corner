@@ -28,6 +28,13 @@ function appName(id: string): string {
 type ActivityMap = Record<string, Record<string, GuardianDay>>;
 type AlertMap = Record<string, { at: number } | null>;
 
+function clock(at: number): string {
+  try {
+    return new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  } catch {
+    return "";
+  }
+}
 function whenStr(at: number): string {
   try {
     return new Date(at).toLocaleString([], {
@@ -119,6 +126,8 @@ export function GuardianReport() {
             const blocked = d ? Object.entries(d.blocked ?? {}) : [];
             blocked.sort((a, b) => b[1] - a[1]);
             const opens = d?.opens ?? [];
+            const onSite = d?.onSite ?? 0;
+            const lastSeen = d?.lastSeen ?? 0;
             const active = !!d;
             const kid = getKid(state, k.id);
             const alert = alerts[k.id];
@@ -149,14 +158,19 @@ export function GuardianReport() {
                     {kid.emoji} {kid.firstName}
                   </span>
                   <span
-                    className={`guardrep__status ${active ? "is-on" : "is-off"}`}
+                    className={`guardrep__status ${active && !alert ? "is-on" : "is-off"}`}
                   >
-                    {active ? "🛡️ Protected" : "Not set up"}
+                    {alert ? "⚠️ Removed" : active ? "🛡️ Protected" : "Not set up"}
                   </span>
                 </div>
 
                 {active ? (
                   <>
+                    {onSite > 0 && (
+                      <p className="guardrep__opens">
+                        🏠 On Kids Corner: <strong>{mins(onSite)}</strong>
+                      </p>
+                    )}
                     {apps.length > 0 ? (
                       <ul className="guardrep__apps">
                         {apps.map(([id, secs]) => (
@@ -167,7 +181,10 @@ export function GuardianReport() {
                         ))}
                       </ul>
                     ) : (
-                      <p className="settings__hint">No app time yet today.</p>
+                      <p className="settings__hint">
+                        No learning-app time yet — it appears here once they open
+                        an app.
+                      </p>
                     )}
                     {opens.length > 0 && (
                       <p className="guardrep__opens">
@@ -185,6 +202,11 @@ export function GuardianReport() {
                           .slice(0, 5)
                           .map(([host, n]) => `${host}${n > 1 ? ` ×${n}` : ""}`)
                           .join(", ")}
+                      </p>
+                    )}
+                    {lastSeen > 0 && (
+                      <p className="guardrep__opens">
+                        Last check-in {clock(lastSeen)}
                       </p>
                     )}
                   </>

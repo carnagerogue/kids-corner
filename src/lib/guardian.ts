@@ -25,6 +25,8 @@ export type GuardianDay = {
   opens: { a: string; t: string }[]; // recent app opens (appId, HH:MM)
   blocked: Record<string, number>; // host -> blocked count
   updatedAt: number;
+  onSite?: number; // seconds active on Kids Corner today (page-side)
+  lastSeen?: number; // ms epoch of the last check-in (page-side heartbeat)
 };
 export type GuardianActivity = { date: string; day: GuardianDay };
 
