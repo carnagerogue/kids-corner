@@ -4131,6 +4131,12 @@ button {
 .login__legal a:hover {
   color: var(--kid-dark, #ff3d77);
 }
+.login__logo-full {
+  display: block;
+  width: min(360px, 84%);
+  height: auto;
+  margin: 2px auto 2px;
+}
 .login__card {
   width: min(460px, 100%);
   background: var(--paper);

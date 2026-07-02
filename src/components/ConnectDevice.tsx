@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useFamily } from "../store/FamilyContext";
-import { LuminaraMark } from "./LuminaraMark";
 
 /**
  * Shown on the kid entry when a device isn't yet BOUND to a family. It reveals
@@ -40,13 +39,11 @@ export function ConnectDevice({
   return (
     <div className="login">
       <div className="login__card">
-        <div className="login__brand">
-          <LuminaraMark className="login__logo" size={52} />
-          <div>
-            <h1 className="login__title">Luminara</h1>
-            <p className="login__subtitle">Spark curiosity · Build skills · Light tomorrow</p>
-          </div>
-        </div>
+        <img
+          className="login__logo-full"
+          src="/luminara-logo.png"
+          alt="Luminara — Spark curiosity, Build skills, Light tomorrow"
+        />
 
         <span className="connect__mascot" aria-hidden="true">
           📱✨

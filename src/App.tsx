@@ -13,7 +13,6 @@ import { Celebrations } from "./components/Celebrations";
 import { LoginScreen } from "./components/LoginScreen";
 import { ConnectDevice } from "./components/ConnectDevice";
 import { GuardianBridge } from "./components/GuardianBridge";
-import { LuminaraMark } from "./components/LuminaraMark";
 import { CommandCenter } from "./views/CommandCenter";
 import { ScheduleView } from "./views/ScheduleView";
 import { ApplicationsView } from "./views/ApplicationsView";
@@ -245,13 +244,11 @@ function EntryChoice({
   return (
     <div className="login">
       <div className="login__card">
-        <div className="login__brand">
-          <LuminaraMark className="login__logo" size={52} />
-          <div>
-            <h1 className="login__title">Luminara</h1>
-            <p className="login__subtitle">Spark curiosity · Build skills · Light tomorrow</p>
-          </div>
-        </div>
+        <img
+          className="login__logo-full"
+          src="/luminara-logo.png"
+          alt="Luminara — Spark curiosity, Build skills, Light tomorrow"
+        />
         <h2 className="login__prompt">Who's here? 👋</h2>
         <div className="entrychoice">
           <button
