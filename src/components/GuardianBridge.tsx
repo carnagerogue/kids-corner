@@ -12,7 +12,7 @@ import { RESOURCES } from "../data/resources";
 import {
   detectGuardian,
   guardianSupported,
-  GUARDIAN_STORE_URL,
+  GUARDIAN_INSTALL_URL,
   onGuardianPresent,
   requestActivity,
   sendAllowlist,
@@ -198,7 +198,7 @@ export function GuardianBridge({ kidId }: { kidId: KidId }) {
       </span>
       <a
         className="guardbar__go"
-        href={GUARDIAN_STORE_URL}
+        href={GUARDIAN_INSTALL_URL}
         target="_blank"
         rel="noreferrer"
       >

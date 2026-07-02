@@ -12,6 +12,14 @@ const TAG = "__kcg";
 export const GUARDIAN_STORE_URL =
   "https://chromewebstore.google.com/detail/REPLACE_WITH_ID";
 
+/**
+ * Where to install the Guardian right now — an OS-aware page with one-click
+ * installers, served from our own hosting. Used while the Web Store listing is
+ * still in review (and afterward it links out to the store too).
+ */
+export const GUARDIAN_INSTALL_URL =
+  "https://kids-corner-45fc2.firebaseapp.com/guardian/install.html";
+
 export type GuardianDay = {
   apps: Record<string, number>; // appId -> active seconds
   opens: { a: string; t: string }[]; // recent app opens (appId, HH:MM)

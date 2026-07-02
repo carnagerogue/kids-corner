@@ -6,9 +6,11 @@ policy so a child can't remove it. Use this on **Windows / Mac computers** and
 those can only install from the Chrome Web Store, so use the Unlisted store
 listing for those.
 
-> Each computer needs a **one-time admin step** (a registry key on Windows, a
-> configuration profile on Mac). Once set, the extension installs silently,
-> auto-updates, and the child can't turn it off.
+> **Easy front door:** send grown-ups to
+> **https://kids-corner-45fc2.firebaseapp.com/guardian/install.html** — it
+> detects their OS and hands them a one-click installer (a `.reg` on Windows,
+> a profile on Mac). The child installs nothing and can't remove it. Everything
+> below is the manual equivalent of what that page does.
 
 ## The two values you need
 

@@ -6,7 +6,7 @@ import { getDb, FIREBASE_READY } from "../firebase";
 import { getKid, kidList } from "../store/selectors";
 import { APP_CATALOG_BY_ID } from "../data/applications";
 import { RESOURCE_BY_ID } from "../data/resources";
-import { GUARDIAN_STORE_URL, type GuardianDay } from "../lib/guardian";
+import { GUARDIAN_INSTALL_URL, type GuardianDay } from "../lib/guardian";
 
 function today(): string {
   const d = new Date();
@@ -207,13 +207,13 @@ export function GuardianReport() {
           <summary>How to set up each device</summary>
           <ul className="guardrep__how">
             <li>
-              <strong>Chromebook / computer (Chrome, Edge, Firefox):</strong>{" "}
-              install the{" "}
-              <a href={GUARDIAN_STORE_URL} target="_blank" rel="noreferrer">
-                Kids Corner Guardian
-              </a>
-              . On a managed Chromebook you can force-install it so it can't be
-              removed.
+              <strong>Windows / Mac computer:</strong>{" "}
+              <a href={GUARDIAN_INSTALL_URL} target="_blank" rel="noreferrer">
+                open the one-click installer
+              </a>{" "}
+              and run it once — your child doesn't install anything and can't
+              remove it. (Chromebook: personal ones use the Chrome Web Store once
+              it's approved; managed ones install from Google Admin.)
             </li>
             <li>
               <strong>iPad / iPhone:</strong> extensions can't do this on iOS —

