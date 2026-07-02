@@ -14,3 +14,6 @@ src/data/credentials.local.ts
 .claude/skills/
 skills-lock.json
 kids-corner-guardian-*.zip
+
+# Kids Corner Guardian self-host signing key — NEVER commit
+extension/guardian-signing-key.pem

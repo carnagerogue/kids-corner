@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Google Update (Omaha) manifest for the self-hosted Kids Corner Guardian.
+     Chrome/Edge fetch this via the ExtensionInstallForcelist policy and install
+     the .crx it points to. To ship a new version: bump the version here AND in
+     the extension's manifest.json, re-pack the .crx (see extension/SELF-HOST.md),
+     overwrite the .crx, and deploy. -->
+<gupdate xmlns="http://www.google.com/update2/response" protocol="2.0">
+  <app appid="jcidbnilldagoigommaalmndbgkkkbdk">
+    <updatecheck
+      codebase="https://kids-corner-45fc2.firebaseapp.com/guardian/kids-corner-guardian.crx"
+      version="0.1.0" />
+  </app>
+</gupdate>
