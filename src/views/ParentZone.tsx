@@ -84,7 +84,13 @@ function ProfileInitial({ kid }: { kid: Kid }) {
   );
 }
 
-export function ParentZone({ onExit }: { onExit: () => void }) {
+export function ParentZone({
+  onExit,
+  onHome = onExit,
+}: {
+  onExit: () => void;
+  onHome?: () => void;
+}) {
   const fam = useFamily();
   const [pinOk, setPinOk] = useState(false);
   // First run: a parent with no family yet, or a family THIS device just created
@@ -114,14 +120,14 @@ export function ParentZone({ onExit }: { onExit: () => void }) {
         />
       );
     }
-    return <ParentDashboard onLock={onExit} />;
+    return <ParentDashboard onLock={onExit} onHome={onHome} />;
   }
   // Legacy (no Google account, current single-family device): the parent PIN
   // gates the dashboard so a kid on the shared tablet can't open it.
   if (!pinOk) {
     return <GrownUpGate onUnlock={() => setPinOk(true)} onExit={onExit} />;
   }
-  return <ParentDashboard onLock={() => setPinOk(false)} />;
+  return <ParentDashboard onLock={() => setPinOk(false)} onHome={onHome} />;
 }
 
 function GrownUpGate({
@@ -314,7 +320,7 @@ const PARENT_MORE_GROUPS: { label: string; ids: GTab[] }[] = [
   { label: "Setup", ids: ["devices", "guardian", "settings"] },
 ];
 
-function ParentDashboard({ onLock }: { onLock: () => void }) {
+function ParentDashboard({ onLock, onHome }: { onLock: () => void; onHome: () => void }) {
   const { state } = useApp();
   const fam = useFamily();
   const [tab, setTab] = useState<GTab>("home");
@@ -365,11 +371,18 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
 
       <aside className="gside">
         <div className="gside__brand">
-          <img
-            className="gside__mark"
-            src={`${import.meta.env.BASE_URL}luminara-icon.png`}
-            alt=""
-          />
+          <button
+            className="gside__home"
+            onClick={onHome}
+            aria-label="Return to the Luminara landing page"
+            title="Luminara home"
+          >
+            <img
+              className="gside__mark"
+              src={`${import.meta.env.BASE_URL}luminara-icon.png`}
+              alt=""
+            />
+          </button>
           <div className="gside__id">
             <span className="gside__name">{familyName}</span>
             <span className="gside__eyebrow">Grown-up dashboard</span>
@@ -422,6 +435,10 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
             </div>
           ))}
         </nav>
+        <button className="gside__home-link" onClick={onHome}>
+          <AppIcon name="home" />
+          <span>Luminara home</span>
+        </button>
         <a className="gside__legal" href={`${import.meta.env.BASE_URL}privacy.html`} target="_blank" rel="noreferrer">
           Privacy Policy
         </a>
@@ -502,6 +519,11 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
                 </section>
               ))}
             </div>
+            <button className="moreutility parentmore__home" onClick={onHome}>
+              <span className="moreitem__icon"><AppIcon name="home" /></span>
+              <span><strong>Luminara home</strong><small>Return to the landing page</small></span>
+              <AppIcon name="arrow-right" />
+            </button>
           </div>
         </div>
       )}

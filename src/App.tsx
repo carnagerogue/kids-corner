@@ -22,6 +22,7 @@ import { TrophyRoom } from "./views/TrophyRoom";
 import { MessagesView } from "./views/MessagesView";
 import { FamilyWallView } from "./views/FamilyWallView";
 import { ParentZone } from "./views/ParentZone";
+import { LandingPage } from "./views/LandingPage";
 import type { AppIconName } from "./components/AppIcon";
 import type { KidId } from "./types";
 
@@ -71,6 +72,13 @@ export function App() {
     setUser(null);
     writeSession(null);
     setTab("home");
+  };
+
+  const goToLanding = () => {
+    setUser(null);
+    writeSession(null);
+    setTab("home");
+    setEntry("choose");
   };
 
   // If the logged-in kid was removed (here or in another tab), log out.
@@ -177,9 +185,10 @@ export function App() {
         />
       );
     }
-    // First screen: choose Grown-Up or Kid.
+    // First screen: the public Luminara experience, with direct paths into
+    // the child and grown-up areas.
     return (
-      <EntryChoice
+      <LandingPage
         onChild={() => setEntry("child")}
         onGrownup={() => setTab("parent")}
       />
@@ -201,7 +210,13 @@ export function App() {
       <ReactionNotifier user={user} />
       <Celebrations user={user} />
       {tab !== "parent" && (
-        <TopBar tab={tab} onTab={setTab} user={user} onLogout={logout} />
+        <TopBar
+          tab={tab}
+          onTab={setTab}
+          user={user}
+          onLogout={logout}
+          onHome={goToLanding}
+        />
       )}
       {tab !== "parent" && <GuardianBridge kidId={user} />}
       <main className="app__main">
@@ -220,7 +235,9 @@ export function App() {
         {tab === "trophies" && <TrophyRoom />}
         {tab === "family-wall" && <FamilyWallView onTab={setTab} />}
         {tab === "messages" && <MessagesView />}
-        {tab === "parent" && <ParentZone onExit={() => setTab("home")} />}
+        {tab === "parent" && (
+          <ParentZone onExit={() => setTab("home")} onHome={goToLanding} />
+        )}
       </main>
       <footer className="app__footer">
         <span>
@@ -234,72 +251,5 @@ export function App() {
         </span>
       </footer>
     </div>
-  );
-}
-
-function EntryChoice({
-  onChild,
-  onGrownup,
-}: {
-  onChild: () => void;
-  onGrownup: () => void;
-}) {
-  return (
-    <div className="login">
-      <div className="login__card">
-        <img
-          className="login__logo-full"
-          src={`${import.meta.env.BASE_URL}luminara-logo.png`}
-          alt="Luminara — Spark curiosity, Build skills, Light tomorrow"
-        />
-        <p className="login__eyebrow">Welcome home</p>
-        <h2 className="login__prompt">Who’s learning today?</h2>
-        <p className="login__intro">
-          Choose your space to continue. Everything is organized around your family.
-        </p>
-        <div className="entrychoice">
-          <button
-            className="entrychoice__btn entrychoice__btn--kid"
-            onClick={onChild}
-          >
-            <EntryIcon kind="kid" />
-            <span className="entrychoice__label">Kid space</span>
-            <span className="entrychoice__sub">My day, missions, and world</span>
-          </button>
-          <button
-            className="entrychoice__btn entrychoice__btn--grown"
-            onClick={onGrownup}
-          >
-            <EntryIcon kind="grownup" />
-            <span className="entrychoice__label">Grown-up space</span>
-            <span className="entrychoice__sub">Family setup and progress</span>
-          </button>
-        </div>
-      </div>
-      <footer className="login__legal">
-        <a href={`${import.meta.env.BASE_URL}privacy.html`}>Privacy Policy</a>
-      </footer>
-    </div>
-  );
-}
-
-function EntryIcon({ kind }: { kind: "kid" | "grownup" }) {
-  return (
-    <span className={`entrychoice__icon entrychoice__icon--${kind}`} aria-hidden="true">
-      {kind === "kid" ? (
-        <svg viewBox="0 0 32 32" fill="none">
-          <circle cx="16" cy="12" r="5" />
-          <path d="M7.5 26c.8-5.2 3.6-8 8.5-8s7.7 2.8 8.5 8" />
-          <path className="entrychoice__spark" d="M25 5v4M23 7h4" />
-        </svg>
-      ) : (
-        <svg viewBox="0 0 32 32" fill="none">
-          <circle cx="12.5" cy="12" r="4.5" />
-          <circle cx="22.5" cy="13" r="3.5" />
-          <path d="M4.5 26c.8-5.1 3.4-7.7 8-7.7s7.2 2.6 8 7.7" />
-          <path d="M19.5 19.6c1-.6 2.1-.9 3.4-.9 3.4 0 5.4 2.2 6 6.3" />
-        </svg>
-      )}
-    </span>
   );
 }

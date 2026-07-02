@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useFamily } from "../store/FamilyContext";
+import { AppIcon } from "./AppIcon";
 
 /**
  * Shown on the kid entry when a device isn't yet BOUND to a family. It reveals
@@ -93,10 +94,10 @@ export function ConnectDevice({
 
         <div className="login__foot">
           <button className="login__parent" onClick={onBack}>
-            ← Back
+            <AppIcon name="arrow-left" /> Back to Luminara
           </button>
           <button className="login__parent" onClick={onParent}>
-            🔒 Grown-Ups
+            <AppIcon name="lock" /> Grown-ups
           </button>
         </div>
       </div>

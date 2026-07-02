@@ -1,4 +1,6 @@
 import {
+  ArrowLeft,
+  ArrowRight,
   BarChart3,
   CalendarDays,
   Check,
@@ -26,6 +28,8 @@ import {
 } from "lucide-react";
 
 export type AppIconName =
+  | "arrow-left"
+  | "arrow-right"
   | "home"
   | "calendar"
   | "apps"
@@ -51,6 +55,8 @@ export type AppIconName =
   | "more";
 
 const ICONS: Record<AppIconName, LucideIcon> = {
+  "arrow-left": ArrowLeft,
+  "arrow-right": ArrowRight,
   home: Home,
   calendar: CalendarDays,
   apps: LayoutGrid,

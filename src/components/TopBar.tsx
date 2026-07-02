@@ -18,11 +18,13 @@ export function TopBar({
   onTab,
   user,
   onLogout,
+  onHome,
 }: {
   tab: TabId;
   onTab: (t: TabId) => void;
   user: KidId;
   onLogout: () => void;
+  onHome: () => void;
 }) {
   const { state } = useApp();
   const kidUnread = kidUnreadCount(state, user);
@@ -52,7 +54,12 @@ export function TopBar({
 
   return (
     <header className="topbar">
-      <div className="topbar__brand">
+      <button
+        className="topbar__brand"
+        onClick={onHome}
+        aria-label="Return to the Luminara landing page"
+        title="Luminara home"
+      >
         <img
           className="topbar__logo"
           src={`${import.meta.env.BASE_URL}luminara-icon.png`}
@@ -64,7 +71,7 @@ export function TopBar({
           <h1 className="topbar__title">Luminara</h1>
           <p className="topbar__subtitle">Spark curiosity · Build skills · Light tomorrow</p>
         </div>
-      </div>
+      </button>
 
       <div className="whoami">
         <button
@@ -203,15 +210,20 @@ export function TopBar({
             </div>
 
             <div className="moresheet__utilities">
+              <button className="moreutility" onClick={onHome}>
+                <span className="moreitem__icon"><AppIcon name="home" /></span>
+                <span><strong>Luminara home</strong><small>Return to the landing page</small></span>
+                <AppIcon name="arrow-right" />
+              </button>
               <button className="moreutility" onClick={() => go("parent")}>
                 <span className="moreitem__icon"><AppIcon name="lock" /></span>
                 <span><strong>Grown-ups</strong><small>Family controls and progress</small></span>
-                <span aria-hidden="true">›</span>
+                <AppIcon name="arrow-right" />
               </button>
               <button className="moreutility moreutility--danger" onClick={onLogout}>
                 <span className="moreitem__icon"><AppIcon name="person" /></span>
                 <span><strong>Switch kid</strong><small>Leave {kid.firstName}'s space</small></span>
-                <span aria-hidden="true">›</span>
+                <AppIcon name="arrow-right" />
               </button>
             </div>
           </div>

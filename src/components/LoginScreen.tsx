@@ -144,7 +144,7 @@ export function LoginScreen({
             <div className="login__foot">
               {onBack && (
                 <button className="login__parent" onClick={onBack}>
-                  ← Back
+                  <AppIcon name="arrow-left" /> Back to Luminara
                 </button>
               )}
               <button className="login__parent" onClick={onParent}>
@@ -187,7 +187,7 @@ export function LoginScreen({
               disabled={locked}
             />
             <button className="login__parent" onClick={reset}>
-              ← Not {kid!.firstName}? Go back
+              <AppIcon name="arrow-left" /> Not {kid!.firstName}? Go back
             </button>
           </div>
         )}
