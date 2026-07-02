@@ -46,6 +46,7 @@ import { MessageThread } from "../components/MessageThread";
 import { MessageNotifier } from "../components/MessageNotifier";
 import { CopyField } from "../components/AppCard";
 import { OnboardingWizard } from "../components/OnboardingWizard";
+import { GuardianReport } from "../components/GuardianReport";
 import { isOnboarded, isSettingUp, setOnboarded } from "../store/familyScope";
 import { hashPin, pinMatches } from "../lib/hash";
 import { FIREBASE_READY, getAuthError, signInWithGoogle } from "../firebase";
@@ -265,6 +266,7 @@ type GTab =
   | "missions"
   | "avatar"
   | "devices"
+  | "guardian"
   | "settings";
 
 const GTAB_META: Record<GTab, { emoji: string; label: string }> = {
@@ -279,6 +281,7 @@ const GTAB_META: Record<GTab, { emoji: string; label: string }> = {
   chores: { emoji: "🧹", label: "Chores" },
   missions: { emoji: "🖼️", label: "Examples" },
   devices: { emoji: "📱", label: "Devices" },
+  guardian: { emoji: "🛡️", label: "Safe Browsing" },
   settings: { emoji: "⚙️", label: "Settings" },
 };
 
@@ -288,7 +291,7 @@ const NAV_GROUPS: { label: string; ids: GTab[] }[] = [
   { label: "Today", ids: ["home", "review", "messages"] },
   { label: "Family", ids: ["kids", "progress", "avatar"] },
   { label: "Plan", ids: ["schedule", "apps", "chores", "missions"] },
-  { label: "Setup", ids: ["devices", "settings"] },
+  { label: "Setup", ids: ["devices", "guardian", "settings"] },
 ];
 
 function ParentDashboard({ onLock }: { onLock: () => void }) {
@@ -320,6 +323,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
     missions: "Add an example photo so kids can see the finished result",
     avatar: "Coins, rewards, and avatar unlocks for each child",
     devices: "Connect the kids' tablets to your family",
+    guardian: "Keep each child on their allowed apps, and see time on task",
     settings: "Cross-device sync, your PIN, and resetting the summer",
   };
 
@@ -429,6 +433,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
           {tab === "missions" && <MissionExamples />}
           {tab === "avatar" && <ParentAvatarControls />}
           {tab === "devices" && <ConnectKidDevice />}
+          {tab === "guardian" && <GuardianReport />}
           {tab === "settings" && (
             <>
               <CloudSync />

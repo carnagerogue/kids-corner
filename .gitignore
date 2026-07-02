@@ -13,3 +13,4 @@ src/data/credentials.local.ts
 .agents/
 .claude/skills/
 skills-lock.json
+kids-corner-guardian-*.zip

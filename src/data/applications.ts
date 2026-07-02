@@ -55,6 +55,55 @@ export const APP_CATALOG_BY_ID: Record<string, CatalogApp> = Object.fromEntries(
   APP_CATALOG.map((a) => [a.id, a]),
 );
 
+// --- Safe-browsing allow-list (Kids Corner Guardian extension) --------------
+// The registrable domains each app needs (its own site + any auth/CDN hosts).
+// List BASE domains only — the extension matches subdomains automatically. Kept
+// conservative; a grown-up can add exceptions later.
+export const APP_DOMAINS: Record<string, string[]> = {
+  edgenuity: ["edgenuity.com"],
+  "ascend-math": ["ascendmath.com"],
+  coursera: ["coursera.org"],
+  scratch: ["scratch.mit.edu"],
+  prodigy: ["prodigygame.com"],
+  mathigon: ["mathigon.org"],
+  phet: ["phet.colorado.edu"],
+  icivics: ["icivics.org"],
+  labxchange: ["labxchange.org"],
+};
+
+// Sign-in + asset hosts many school apps need. Deliberately narrow — the SSO
+// and font/asset endpoints, NOT google.com (that's search).
+export const AUTH_PROVIDER_DOMAINS = [
+  "accounts.google.com",
+  "apis.google.com",
+  "gstatic.com",
+  "fonts.googleapis.com",
+  "clever.com",
+  "classlink.com",
+];
+
+// Kids Corner itself (the launcher) must always stay reachable.
+export const KIDS_CORNER_DOMAINS = [
+  "kids-corner-45fc2.firebaseapp.com",
+  "kids-corner-45fc2.web.app",
+];
+
+/** The base domains a child with these enabled apps may navigate to. */
+export function allowedDomainsForKid(enabledAppIds: string[]): string[] {
+  const set = new Set<string>([...KIDS_CORNER_DOMAINS, ...AUTH_PROVIDER_DOMAINS]);
+  for (const id of enabledAppIds)
+    for (const d of APP_DOMAINS[id] ?? []) set.add(d);
+  return [...set];
+}
+
+/** base domain -> app id, so the extension can attribute time + opens. */
+export function appMapForKid(enabledAppIds: string[]): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const id of enabledAppIds)
+    for (const d of APP_DOMAINS[id] ?? []) map[d] = id;
+  return map;
+}
+
 // What the seeded kids can see out of the box.
 export const DEFAULT_VISIBLE_APPS: Record<string, string[]> = {
   claire: ["edgenuity", "scratch", "prodigy", "phet"],

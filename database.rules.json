@@ -75,6 +75,9 @@
         },
         "reactions": {
           ".write": "auth != null && root.child('families').child($familyId).child('members').child(auth.uid).exists()"
+        },
+        "activity": {
+          ".write": "auth != null && root.child('families').child($familyId).child('members').child(auth.uid).exists()"
         }
       }
     },

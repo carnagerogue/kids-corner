@@ -4350,6 +4350,152 @@ button {
   background: #fff2cc;
 }
 
+/* --- Guardian (Safe Browsing) install nudge, kid side --------------------- */
+.guardbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: #fff8e1;
+  border: 2px solid #f4c430;
+  color: #7a5b00;
+  font-weight: 700;
+  animation: rise 0.3s ease both;
+}
+.guardbar__icon {
+  font-size: 1.4rem;
+  flex: none;
+}
+.guardbar__text {
+  flex: 1;
+  font-size: 0.9rem;
+}
+.guardbar__go {
+  flex: none;
+  text-decoration: none;
+  background: linear-gradient(135deg, #ff8a3d, #ff3d77);
+  color: #fff;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 8px 14px;
+  white-space: nowrap;
+}
+.guardbar__x {
+  flex: none;
+  border: none;
+  background: rgba(0, 0, 0, 0.08);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-weight: 900;
+  color: #7a5b00;
+  line-height: 1;
+  cursor: pointer;
+}
+.guardbar__x:hover {
+  background: rgba(0, 0, 0, 0.16);
+}
+@media (max-width: 560px) {
+  .guardbar {
+    flex-wrap: wrap;
+  }
+  .guardbar__text {
+    flex: 1 1 100%;
+    order: 2;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .guardbar {
+    animation: none;
+  }
+}
+
+/* --- Guardian report, parent side ---------------------------------------- */
+.guardrep {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.guardrep__kid {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--this-kid, var(--kid));
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  background: var(--paper);
+}
+.guardrep__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.guardrep__name {
+  font-family: var(--display);
+  font-weight: 800;
+}
+.guardrep__status {
+  font-size: 0.78rem;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+.guardrep__status.is-on {
+  background: var(--ok-soft, #e8f8ec);
+  color: #1a7a33;
+}
+.guardrep__status.is-off {
+  background: var(--paper-2);
+  color: var(--ink-soft);
+}
+.guardrep__apps {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.guardrep__apps li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.guardrep__opens,
+.guardrep__blocked {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.guardrep__blocked {
+  color: #a4324a;
+}
+.guardrep__setup {
+  margin-top: 6px;
+}
+.guardrep__setup summary {
+  font-weight: 800;
+  cursor: pointer;
+  color: var(--ink-soft);
+}
+.guardrep__how {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.88rem;
+}
+.guardrep__how a {
+  color: var(--kid-dark);
+  font-weight: 800;
+}
+
 /* --- Grown-up: connect a kids' device ------------------------------------- */
 .pairing {
   display: flex;

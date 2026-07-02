@@ -12,6 +12,7 @@ import { ReactionNotifier } from "./components/ReactionNotifier";
 import { Celebrations } from "./components/Celebrations";
 import { LoginScreen } from "./components/LoginScreen";
 import { ConnectDevice } from "./components/ConnectDevice";
+import { GuardianBridge } from "./components/GuardianBridge";
 import { CommandCenter } from "./views/CommandCenter";
 import { ScheduleView } from "./views/ScheduleView";
 import { ApplicationsView } from "./views/ApplicationsView";
@@ -199,6 +200,7 @@ export function App() {
       <ReactionNotifier user={user} />
       <Celebrations user={user} />
       <TopBar tab={tab} onTab={setTab} user={user} onLogout={logout} />
+      <GuardianBridge kidId={user} />
       <main className="app__main">
         {tab === "home" && <CommandCenter onTab={setTab} />}
         {tab === "schedule" && <ScheduleView onTab={setTab} />}
