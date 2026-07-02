@@ -220,7 +220,12 @@ export function App() {
         {tab === "parent" && <ParentZone onExit={() => setTab("home")} />}
       </main>
       <footer className="app__footer">
-        <span>Kids Corner · Summer Command Center</span>
+        <span>
+          Kids Corner · Summer Command Center ·{" "}
+          <a className="app__footer-link" href="/privacy.html">
+            Privacy
+          </a>
+        </span>
         <span className="app__footer-motto">
           {kid.emoji} {kid.motto}
         </span>
@@ -266,6 +271,9 @@ function EntryChoice({
           </button>
         </div>
       </div>
+      <footer className="login__legal">
+        <a href="/privacy.html">Privacy Policy</a>
+      </footer>
     </div>
   );
 }

@@ -80,13 +80,29 @@ Corner, and report the child's time-on-task to that parent.
 - **storage** — To hold the current allow-list and the day's activity tally on
   the device.
 
-**Data usage disclosures** (check these to match the privacy policy)
-- Collects: *Web history* (only: which allowed apps were opened, and the domain
-  of blocked attempts) and *User activity* (active time per app). No personally
-  identifiable info, no financial info, no content of pages, no keystrokes.
-- We do **not** sell or transfer this data to third parties.
-- We do **not** use it for anything unrelated to the single purpose above.
-- We do **not** use it to determine creditworthiness or for lending.
+**Remote code**
+Select **"No, I am not using remote code."** All of the extension's code is
+bundled in the package; it loads no external scripts, uses no `eval`, and pulls
+in no remote modules. (The postMessage handshake with the Kids Corner page
+exchanges *data* — the allow-list and activity — never code.)
+
+**Data usage disclosures** (must match the privacy policy)
+- **Data types collected** — check **Web history** (which allowed apps were
+  opened, and the domain of blocked attempts) and **User activity** (active time
+  per app). Do NOT check any other category — no personally identifiable info,
+  no authentication info, no financial info, no page content, no keystrokes.
+- **Certifications** — check all three (they are all true):
+  1. I do **not** sell or transfer user data to third parties, outside of the
+     approved use cases.
+  2. I do **not** use or transfer user data for purposes unrelated to my item's
+     single purpose.
+  3. I do **not** use or transfer user data to determine creditworthiness or for
+     lending purposes.
+
+## Account → Settings (one-time, per publisher account)
+- **Contact email** — required before you can publish anything. Enter an email
+  you monitor, then **verify** it (Google sends a confirmation link). This is a
+  publisher-account setting, separate from the item.
 
 > Note: extensions that request broad host permissions and handle children's
 > data get extra review. Expect questions; the answers are all above and in

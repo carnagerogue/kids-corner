@@ -129,6 +129,14 @@ button {
 .app__footer-motto {
   color: var(--kid-dark);
 }
+.app__footer-link {
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.app__footer-link:hover {
+  color: var(--kid-dark);
+}
 
 /* --- TopBar ---------------------------------------------------------------*/
 .topbar {
@@ -343,6 +351,17 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+.gside__legal {
+  margin-top: auto;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.gside__legal:hover {
+  color: var(--kid-dark);
 }
 .gside__glyph {
   width: 38px;
@@ -4098,6 +4117,19 @@ button {
   display: grid;
   place-items: center;
   padding: 20px;
+}
+.login__legal {
+  margin-top: 16px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.login__legal a {
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.login__legal a:hover {
+  color: var(--kid-dark, #ff3d77);
 }
 .login__card {
   width: min(460px, 100%);
