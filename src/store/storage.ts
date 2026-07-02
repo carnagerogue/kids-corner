@@ -3,6 +3,7 @@ import type {
   Announcement,
   AppState,
   ChoreAssignment,
+  CustomSite,
   FamilyGoal,
   Friendship,
   Loadout3D,
@@ -37,7 +38,11 @@ import {
   DEFAULT_KID_PINS,
   DEFAULT_KID_THEMES,
 } from "../data/kids";
-import { DEFAULT_NEW_KID_APPS, DEFAULT_VISIBLE_APPS } from "../data/applications";
+import {
+  DEFAULT_NEW_KID_APPS,
+  DEFAULT_VISIBLE_APPS,
+  sanitizeCustomSites,
+} from "../data/applications";
 import { THEME_BY_ID } from "../data/themes";
 import { FAMILY_PLAN_ID, defaultSchedules } from "../data/schedule";
 import { scopedFamilyId } from "./familyScope";
@@ -309,6 +314,7 @@ export function defaultState(): AppState {
     rewardRates: { ...DEFAULT_REWARD_RATES },
     appVisibility,
     exploreHidden,
+    customSites: {},
   };
 }
 
@@ -347,6 +353,7 @@ export function emptyFamilyState(): AppState {
     rewardRates: { ...DEFAULT_REWARD_RATES },
     appVisibility: {},
     exploreHidden: {},
+    customSites: {},
   };
 }
 
@@ -425,6 +432,7 @@ export function loadState(): AppState {
     const themes: Record<KidId, ThemeId> = {};
     const appVisibility: Record<KidId, string[]> = {};
     const exploreHidden: Record<KidId, string[]> = {};
+    const customSites: Record<KidId, CustomSite[]> = {};
     const coinsSpent: Record<KidId, number> = {};
     const coinsBonus: Record<KidId, number> = {};
     const lastSpin: Record<KidId, string> = {};
@@ -466,6 +474,10 @@ export function loadState(): AppState {
       exploreHidden[id] = Array.isArray(hid)
         ? (hid as unknown[]).filter((x): x is string => typeof x === "string")
         : [];
+
+      customSites[id] = sanitizeCustomSites(
+        (parsed.customSites as Record<string, unknown> | undefined)?.[id],
+      );
 
       const spent = (parsed.coinsSpent as Record<string, unknown> | undefined)?.[
         id
@@ -601,6 +613,7 @@ export function loadState(): AppState {
       rewardRates: loadRewardRates(parsed.rewardRates),
       appVisibility,
       exploreHidden,
+      customSites,
     };
   } catch {
     return freshState();

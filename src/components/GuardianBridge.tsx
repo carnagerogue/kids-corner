@@ -8,6 +8,7 @@ import {
   appMapForKid,
   DEFAULT_NEW_KID_APPS,
 } from "../data/applications";
+import { RESOURCES } from "../data/resources";
 import {
   detectGuardian,
   guardianSupported,
@@ -43,8 +44,29 @@ export function GuardianBridge({ kidId }: { kidId: KidId }) {
     () => state.appVisibility[kidId] ?? DEFAULT_NEW_KID_APPS,
     [state.appVisibility, kidId],
   );
-  const domains = useMemo(() => allowedDomainsForKid(enabledApps), [enabledApps]);
-  const appMap = useMemo(() => appMapForKid(enabledApps), [enabledApps]);
+  // Explore sites still visible to this kid (turned-off ones are excluded, so
+  // the Guardian blocks them just like any other off-list site).
+  const visibleResourceIds = useMemo(() => {
+    const hidden = state.exploreHidden[kidId] ?? [];
+    return RESOURCES.filter((r) => !hidden.includes(r.id)).map((r) => r.id);
+  }, [state.exploreHidden, kidId]);
+  const customSites = useMemo(
+    () => state.customSites[kidId] ?? [],
+    [state.customSites, kidId],
+  );
+  const domains = useMemo(
+    () =>
+      allowedDomainsForKid(
+        enabledApps,
+        visibleResourceIds,
+        customSites.map((s) => s.url),
+      ),
+    [enabledApps, visibleResourceIds, customSites],
+  );
+  const appMap = useMemo(
+    () => appMapForKid(enabledApps, visibleResourceIds, customSites),
+    [enabledApps, visibleResourceIds, customSites],
+  );
 
   // Hand the extension this child's allow-list (a no-op if it isn't installed),
   // and detect whether it's actually there.

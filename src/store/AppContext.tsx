@@ -13,6 +13,7 @@ import type {
   Avatar3DBuyInfo,
   Avatar3DSlot,
   ChoreAssignment,
+  CustomSite,
   FamilyGoal,
   Friendship,
   Kid,
@@ -38,6 +39,7 @@ export type SyncConfig = {
   themes: Record<string, ThemeId>;
   appVisibility: Record<string, string[]>;
   exploreHidden: Record<string, string[]>;
+  customSites: Record<string, CustomSite[]>;
   schedules: SchedulePlan[];
   customActivities: ActivityIdea[];
   activityImages: Record<string, string>;
@@ -75,7 +77,12 @@ import { BADGES } from "../data/badges";
 import { SPIN_COST } from "../data/avatar";
 import { getLevelInfo } from "../data/levels";
 import { makeKid } from "../data/kids";
-import { DEFAULT_NEW_KID_APPS } from "../data/applications";
+import {
+  DEFAULT_NEW_KID_APPS,
+  domainFromUrl,
+  MAX_CUSTOM_SITES,
+  sanitizeCustomSites,
+} from "../data/applications";
 import { itemById } from "../features/avatar/AvatarManifest";
 import { meetsUnlock } from "../features/avatar/AvatarRewardEngine";
 import { hashPin, looksHashed } from "../lib/hash";
@@ -184,6 +191,8 @@ export type Action =
       resourceId: string;
       visible: boolean;
     }
+  | { type: "ADD_CUSTOM_SITE"; kidId: KidId; name: string; url: string }
+  | { type: "REMOVE_CUSTOM_SITE"; kidId: KidId; id: string }
   | { type: "RESET_ALL" };
 
 function toggleInArray(arr: string[], id: string): string[] {
@@ -1097,6 +1106,7 @@ function reducer(state: AppState, action: Action): AppState {
       const themes: Record<string, ThemeId> = {};
       const appVisibility: Record<string, string[]> = {};
       const exploreHidden: Record<string, string[]> = {};
+      const customSites: Record<string, CustomSite[]> = {};
       const coinsSpent: Record<string, number> = {};
       const coinsBonus: Record<string, number> = {};
       const lastSpin: Record<string, string> = {};
@@ -1117,6 +1127,11 @@ function reducer(state: AppState, action: Action): AppState {
             : pick(cfg.themes, state.themes, k.id, "sparkle");
         appVisibility[k.id] = pick(cfg.appVisibility, state.appVisibility, k.id, []);
         exploreHidden[k.id] = pick(cfg.exploreHidden, state.exploreHidden, k.id, []);
+        // Sanitize on ingest — a synced config could carry malformed/unsafe
+        // entries; never trust it into an href or the allow-list unchecked.
+        customSites[k.id] = sanitizeCustomSites(
+          pick(cfg.customSites, state.customSites, k.id, []),
+        );
         coinsSpent[k.id] = pick(cfg.coinsSpent, state.coinsSpent, k.id, 0);
         coinsBonus[k.id] = pick(cfg.coinsBonus, state.coinsBonus, k.id, 0);
         lastSpin[k.id] = pick(cfg.lastSpin, state.lastSpin, k.id, "");
@@ -1177,6 +1192,7 @@ function reducer(state: AppState, action: Action): AppState {
         themes,
         appVisibility,
         exploreHidden,
+        customSites,
         schedules,
         customActivities: Array.isArray(cfg.customActivities)
           ? cfg.customActivities
@@ -1297,6 +1313,7 @@ function reducer(state: AppState, action: Action): AppState {
         themes: { ...state.themes, [id]: "sparkle" },
         appVisibility: { ...state.appVisibility, [id]: [...DEFAULT_NEW_KID_APPS] },
         exploreHidden: { ...state.exploreHidden, [id]: [] },
+        customSites: { ...state.customSites, [id]: [] },
         coinsSpent: { ...state.coinsSpent, [id]: 0 },
         coinsBonus: { ...state.coinsBonus, [id]: 0 },
         lastSpin: { ...state.lastSpin, [id]: "" },
@@ -1320,6 +1337,7 @@ function reducer(state: AppState, action: Action): AppState {
         themes: omitKey(state.themes, action.kidId),
         appVisibility: omitKey(state.appVisibility, action.kidId),
         exploreHidden: omitKey(state.exploreHidden, action.kidId),
+        customSites: omitKey(state.customSites, action.kidId),
         coinsSpent: omitKey(state.coinsSpent, action.kidId),
         coinsBonus: omitKey(state.coinsBonus, action.kidId),
         lastSpin: omitKey(state.lastSpin, action.kidId),
@@ -1377,6 +1395,37 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         exploreHidden: { ...state.exploreHidden, [action.kidId]: next },
+      };
+    }
+
+    case "ADD_CUSTOM_SITE": {
+      const name = action.name.trim().slice(0, 60);
+      const url = action.url.trim().slice(0, 300);
+      const dom = domainFromUrl(url);
+      // Reject blank names and anything that isn't a real http(s) URL (blocks
+      // javascript:/data: URIs from ever reaching an href or the allow-list).
+      if (!name || !dom) return state;
+      const cur = state.customSites[action.kidId] ?? [];
+      if (cur.length >= MAX_CUSTOM_SITES) return state;
+      // One entry per domain — no duplicates.
+      if (cur.some((s) => domainFromUrl(s.url) === dom)) return state;
+      const site: CustomSite = { id: newId(), name, url };
+      return {
+        ...state,
+        customSites: {
+          ...state.customSites,
+          [action.kidId]: [...cur, site],
+        },
+      };
+    }
+
+    case "REMOVE_CUSTOM_SITE": {
+      const cur = state.customSites[action.kidId] ?? [];
+      const next = cur.filter((s) => s.id !== action.id);
+      if (next.length === cur.length) return state;
+      return {
+        ...state,
+        customSites: { ...state.customSites, [action.kidId]: next },
       };
     }
 

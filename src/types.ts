@@ -391,7 +391,13 @@ export type AppState = {
   appVisibility: Record<KidId, string[]>;
   /** Explore resource ids each kid CANNOT see (default: none hidden). */
   exploreHidden: Record<KidId, string[]>;
+  /** Extra sites a grown-up whitelisted per kid — shown as cards AND allowed
+   *  through the Guardian safe-browsing filter. */
+  customSites: Record<KidId, CustomSite[]>;
 };
+
+/** A grown-up-added allowed site, beyond the built-in catalog + Explore list. */
+export type CustomSite = { id: string; name: string; url: string };
 
 // Derived, read-only stats used by selectors / badges.
 export type KidStats = {

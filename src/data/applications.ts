@@ -1,4 +1,4 @@
-import type { AppLink, Assignment, Credential, KidId } from "../types";
+import type { AppLink, Assignment, CustomSite, Credential, KidId } from "../types";
 import { RESOURCE_DOMAINS } from "./resources";
 
 // Private logins live ONLY in `credentials.local.ts`, which is gitignored —
@@ -89,33 +89,82 @@ export const KIDS_CORNER_DOMAINS = [
   "kids-corner-45fc2.web.app",
 ];
 
-// The curated Explore directory (resources.ts) is shown to every child, so its
-// sites are always reachable — any kid can tap any card. Flattened once here so
-// they're always on the allow-list, independent of per-kid app grants.
-const RESOURCE_DOMAIN_LIST: string[] = Object.values(RESOURCE_DOMAINS).flat();
-const RESOURCE_DOMAIN_MAP: Record<string, string> = Object.fromEntries(
-  Object.entries(RESOURCE_DOMAINS).flatMap(([id, ds]) =>
-    ds.map((d) => [d, id] as const),
-  ),
-);
+/** Most a grown-up can whitelist per kid — a sane cap on synced config size. */
+export const MAX_CUSTOM_SITES = 30;
 
-/** The base domains a child with these enabled apps may navigate to. */
-export function allowedDomainsForKid(enabledAppIds: string[]): string[] {
-  const set = new Set<string>([
-    ...KIDS_CORNER_DOMAINS,
-    ...AUTH_PROVIDER_DOMAINS,
-    ...RESOURCE_DOMAIN_LIST,
-  ]);
+/**
+ * The base domain a user-entered URL resolves to (leading "www." dropped), or
+ * null if it isn't a valid http(s) address. Used both to build the allow-list
+ * and to reject junk / unsafe schemes (javascript:, data:) before we store or
+ * render a custom site.
+ */
+export function domainFromUrl(url: string): string | null {
+  try {
+    const u = new URL(url.trim());
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    const host = u.hostname.toLowerCase().replace(/^www\./, "");
+    return host.includes(".") ? host : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Keep only well-formed, safe custom sites (defends config ingest + storage). */
+export function sanitizeCustomSites(list: unknown): CustomSite[] {
+  if (!Array.isArray(list)) return [];
+  const out: CustomSite[] = [];
+  for (const item of list) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    const id = typeof o.id === "string" ? o.id : "";
+    const name = typeof o.name === "string" ? o.name.trim().slice(0, 60) : "";
+    const url = typeof o.url === "string" ? o.url.trim().slice(0, 300) : "";
+    if (!id || !name || !domainFromUrl(url)) continue;
+    out.push({ id, name, url });
+    if (out.length >= MAX_CUSTOM_SITES) break;
+  }
+  return out;
+}
+
+/**
+ * The base domains a child may navigate to: the school apps enabled for them,
+ * the Explore sites still visible to them (turned-off ones are excluded, so
+ * they're blocked), any custom sites a grown-up added, plus Kids Corner and the
+ * sign-in hosts. `enabledAppIds` = per-kid app grants; `visibleResourceIds` =
+ * Explore ids NOT hidden for this kid; `customUrls` = grown-up-added sites.
+ */
+export function allowedDomainsForKid(
+  enabledAppIds: string[],
+  visibleResourceIds: string[],
+  customUrls: string[] = [],
+): string[] {
+  const set = new Set<string>([...KIDS_CORNER_DOMAINS, ...AUTH_PROVIDER_DOMAINS]);
   for (const id of enabledAppIds)
     for (const d of APP_DOMAINS[id] ?? []) set.add(d);
+  for (const id of visibleResourceIds)
+    for (const d of RESOURCE_DOMAINS[id] ?? []) set.add(d);
+  for (const u of customUrls) {
+    const d = domainFromUrl(u);
+    if (d) set.add(d);
+  }
   return [...set];
 }
 
-/** base domain -> app id, so the extension can attribute time + opens. */
-export function appMapForKid(enabledAppIds: string[]): Record<string, string> {
-  const map: Record<string, string> = { ...RESOURCE_DOMAIN_MAP };
+/** base domain -> app/site id, so the extension can attribute time + opens. */
+export function appMapForKid(
+  enabledAppIds: string[],
+  visibleResourceIds: string[],
+  customSites: { id: string; url: string }[] = [],
+): Record<string, string> {
+  const map: Record<string, string> = {};
   for (const id of enabledAppIds)
     for (const d of APP_DOMAINS[id] ?? []) map[d] = id;
+  for (const id of visibleResourceIds)
+    for (const d of RESOURCE_DOMAINS[id] ?? []) map[d] = id;
+  for (const s of customSites) {
+    const d = domainFromUrl(s.url);
+    if (d) map[d] = s.id;
+  }
   return map;
 }
 

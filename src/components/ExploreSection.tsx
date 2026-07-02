@@ -18,13 +18,43 @@ export function ExploreSection() {
   const { state } = useApp();
   const [cat, setCat] = useState<CatFilter>("all");
   const resources = visibleResourcesFor(state, state.activeKid);
-  if (resources.length === 0) return null;
+  const custom = state.customSites[state.activeKid] ?? [];
+  if (resources.length === 0 && custom.length === 0) return null;
   const list =
     cat === "all" ? resources : resources.filter((r) => r.category === cat);
 
   return (
     <>
-      <div className="chips" role="group" aria-label="Explore category">
+      {custom.length > 0 && (
+        <div className="reslist">
+          {custom.map((s) => (
+            <article
+              key={s.id}
+              className="rescard"
+              style={{ ["--cat" as string]: "#0ea5e9" }}
+            >
+              <div className="rescard__head">
+                <span className="rescard__icon">⭐</span>
+                <div>
+                  <span className="rescard__cat">⭐ Added for you</span>
+                  <strong className="rescard__name">{s.name}</strong>
+                </div>
+              </div>
+              <a
+                className="btn btn--primary btn--full"
+                href={s.url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                ↗ Open {s.name}
+              </a>
+            </article>
+          ))}
+        </div>
+      )}
+      {resources.length > 0 && (
+        <>
+          <div className="chips" role="group" aria-label="Explore category">
         <button
           className={`chip ${cat === "all" ? "is-active" : ""}`}
           onClick={() => setCat("all")}
@@ -77,7 +107,9 @@ export function ExploreSection() {
             </article>
           );
         })}
-      </div>
+          </div>
+        </>
+      )}
     </>
   );
 }

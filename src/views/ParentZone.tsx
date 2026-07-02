@@ -4,7 +4,7 @@ import { useApp } from "../store/AppContext";
 import { ParentAvatarControls } from "../features/avatar/ParentAvatarControls";
 import { WorldLearningReport } from "./WorldLearningReport";
 import { KID_EMOJIS, KID_PALETTE } from "../data/kids";
-import { APP_CATALOG } from "../data/applications";
+import { APP_CATALOG, domainFromUrl } from "../data/applications";
 import { RESOURCES, RESOURCE_CATEGORIES } from "../data/resources";
 import {
   activeAnnouncements,
@@ -430,6 +430,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
             <>
               <ParentApps />
               <ParentExplore />
+              <ParentCustomSites />
             </>
           )}
           {tab === "chores" && <ChoreAssigner />}
@@ -1592,6 +1593,117 @@ function ParentExplore() {
           Controls what {selKid.firstName} sees on the Explore tab. (Everything
           is on by default.)
         </p>
+      </div>
+    </>
+  );
+}
+
+function ParentCustomSites() {
+  const { state, dispatch } = useApp();
+  const kids = kidList(state);
+  const [selRaw, setSel] = useState<KidId>(() => kids[0]?.id ?? "");
+  const sel = kids.some((k) => k.id === selRaw) ? selRaw : kids[0]?.id ?? "";
+  const selKid = getKid(state, sel);
+  const sites = state.customSites[sel] ?? [];
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const [error, setError] = useState("");
+
+  const add = () => {
+    const n = name.trim();
+    if (!n) {
+      setError("Give the site a name.");
+      return;
+    }
+    const raw = url.trim();
+    const withProto = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    if (!domainFromUrl(withProto)) {
+      setError("Enter a valid web address, like example.com.");
+      return;
+    }
+    dispatch({ type: "ADD_CUSTOM_SITE", kidId: sel, name: n, url: withProto });
+    setName("");
+    setUrl("");
+    setError("");
+  };
+
+  return (
+    <>
+      <h3 className="section-title">➕ Custom Sites You Allow</h3>
+      <div className="settings">
+        <div className="msgtabs">
+          {kids.map((k) => (
+            <button
+              key={k.id}
+              className={`msgtab ${sel === k.id ? "is-active" : ""}`}
+              style={{ ["--this-kid" as string]: k.color }}
+              onClick={() => setSel(k.id)}
+            >
+              {k.emoji} {k.firstName}
+            </button>
+          ))}
+        </div>
+        <p className="settings__hint">
+          Add any other site {selKid.firstName} may visit. It's unblocked on
+          their device and appears as a card on their Explore page.
+        </p>
+        <div className="customsite-form">
+          <input
+            className="customsite-input"
+            placeholder="Name (e.g. Typing Practice)"
+            value={name}
+            maxLength={60}
+            onChange={(e) => {
+              setName(e.target.value);
+              setError("");
+            }}
+          />
+          <input
+            className="customsite-input"
+            placeholder="example.com"
+            value={url}
+            inputMode="url"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            onChange={(e) => {
+              setUrl(e.target.value);
+              setError("");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") add();
+            }}
+          />
+          <button className="btn btn--primary" onClick={add}>
+            Add
+          </button>
+        </div>
+        {error && <p className="pin__error">{error}</p>}
+        {sites.length > 0 ? (
+          <ul className="customsite-list">
+            {sites.map((s) => (
+              <li key={s.id} className="customsite">
+                <span className="customsite__name">🔗 {s.name}</span>
+                <span className="customsite__url">{s.url}</span>
+                <button
+                  className="btn btn--reject btn--sm"
+                  onClick={() =>
+                    dispatch({
+                      type: "REMOVE_CUSTOM_SITE",
+                      kidId: sel,
+                      id: s.id,
+                    })
+                  }
+                  aria-label={`Remove ${s.name}`}
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="settings__hint">No custom sites yet.</p>
+        )}
       </div>
     </>
   );
