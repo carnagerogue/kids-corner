@@ -1,4 +1,5 @@
 import type { AppLink, Assignment, Credential, KidId } from "../types";
+import { RESOURCE_DOMAINS } from "./resources";
 
 // Private logins live ONLY in `credentials.local.ts`, which is gitignored —
 // never committed, never deployed. If that file is missing (a fresh clone or
@@ -88,9 +89,23 @@ export const KIDS_CORNER_DOMAINS = [
   "kids-corner-45fc2.web.app",
 ];
 
+// The curated Explore directory (resources.ts) is shown to every child, so its
+// sites are always reachable — any kid can tap any card. Flattened once here so
+// they're always on the allow-list, independent of per-kid app grants.
+const RESOURCE_DOMAIN_LIST: string[] = Object.values(RESOURCE_DOMAINS).flat();
+const RESOURCE_DOMAIN_MAP: Record<string, string> = Object.fromEntries(
+  Object.entries(RESOURCE_DOMAINS).flatMap(([id, ds]) =>
+    ds.map((d) => [d, id] as const),
+  ),
+);
+
 /** The base domains a child with these enabled apps may navigate to. */
 export function allowedDomainsForKid(enabledAppIds: string[]): string[] {
-  const set = new Set<string>([...KIDS_CORNER_DOMAINS, ...AUTH_PROVIDER_DOMAINS]);
+  const set = new Set<string>([
+    ...KIDS_CORNER_DOMAINS,
+    ...AUTH_PROVIDER_DOMAINS,
+    ...RESOURCE_DOMAIN_LIST,
+  ]);
   for (const id of enabledAppIds)
     for (const d of APP_DOMAINS[id] ?? []) set.add(d);
   return [...set];
@@ -98,7 +113,7 @@ export function allowedDomainsForKid(enabledAppIds: string[]): string[] {
 
 /** base domain -> app id, so the extension can attribute time + opens. */
 export function appMapForKid(enabledAppIds: string[]): Record<string, string> {
-  const map: Record<string, string> = {};
+  const map: Record<string, string> = { ...RESOURCE_DOMAIN_MAP };
   for (const id of enabledAppIds)
     for (const d of APP_DOMAINS[id] ?? []) map[d] = id;
   return map;

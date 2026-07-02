@@ -5,6 +5,7 @@ import { useFamily } from "../store/FamilyContext";
 import { getDb, FIREBASE_READY } from "../firebase";
 import { getKid, kidList } from "../store/selectors";
 import { APP_CATALOG_BY_ID } from "../data/applications";
+import { RESOURCE_BY_ID } from "../data/resources";
 import { GUARDIAN_STORE_URL, type GuardianDay } from "../lib/guardian";
 
 function today(): string {
@@ -18,7 +19,10 @@ function mins(secs: number): string {
 }
 function appName(id: string): string {
   const a = APP_CATALOG_BY_ID[id];
-  return a ? `${a.emoji} ${a.name}` : id;
+  if (a) return `${a.emoji} ${a.name}`;
+  const r = RESOURCE_BY_ID[id];
+  if (r) return `${r.emoji} ${r.name}`;
+  return id;
 }
 
 type ActivityMap = Record<string, Record<string, GuardianDay>>;

@@ -261,3 +261,45 @@ export const RESOURCES: Resource[] = [
     blurb: "Play and learn chess, free and ad-free.",
   },
 ];
+
+export const RESOURCE_BY_ID: Record<string, Resource> = Object.fromEntries(
+  RESOURCES.map((r) => [r.id, r]),
+);
+
+// --- Safe-browsing allow-list (Kids Corner Guardian) ------------------------
+// The top-level domains each Explore resource navigates to: its landing site
+// PLUS any domain it sends the top frame to (a redirect or a sign-in SSO). The
+// extension only gates top-level navigation and matches subdomains
+// automatically, so these are base registrable domains — EXCEPT Google Earth
+// and Quick, Draw!, which use their specific subdomains so we don't open all of
+// google.com / withgoogle.com. Landing hosts were verified against live
+// redirects (e.g. wonderopolis.org -> familieslearning.org, NASA Climate Kids
+// -> science.nasa.gov, covered by nasa.gov). Because the Explore directory is
+// shown to EVERY child, these are always allowed regardless of per-kid grants.
+export const RESOURCE_DOMAINS: Record<string, string[]> = {
+  "khan-academy": ["khanacademy.org"],
+  "pbs-kids": ["pbskids.org"],
+  "natgeo-kids": ["nationalgeographic.com"],
+  wonderopolis: ["wonderopolis.org", "familieslearning.org"],
+  funbrain: ["funbrain.com"],
+  "storyline-online": ["storylineonline.net"],
+  starfall: ["starfall.com"],
+  icdl: ["childrenslibrary.org"],
+  "climate-kids": ["nasa.gov"],
+  "nasa-kids-club": ["nasa.gov"],
+  "mystery-science": ["mysteryscience.com"],
+  exploratorium: ["exploratorium.edu"],
+  "google-earth": ["earth.google.com"],
+  seterra: ["geoguessr.com"],
+  "code-org": ["code.org"],
+  "blockly-games": ["blockly.games"],
+  codecombat: ["codecombat.com"],
+  "quick-draw": ["quickdraw.withgoogle.com"],
+  "chrome-music-lab": ["chromeexperiments.com"],
+  "toy-theater": ["toytheater.com"],
+  tinkercad: ["tinkercad.com", "autodesk.com"],
+  "math-playground": ["mathplayground.com"],
+  coolmath4kids: ["coolmath4kids.com"],
+  "typing-club": ["typingclub.com", "edclub.com"],
+  lichess: ["lichess.org"],
+};
