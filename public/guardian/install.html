@@ -54,6 +54,13 @@
       ol.steps > li:last-child { padding-bottom: 0; }
       .done { background: #e8f8ec; border-radius: 12px; padding: 12px 14px; font-weight: 800; color: #1a7a33; margin-top: 14px; }
       code { background: #f2ecfa; padding: 2px 7px; border-radius: 6px; font-size: 0.9em; font-weight: 700; }
+      .copybtn {
+        font: inherit; font-weight: 800; cursor: pointer;
+        background: #f2ecfa; border: 1px solid #d9cdf0; color: #5a2d82;
+        border-radius: 8px; padding: 3px 10px; font-size: 0.92em;
+      }
+      .copybtn:hover { background: #e9ddfa; }
+      .copybtn.copied { background: #e8f8ec; border-color: #b7e6c4; color: #1a7a33; }
       .plain { background: #fff; border: 1px solid rgba(0,0,0,0.06); border-radius: 16px; padding: 18px 20px; margin-bottom: 16px; }
       .plain h3 { margin: 0 0 6px; font-size: 1.02rem; }
       .muted { color: #6b5b7e; font-weight: 700; font-size: 0.9rem; }
@@ -93,8 +100,9 @@
             <span class="muted" id="unzip-hint">(Mac: double-click the .zip. Windows: right-click → Extract All.)</span>
           </li>
           <li>
-            Open a new tab and go to <code id="ext-url">chrome://extensions</code>
-            — type or paste that into the address bar and press Enter.
+            Open a new tab and go to the extensions page:
+            <button type="button" class="copybtn" id="ext-url">chrome://extensions</button>
+            <span class="muted" id="copyhint">— tap to copy, then paste it in the address bar and press Enter.</span>
           </li>
           <li>Turn on <strong>Developer mode</strong> (the switch in the top-right corner).</li>
           <li>Click <strong>Load unpacked</strong>, then choose the <code>kids-corner-guardian</code> folder.</li>
@@ -135,14 +143,30 @@
     <script>
       (function () {
         var ua = navigator.userAgent;
-        // Tailor the address bar hint for Edge users.
-        if (/Edg\//.test(ua)) {
-          var u = document.getElementById("ext-url");
-          if (u) u.textContent = "edge://extensions";
-        }
+        var btn = document.getElementById("ext-url");
+        // Edge uses edge://extensions.
+        if (/Edg\//.test(ua) && btn) btn.textContent = "edge://extensions";
         if (/Windows/.test(ua)) {
           var h = document.getElementById("unzip-hint");
           if (h) h.textContent = "(Right-click the .zip → Extract All.)";
+        }
+        // Browsers block links to chrome://, so copy it to the clipboard instead
+        // and let the grown-up paste it into the address bar.
+        if (btn) {
+          btn.addEventListener("click", function () {
+            var url = btn.getAttribute("data-url") || btn.textContent.trim();
+            btn.setAttribute("data-url", url);
+            var restore = url;
+            try {
+              if (navigator.clipboard) navigator.clipboard.writeText(url);
+            } catch (e) { /* clipboard unavailable — the text is still visible */ }
+            btn.classList.add("copied");
+            btn.textContent = "Copied ✓ paste in the address bar";
+            setTimeout(function () {
+              btn.textContent = restore;
+              btn.classList.remove("copied");
+            }, 1600);
+          });
         }
       })();
     </script>
