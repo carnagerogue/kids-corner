@@ -3,13 +3,11 @@ import { getDatabase, type Database } from "firebase/database";
 import {
   browserLocalPersistence,
   getAuth,
-  getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
   setPersistence,
   signInAnonymously,
   signInWithPopup,
-  signInWithRedirect,
   signOut,
   type Auth,
   type User,
@@ -52,12 +50,18 @@ export function getAuthError(): string | null {
 }
 
 function recordAuthError(e: unknown): void {
-  const msg = e instanceof Error ? e.message : String(e);
+  const raw = e instanceof Error ? e.message : String(e);
+  const code = (e as { code?: string })?.code ?? "";
+  const msg = /popup-blocked/i.test(code)
+    ? "Your browser blocked the Google sign-in window. Allow pop-ups for Luminara, then try again."
+    : /operation-not-supported-in-this-environment|web-storage-unsupported/i.test(code)
+      ? "Google sign-in is unavailable in this browser window. Open Luminara in Safari, Chrome, or Edge and try again."
+      : raw;
   lastAuthError = msg;
-  const hint = /configuration_not_found|operation-not-allowed/i.test(msg)
+  const hint = /configuration_not_found|operation-not-allowed/i.test(raw)
     ? " → Enable Authentication and the Google + Anonymous providers in the Firebase console (Build → Authentication → Sign-in method)."
     : "";
-  console.error(`[KidsCorner] Firebase auth failed: ${msg}${hint}`);
+  console.error(`[KidsCorner] Firebase auth failed: ${raw}${hint}`);
 }
 
 // --- Baseline (anonymous) auth for the shared kids' device -----------------
@@ -81,12 +85,6 @@ export function ensureAuth(): Promise<void> {
       await setPersistence(auth, browserLocalPersistence);
     } catch {
       /* non-fatal — fall back to default persistence */
-    }
-    // Complete a pending redirect sign-in, if any (Google popup fallback).
-    try {
-      await getRedirectResult(auth);
-    } catch (e) {
-      recordAuthError(e);
     }
     await new Promise<void>((resolve) => {
       let triedAnon = false;
@@ -118,24 +116,22 @@ export function ensureAuth(): Promise<void> {
 // --- Grown-up (Google SSO) identity ----------------------------------------
 
 /**
- * Sign a grown-up in with Google. POPUP first: now that the app is served from
- * the same origin as authDomain (kids-corner-45fc2.firebaseapp.com), the popup
- * handshake completes in-page and returns the user directly — avoiding the
- * redirect flow, whose result browsers increasingly drop (partitioned
- * third-party storage / Safari ITP), which is exactly the "I pick my account
- * but never land in the dashboard" symptom. Redirect stays as a fallback only
- * when a popup can't open (blocked, or an in-app browser that forbids popups).
+ * Sign a grown-up in with Google. Open the popup immediately from the user's
+ * click: awaiting persistence here can consume the browser's transient user
+ * activation and cause the popup to be blocked. Persistence is already set by
+ * ensureAuth during app startup.
+ *
+ * This intentionally stays popup-only. Firebase's redirect helper is on a
+ * different origin from the primary web.app site, so modern storage
+ * partitioning can discard its temporary state and strand the user on
+ * /__/auth/handler. A blocked popup is surfaced with a useful recovery message
+ * instead of silently falling into that broken redirect path.
  */
 export async function signInWithGoogle(): Promise<User | null> {
   const auth = getAuthInstance();
   if (!auth) return null;
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
-  try {
-    await setPersistence(auth, browserLocalPersistence);
-  } catch {
-    /* non-fatal */
-  }
   lastAuthError = null;
   try {
     const cred = await signInWithPopup(auth, provider);
@@ -146,11 +142,11 @@ export async function signInWithGoogle(): Promise<User | null> {
     if (/popup-closed-by-user|cancelled-popup-request|user-cancelled/i.test(code)) {
       return null;
     }
-    // Popup couldn't open (blocked, or unsupported in-app browser) — fall back
-    // to the full-page redirect; ensureAuth completes it via getRedirectResult.
+    // Do not redirect as a fallback: this app is also served from web.app and
+    // GitHub Pages, where the cross-origin helper can lose its initial state.
     if (/popup-blocked|operation-not-supported-in-this-environment|web-storage-unsupported/i.test(code)) {
-      await signInWithRedirect(auth, provider);
-      return null;
+      recordAuthError(e);
+      throw e;
     }
     // A real failure (unauthorized domain, provider disabled, network) — record
     // it so GrownUpGate can show the reason instead of silently looping.

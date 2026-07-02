@@ -101,8 +101,17 @@ export function LoginScreen({
   const back = () => setEntry((e) => e.slice(0, -1));
 
   return (
-    <div className="login">
+    <div className="login login--entry login--kid-entry">
       <div className="login__card">
+        <div className="login__topbar">
+          {onBack ? (
+            <button className="login__home" onClick={onBack}>
+              <AppIcon name="arrow-left" />
+              <span>Luminara home</span>
+            </button>
+          ) : <span />}
+          <span className="login__context">Kid space</span>
+        </div>
         <img
           className="login__logo-full"
           src={`${import.meta.env.BASE_URL}luminara-logo.png`}
@@ -142,17 +151,12 @@ export function LoginScreen({
               </div>
             )}
             <div className="login__foot">
-              {onBack && (
-                <button className="login__parent" onClick={onBack}>
-                  <AppIcon name="arrow-left" /> Back to Luminara
-                </button>
-              )}
               <button className="login__parent" onClick={onParent}>
                 <AppIcon name="lock" /> Grown-ups
               </button>
             </div>
             <button className="login__hint" onClick={onParent}>
-              Not your family? Ask a grown-up →
+              Not your family? Ask a grown-up <AppIcon name="arrow-right" />
             </button>
           </>
         ) : (

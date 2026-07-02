@@ -125,7 +125,7 @@ export function ParentZone({
   // Legacy (no Google account, current single-family device): the parent PIN
   // gates the dashboard so a kid on the shared tablet can't open it.
   if (!pinOk) {
-    return <GrownUpGate onUnlock={() => setPinOk(true)} onExit={onExit} />;
+    return <GrownUpGate onUnlock={() => setPinOk(true)} onExit={onHome} />;
   }
   return <ParentDashboard onLock={() => setPinOk(false)} onHome={onHome} />;
 }
@@ -173,8 +173,15 @@ function GrownUpGate({
   };
 
   return (
-    <div className="view">
-      <div className="pin">
+    <div className="view view--gate">
+      <div className="pin pin--gate">
+        <div className="pin__topbar">
+          <button className="login__home" onClick={onExit}>
+            <AppIcon name="arrow-left" />
+            <span>Luminara home</span>
+          </button>
+          <span className="login__context">Grown-up space</span>
+        </div>
         <span className="pin__lock"><AppIcon name="lock" /></span>
         <h2 className="pin__title">Grown-Ups Only</h2>
 
@@ -230,10 +237,6 @@ function GrownUpGate({
             )}
           </>
         )}
-
-        <button className="link-btn" onClick={onExit}>
-          ← Back to Luminara
-        </button>
       </div>
     </div>
   );

@@ -156,7 +156,7 @@ export function App() {
     // Grown-up entry (not yet signed in): Google sign-in + the legacy PIN gate.
     if (tab === "parent") {
       return (
-        <div className="app">
+        <div className="app app--entry-gate">
           <main className="app__main">
             <ParentZone
               onExit={() => {

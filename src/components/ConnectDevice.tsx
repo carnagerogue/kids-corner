@@ -38,8 +38,15 @@ export function ConnectDevice({
   };
 
   return (
-    <div className="login">
+    <div className="login login--entry login--connect">
       <div className="login__card">
+        <div className="login__topbar">
+          <button className="login__home" onClick={onBack}>
+            <AppIcon name="arrow-left" />
+            <span>Luminara home</span>
+          </button>
+          <span className="login__context">Device setup</span>
+        </div>
         <img
           className="login__logo-full"
           src={`${import.meta.env.BASE_URL}luminara-logo.png`}
@@ -47,7 +54,7 @@ export function ConnectDevice({
         />
 
         <span className="connect__mascot" aria-hidden="true">
-          📱✨
+          <AppIcon name="phone" />
         </span>
         <h2 className="login__prompt">Let's connect this tablet!</h2>
         <p className="connect__sub">
@@ -83,7 +90,7 @@ export function ConnectDevice({
             type="submit"
             disabled={busy || !code.trim()}
           >
-            {busy ? "Connecting…" : "Connect ✨"}
+            {busy ? "Connecting…" : "Connect device"}
           </button>
         </form>
         {error && (
@@ -93,9 +100,6 @@ export function ConnectDevice({
         )}
 
         <div className="login__foot">
-          <button className="login__parent" onClick={onBack}>
-            <AppIcon name="arrow-left" /> Back to Luminara
-          </button>
           <button className="login__parent" onClick={onParent}>
             <AppIcon name="lock" /> Grown-ups
           </button>
