@@ -59,9 +59,31 @@ function prune(value: unknown): unknown {
   return value === null ? undefined : value;
 }
 
-/** Canonical (Firebase-shaped) JSON for change detection. */
+/**
+ * JSON with object keys sorted (arrays keep their order). Firebase returns an
+ * object's children in lexicographic key order, while our local `pickConfig`
+ * literal is in source order — so a plain JSON.stringify of the same data
+ * differs between the two, which broke change-detection: the push guard never
+ * matched, so every client re-pushed its whole config on every receive. A
+ * lagging device (a kid's tablet mid-activity) would then echo stale app
+ * visibility back and revert a grown-up's just-made toggle. Sorting keys makes
+ * "did MY config actually change?" reliable, so we only push real edits.
+ */
+function stableStringify(value: unknown): string {
+  return JSON.stringify(value, (_k, v) =>
+    v && typeof v === "object" && !Array.isArray(v)
+      ? Object.fromEntries(
+          Object.keys(v as Record<string, unknown>)
+            .sort()
+            .map((k) => [k, (v as Record<string, unknown>)[k]]),
+        )
+      : v,
+  );
+}
+
+/** Canonical (Firebase-shaped, key-order-independent) JSON for change detection. */
 function canon(cfg: unknown): string {
-  return JSON.stringify(prune(cfg) ?? {});
+  return stableStringify(prune(cfg) ?? {});
 }
 
 /**
@@ -194,7 +216,7 @@ export function FamilySync() {
     const db = getDb();
     if (!db) return;
     const pruned = prune(pickConfig(state)) ?? {};
-    const json = JSON.stringify(pruned);
+    const json = stableStringify(pruned);
     if (json === lastConfig.current) return;
     lastConfig.current = json;
     // `pruned` already drops undefined/empty values Firebase would reject.
