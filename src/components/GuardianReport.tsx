@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { get, ref } from "firebase/database";
+import { get, ref, set } from "firebase/database";
 import { useApp } from "../store/AppContext";
 import { useFamily } from "../store/FamilyContext";
 import { getDb, FIREBASE_READY } from "../firebase";
@@ -26,6 +26,20 @@ function appName(id: string): string {
 }
 
 type ActivityMap = Record<string, Record<string, GuardianDay>>;
+type AlertMap = Record<string, { at: number } | null>;
+
+function whenStr(at: number): string {
+  try {
+    return new Date(at).toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return "recently";
+  }
+}
 
 /**
  * Parent view of what the Guardian extension recorded on each child's device:
@@ -37,6 +51,7 @@ export function GuardianReport() {
   const { basePath } = useFamily();
   const kids = kidList(state);
   const [activity, setActivity] = useState<ActivityMap>({});
+  const [alerts, setAlerts] = useState<AlertMap>({});
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -56,8 +71,29 @@ export function GuardianReport() {
     } catch {
       setActivity({});
     }
+    try {
+      const aSnap = await get(ref(db, `${basePath}/guardianAlerts`));
+      setAlerts((aSnap.val() as AlertMap | null) ?? {});
+    } catch {
+      setAlerts({});
+    }
     setLoading(false);
   }, [basePath]);
+
+  const dismissAlert = useCallback(
+    async (kidId: string) => {
+      setAlerts((a) => ({ ...a, [kidId]: null }));
+      const db = getDb();
+      if (db && basePath) {
+        try {
+          await set(ref(db, `${basePath}/guardianAlerts/${kidId}`), null);
+        } catch {
+          /* ignore — best effort */
+        }
+      }
+    },
+    [basePath],
+  );
 
   useEffect(() => {
     void load();
@@ -85,12 +121,29 @@ export function GuardianReport() {
             const opens = d?.opens ?? [];
             const active = !!d;
             const kid = getKid(state, k.id);
+            const alert = alerts[k.id];
             return (
               <div
                 key={k.id}
                 className="guardrep__kid"
                 style={{ ["--this-kid" as string]: kid.color }}
               >
+                {alert && (
+                  <div className="guardrep__alert" role="alert">
+                    <span>
+                      ⚠️ Safe Browsing was <strong>removed</strong> from{" "}
+                      {kid.firstName}'s device on {whenStr(alert.at)}. Reinstall
+                      the Guardian to turn protection back on.
+                    </span>
+                    <button
+                      className="guardrep__alertx"
+                      onClick={() => void dismissAlert(k.id)}
+                      aria-label="Dismiss alert"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
                 <div className="guardrep__head">
                   <span className="guardrep__name">
                     {kid.emoji} {kid.firstName}

@@ -39,6 +39,8 @@ export function GuardianBridge({ kidId }: { kidId: KidId }) {
     }
   });
   const lastPersisted = useRef(0);
+  const alertedRemoval = useRef(false);
+  const absentStreak = useRef(0);
 
   const enabledApps = useMemo(
     () => state.appVisibility[kidId] ?? DEFAULT_NEW_KID_APPS,
@@ -68,27 +70,84 @@ export function GuardianBridge({ kidId }: { kidId: KidId }) {
     [enabledApps, visibleResourceIds, customSites],
   );
 
-  // Hand the extension this child's allow-list (a no-op if it isn't installed),
-  // and detect whether it's actually there.
+  const activeFamilyId = basePath?.split("/")[1] ?? null;
+  // Keep the freshest allow-list for the presence poll, which shouldn't restart
+  // every time a grown-up toggles an app.
+  const allowRef = useRef({ domains, appMap });
+  allowRef.current = { domains, appMap };
+
+  // Push the allow-list immediately whenever it changes (no-op if not installed).
   useEffect(() => {
-    const activeFamilyId = basePath?.split("/")[1] ?? null;
     sendAllowlist(domains, appMap, activeFamilyId, kidId);
-    let cancelled = false;
-    void detectGuardian().then((ok) => {
-      if (cancelled) return;
+  }, [domains, appMap, kidId, activeFamilyId]);
+
+  // Watch for the extension AT ALL TIMES — not just on load. Poll every 20s so
+  // we notice it being installed mid-session OR removed. On a removal we bring
+  // the install prompt back (even if dismissed) and alert the grown-up.
+  useEffect(() => {
+    let stop = false;
+    const INSTALLED_KEY = `kids-corner:guardian-installed:${kidId}`;
+    const db = FIREBASE_READY && basePath ? getDb() : null;
+    const alertRef = db && basePath ? ref(db, `${basePath}/guardianAlerts/${kidId}`) : null;
+
+    const apply = (ok: boolean) => {
+      if (stop) return;
       setPresent(ok ? "yes" : "no");
-      if (ok) sendAllowlist(domains, appMap, activeFamilyId, kidId);
-    });
-    // If it's installed mid-session, flip to protected and re-send the list.
-    const off = onGuardianPresent(() => {
-      setPresent("yes");
-      sendAllowlist(domains, appMap, activeFamilyId, kidId);
-    });
-    return () => {
-      cancelled = true;
-      off();
+      if (ok) {
+        absentStreak.current = 0;
+        // (Re)configure a freshly-installed extension right away.
+        sendAllowlist(allowRef.current.domains, allowRef.current.appMap, activeFamilyId, kidId);
+        let wasInstalled = false;
+        try {
+          wasInstalled = localStorage.getItem(INSTALLED_KEY) === "1";
+          localStorage.setItem(INSTALLED_KEY, "1");
+        } catch {
+          /* ignore */
+        }
+        alertedRemoval.current = false;
+        // Not previously marked installed on this device -> a fresh install OR a
+        // reinstall after removal (this flag survives reloads/new tabs, unlike an
+        // in-memory ref): clear any standing removal alert. Harmless no-op if none.
+        if (!wasInstalled && alertRef) set(alertRef, null).catch(() => {});
+      } else {
+        absentStreak.current += 1;
+        let hadIt = false;
+        try {
+          hadIt = localStorage.getItem(INSTALLED_KEY) === "1";
+        } catch {
+          /* ignore */
+        }
+        // It was installed on this device and is now gone -> a removal. Require
+        // two consecutive misses so one flaky check can't falsely accuse a kid.
+        // Alert once and re-show the prompt even if the child dismissed it.
+        if (hadIt && !alertedRemoval.current && absentStreak.current >= 2) {
+          alertedRemoval.current = true;
+          try {
+            localStorage.removeItem(INSTALLED_KEY);
+          } catch {
+            /* ignore */
+          }
+          try {
+            sessionStorage.removeItem(DISMISS_KEY);
+          } catch {
+            /* ignore */
+          }
+          setDismissed(false);
+          if (alertRef) set(alertRef, { kidId, at: Date.now() }).catch(() => {});
+        }
+      }
     };
-  }, [domains, appMap, kidId, basePath]);
+
+    const off = onGuardianPresent(() => apply(true));
+    const tick = async () => apply(await detectGuardian());
+    void tick();
+    const id = window.setInterval(() => void tick(), 20_000);
+    return () => {
+      stop = true;
+      off();
+      window.clearInterval(id);
+    };
+  }, [kidId, basePath, activeFamilyId]);
 
   // Pull the extension's activity every minute and store today's totals in the
   // family cloud (idempotent per day; only when it changed).
