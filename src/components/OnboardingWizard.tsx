@@ -63,7 +63,7 @@ function Shell({
         <div className="wiz__brand">
           <span className="wiz__logo">☀️</span>
           <div>
-            <h1 className="wiz__title">Kids Corner</h1>
+            <h1 className="wiz__title">Luminara</h1>
             <p className="wiz__tagline">Let's set up your family</p>
           </div>
         </div>
@@ -110,7 +110,7 @@ function FamilyStep() {
         <h2 className="wizstep__h">You're not on the list yet</h2>
         <p className="wizstep__p">
           {user?.email ?? "This account"} isn't approved to create a family. Ask
-          the Kids Corner admin to add you, then sign in again.
+          the Luminara admin to add you, then sign in again.
         </p>
         <button className="btn btn--primary btn--big wiz__cta" onClick={() => signOutUser()}>
           Sign out

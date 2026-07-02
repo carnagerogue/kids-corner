@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Kids Corner Guardian",
-  "version": "0.1.0",
-  "description": "Keeps a child's browser on the learning apps a grown-up allowed, and reports time-on-task back to Kids Corner.",
+  "name": "Luminara Guardian",
+  "version": "0.1.1",
+  "description": "Keeps a child's browser on the learning apps a grown-up allowed, and reports time-on-task back to Luminara.",
   "minimum_chrome_version": "116",
   "permissions": [
     "declarativeNetRequest",
@@ -36,7 +36,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "Kids Corner Guardian",
+    "default_title": "Luminara Guardian",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",

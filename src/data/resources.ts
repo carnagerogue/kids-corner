@@ -266,7 +266,7 @@ export const RESOURCE_BY_ID: Record<string, Resource> = Object.fromEntries(
   RESOURCES.map((r) => [r.id, r]),
 );
 
-// --- Safe-browsing allow-list (Kids Corner Guardian) ------------------------
+// --- Safe-browsing allow-list (Luminara Guardian) ------------------------
 // The top-level domains each Explore resource navigates to: its landing site
 // PLUS any domain it sends the top frame to (a redirect or a sign-in SSO). The
 // extension only gates top-level navigation and matches subdomains

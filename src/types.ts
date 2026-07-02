@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Kids Corner — shared types
+// Luminara — shared types
 // ---------------------------------------------------------------------------
 
 // Kids are now a dynamic, parent-managed roster, so a KidId is just a string id.

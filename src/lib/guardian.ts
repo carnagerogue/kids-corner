@@ -1,4 +1,4 @@
-// Page side of the Kids Corner Guardian handshake. The extension's content
+// Page side of the Luminara Guardian handshake. The extension's content
 // script and the page exchange small window.postMessage envelopes tagged __kcg.
 // The page (signed in) hands the extension the child's allow-list and reads
 // back activity; the extension never holds Firebase credentials.
@@ -25,7 +25,7 @@ export type GuardianDay = {
   opens: { a: string; t: string }[]; // recent app opens (appId, HH:MM)
   blocked: Record<string, number>; // host -> blocked count
   updatedAt: number;
-  onSite?: number; // seconds active on Kids Corner today (page-side)
+  onSite?: number; // seconds active on Luminara today (page-side)
   lastSeen?: number; // ms epoch of the last check-in (page-side heartbeat)
 };
 export type GuardianActivity = { date: string; day: GuardianDay };

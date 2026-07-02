@@ -213,7 +213,7 @@ function GrownUpGate({
         )}
 
         <button className="link-btn" onClick={onExit}>
-          ← Back to Kids Corner
+          ← Back to Luminara
         </button>
       </div>
     </div>
@@ -229,7 +229,7 @@ function ImportLegacyData({ familyId }: { familyId: string | null }) {
   const run = async () => {
     if (
       !window.confirm(
-        "Import your existing Kids Corner data (kids, photos, messages) into this family? It copies from the shared room and never deletes anything.",
+        "Import your existing Luminara data (kids, photos, messages) into this family? It copies from the shared room and never deletes anything.",
       )
     )
       return;
@@ -247,7 +247,7 @@ function ImportLegacyData({ familyId }: { familyId: string | null }) {
   return (
     <div className="grownup-import">
       <button className="btn btn--ghost" onClick={run} disabled={busy}>
-        {busy ? "Importing…" : "⤵ Import existing Kids Corner data"}
+        {busy ? "Importing…" : "⤵ Import existing Luminara data"}
       </button>
       {status && <p className="settings__hint">{status}</p>}
     </div>

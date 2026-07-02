@@ -1,14 +1,14 @@
-# Kids Corner Guardian
+# Luminara Guardian
 
 A browser extension that keeps a child's browser on the **learning apps a
-grown-up allowed** in Kids Corner, and reports **time-on-task** back to the
+grown-up allowed** in Luminara, and reports **time-on-task** back to the
 parent dashboard. It's a _practical guardrail_, not a tamper-proof lock — for
 hard enforcement, pair it with a managed Chromebook policy or OS parental
 controls (see "Making it unremovable" below).
 
 ## How it works
 
-- The **content script** runs only on Kids Corner pages and does a small
+- The **content script** runs only on Luminara pages and does a small
   `postMessage` handshake with the page. The page (which is signed in) hands
   the extension the **allow-list** for the child currently logged in — the
   domains of their enabled apps + the auth/CDN hosts those apps need + Kids
@@ -25,7 +25,7 @@ controls (see "Making it unremovable" below).
 
 1. Chrome/Edge → `chrome://extensions` → turn on **Developer mode**.
 2. **Load unpacked** → select this `extension/` folder.
-3. Open Kids Corner and log in as a child. The dashboard's **Safe Browsing**
+3. Open Luminara and log in as a child. The dashboard's **Safe Browsing**
    card should flip to "Protected ✓". Try visiting `youtube.com` — you'll get
    the block screen.
 
@@ -46,7 +46,7 @@ pick `manifest.json`.
   child can't remove it.
 - **iPad:** extensions like this can't run on iOS — use Apple **Screen Time →
   Content & Privacy → Web Content → Allowed Websites**, plus **Guided Access**.
-  Kids Corner shows the parent how.
+  Luminara shows the parent how.
 
 ## Notes / follow-ups
 

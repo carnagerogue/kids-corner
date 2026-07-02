@@ -56,7 +56,7 @@ export const APP_CATALOG_BY_ID: Record<string, CatalogApp> = Object.fromEntries(
   APP_CATALOG.map((a) => [a.id, a]),
 );
 
-// --- Safe-browsing allow-list (Kids Corner Guardian extension) --------------
+// --- Safe-browsing allow-list (Luminara Guardian extension) --------------
 // The registrable domains each app needs (its own site + any auth/CDN hosts).
 // List BASE domains only — the extension matches subdomains automatically. Kept
 // conservative; a grown-up can add exceptions later.
@@ -83,7 +83,7 @@ export const AUTH_PROVIDER_DOMAINS = [
   "classlink.com",
 ];
 
-// Kids Corner itself (the launcher) must always stay reachable.
+// Luminara itself (the launcher) must always stay reachable.
 export const KIDS_CORNER_DOMAINS = [
   "kids-corner-45fc2.firebaseapp.com",
   "kids-corner-45fc2.web.app",
@@ -129,7 +129,7 @@ export function sanitizeCustomSites(list: unknown): CustomSite[] {
 /**
  * The base domains a child may navigate to: the school apps enabled for them,
  * the Explore sites still visible to them (turned-off ones are excluded, so
- * they're blocked), any custom sites a grown-up added, plus Kids Corner and the
+ * they're blocked), any custom sites a grown-up added, plus Luminara and the
  * sign-in hosts. `enabledAppIds` = per-kid app grants; `visibleResourceIds` =
  * Explore ids NOT hidden for this kid; `customUrls` = grown-up-added sites.
  */

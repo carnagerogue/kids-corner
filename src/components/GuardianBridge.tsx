@@ -155,7 +155,7 @@ export function GuardianBridge({ kidId }: { kidId: KidId }) {
   }, [kidId, basePath, activeFamilyId]);
 
   // While the extension is present, check in every minute: record active time
-  // ON Kids Corner + whatever the extension logged (learning-app time, opens,
+  // ON Luminara + whatever the extension logged (learning-app time, opens,
   // blocked attempts), and stamp lastSeen. This is what tells the grown-up
   // dashboard the child is protected and shows what they've been doing — even
   // before they open an app (the extension alone logs nothing on this page).
@@ -186,7 +186,7 @@ export function GuardianBridge({ kidId }: { kidId: KidId }) {
     };
 
     // Presence heartbeat: stamp lastSeen, and add a minute of on-site time while
-    // the child is actually looking at Kids Corner. increment() is atomic, so a
+    // the child is actually looking at Luminara. increment() is atomic, so a
     // reload, a second tab, or a midnight rollover can't corrupt the tally (each
     // day is its own doc, so the new day starts fresh).
     const heartbeat = async (addMinute: boolean) => {

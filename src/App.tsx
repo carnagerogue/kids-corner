@@ -13,6 +13,7 @@ import { Celebrations } from "./components/Celebrations";
 import { LoginScreen } from "./components/LoginScreen";
 import { ConnectDevice } from "./components/ConnectDevice";
 import { GuardianBridge } from "./components/GuardianBridge";
+import { LuminaraMark } from "./components/LuminaraMark";
 import { CommandCenter } from "./views/CommandCenter";
 import { ScheduleView } from "./views/ScheduleView";
 import { ApplicationsView } from "./views/ApplicationsView";
@@ -116,7 +117,7 @@ export function App() {
     return (
       <div className="app">
         <main className="app__main">
-          <div className="world world--msg">Loading Kids Corner… ☀️</div>
+          <div className="world world--msg">Loading Luminara… ✨</div>
         </main>
       </div>
     );
@@ -221,7 +222,7 @@ export function App() {
       </main>
       <footer className="app__footer">
         <span>
-          Kids Corner · Summer Command Center ·{" "}
+          Luminara · Spark curiosity · Build skills · Light tomorrow ·{" "}
           <a className="app__footer-link" href="/privacy.html">
             Privacy
           </a>
@@ -245,10 +246,10 @@ function EntryChoice({
     <div className="login">
       <div className="login__card">
         <div className="login__brand">
-          <span className="login__logo">☀️</span>
+          <LuminaraMark className="login__logo" size={52} />
           <div>
-            <h1 className="login__title">Kids Corner</h1>
-            <p className="login__subtitle">Summer Command Center</p>
+            <h1 className="login__title">Luminara</h1>
+            <p className="login__subtitle">Spark curiosity · Build skills · Light tomorrow</p>
           </div>
         </div>
         <h2 className="login__prompt">Who's here? 👋</h2>

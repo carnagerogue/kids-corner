@@ -1,4 +1,4 @@
-# Kids Corner Guardian — self-hosted install (no Chrome Web Store)
+# Luminara Guardian — self-hosted install (no Chrome Web Store)
 
 This installs the Guardian **from your own Firebase Hosting**, force-installed by
 policy so a child can't remove it. Use this on **Windows / Mac computers** and
@@ -35,7 +35,7 @@ use the force-install method below instead.)
 3. Turn on **Developer mode** (top-right toggle).
 4. Click **Load unpacked** and select the unzipped **kids-corner-guardian** folder.
 
-Sign in to Kids Corner and it turns on automatically.
+Sign in to Luminara and it turns on automatically.
 
 > ChromeOS note: "Load unpacked" needs Developer Mode (a device powerwash) on a
 > **personal** Chromebook, so it isn't practical there — a personal Chromebook

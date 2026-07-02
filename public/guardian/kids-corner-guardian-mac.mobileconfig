@@ -14,7 +14,7 @@
       <key>PayloadVersion</key>
       <integer>1</integer>
       <key>PayloadDisplayName</key>
-      <string>Kids Corner Guardian (Chrome)</string>
+      <string>Luminara Guardian (Chrome)</string>
       <key>ExtensionInstallForcelist</key>
       <array>
         <string>jcidbnilldagoigommaalmndbgkkkbdk;https://kids-corner-45fc2.firebaseapp.com/guardian/updates.xml</string>
@@ -22,9 +22,9 @@
     </dict>
   </array>
   <key>PayloadDisplayName</key>
-  <string>Kids Corner Guardian — Safe Browsing</string>
+  <string>Luminara Guardian — Safe Browsing</string>
   <key>PayloadDescription</key>
-  <string>Installs the Kids Corner Guardian extension in Chrome so it can't be removed by the child.</string>
+  <string>Installs the Luminara Guardian extension in Chrome so it can't be removed by the child.</string>
   <key>PayloadIdentifier</key>
   <string>com.nucleos.kidscorner.guardian</string>
   <key>PayloadType</key>

@@ -113,7 +113,7 @@ export function GuardianReport() {
       <h3 className="section-title">🛡️ Safe Browsing</h3>
       <div className="settings">
         <p className="settings__hint">
-          The Kids Corner Guardian keeps each child's browser on the apps you've
+          The Luminara Guardian keeps each child's browser on the apps you've
           allowed and logs their time on task. Install it on each child's device;
           it turns itself on automatically once they're signed in.
         </p>
@@ -168,7 +168,7 @@ export function GuardianReport() {
                   <>
                     {onSite > 0 && (
                       <p className="guardrep__opens">
-                        🏠 On Kids Corner: <strong>{mins(onSite)}</strong>
+                        🏠 On Luminara: <strong>{mins(onSite)}</strong>
                       </p>
                     )}
                     {apps.length > 0 ? (

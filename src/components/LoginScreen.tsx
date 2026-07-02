@@ -3,6 +3,7 @@ import { useApp } from "../store/AppContext";
 import { getKid, kidList } from "../store/selectors";
 import { pinMatches } from "../lib/hash";
 import { PinDots, PinPad } from "./PinPad";
+import { LuminaraMark } from "./LuminaraMark";
 import type { KidId } from "../types";
 
 const MAX_PIN_LEN = 8;
@@ -103,10 +104,10 @@ export function LoginScreen({
     <div className="login">
       <div className="login__card">
         <div className="login__brand">
-          <span className="login__logo">☀️</span>
+          <LuminaraMark className="login__logo" size={52} />
           <div>
-            <h1 className="login__title">Kids Corner</h1>
-            <p className="login__subtitle">Summer Command Center</p>
+            <h1 className="login__title">Luminara</h1>
+            <p className="login__subtitle">Spark curiosity · Build skills · Light tomorrow</p>
           </div>
         </div>
 

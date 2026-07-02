@@ -1,5 +1,5 @@
-/* Kids Corner Guardian — content script.
- * Runs only on Kids Corner pages. It's the bridge between the web page (which
+/* Luminara Guardian — content script.
+ * Runs only on Luminara pages. It's the bridge between the web page (which
  * is signed in and can write to Firebase) and the background worker (which
  * enforces + measures). The page never talks to chrome APIs directly; it only
  * exchanges small window.postMessage envelopes tagged __kcg with this script.

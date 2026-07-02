@@ -77,7 +77,7 @@ export function UpdateWatcher() {
   if (!updateReady) return null;
   return (
     <div className="update-banner" role="status">
-      <span>🆕 A new version of Kids Corner is ready.</span>
+      <span>🆕 A new version of Luminara is ready.</span>
       <button className="update-banner__btn" onClick={() => location.reload()}>
         Refresh now
       </button>

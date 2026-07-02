@@ -26,7 +26,7 @@ export function ApplicationsView() {
   const kidRule = KID_RULES[kid.id];
   const week = weeklyFor(kid.id);
 
-  // Focus loop: opening the assignment keeps Kids Corner as home base and
+  // Focus loop: opening the assignment keeps Luminara as home base and
   // nudges the kid back to submit proof, instead of wandering off in a new tab.
   const [workingSince, setWorkingSince] = useState<number | null>(null);
   const status = todays ? taskStatus(state, kid.id, todays.id).status : "none";

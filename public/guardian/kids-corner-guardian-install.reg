@@ -1,6 +1,6 @@
 Windows Registry Editor Version 5.00
 
-; Kids Corner Guardian — turns on Safe Browsing in Chrome and Edge for THIS
+; Luminara Guardian — turns on Safe Browsing in Chrome and Edge for THIS
 ; user. No admin needed. Double-click, choose Yes, then restart the browser.
 
 [HKEY_CURRENT_USER\SOFTWARE\Policies\Google\Chrome\ExtensionInstallForcelist]

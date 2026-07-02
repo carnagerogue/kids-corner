@@ -1,14 +1,14 @@
-/* Kids Corner Guardian — background service worker.
+/* Luminara Guardian — background service worker.
  *
  * Enforcement: default-DENY all top-level navigation except the domains a
  * grown-up allowed (the learning apps enabled for this child + the auth/CDN
- * hosts they need + Kids Corner itself). Blocked navigations are redirected to
+ * hosts they need + Luminara itself). Blocked navigations are redirected to
  * a friendly "ask a grown-up" page. Sub-resources are NOT blocked, so allowed
  * apps keep working normally.
  *
  * Measurement: active time per app (idle-aware), which apps were opened, and
  * which sites were blocked — all kept as small daily aggregates in local
- * storage and handed to the Kids Corner page (which writes them to the
+ * storage and handed to the Luminara page (which writes them to the
  * family's Firebase). The extension itself holds NO credentials.
  */
 
@@ -61,7 +61,7 @@ async function rebuildRules() {
   const { domains } = await getState();
   const removeRuleIds = [ALLOW_RULE_ID, BLOCK_RULE_ID];
   // With no allow-list yet, don't block anything (avoid locking a device out
-  // before Kids Corner has handed us the child's allowed apps).
+  // before Luminara has handed us the child's allowed apps).
   if (!domains.length) {
     await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules: [] });
     return;
@@ -164,7 +164,7 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (d) => {
   }
 });
 
-// ---- messaging with the Kids Corner page (via the content script) ----------
+// ---- messaging with the Luminara page (via the content script) ----------
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {

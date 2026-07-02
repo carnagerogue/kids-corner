@@ -1,4 +1,4 @@
-# Chrome Web Store listing — Kids Corner Guardian
+# Chrome Web Store listing — Luminara Guardian
 
 Copy/paste these into the Web Store **Developer Dashboard** when you upload
 `kids-corner-guardian-0.1.0.zip`. (This file is not part of the extension — it's
@@ -9,10 +9,10 @@ excluded from the ZIP.)
 ## Store listing tab
 
 **Item name**
-Kids Corner Guardian
+Luminara Guardian
 
 **Summary** (≤132 chars)
-Keeps a child's browser on the learning apps a grown-up allowed in Kids Corner, and reports their time on task.
+Keeps a child's browser on the learning apps a grown-up allowed in Luminara, and reports their time on task.
 
 **Category**
 Workflow & Planning  _(or "Education" if offered)_
@@ -21,25 +21,25 @@ Workflow & Planning  _(or "Education" if offered)_
 English
 
 **Description**
-> Kids Corner Guardian turns a child's browser into a focused learning space.
+> Luminara Guardian turns a child's browser into a focused learning space.
 >
-> A grown-up chooses which educational apps each child can use in Kids Corner
+> A grown-up chooses which educational apps each child can use in Luminara
 > (Scratch, Prodigy, PhET, Edgenuity, and more). The Guardian then keeps that
 > child's browser on those apps: any other website is gently redirected to a
 > friendly "ask a grown-up" screen, while the allowed apps work normally.
 >
 > It also gives grown-ups a simple report of time on task — how long the child
 > spent in each app, which apps they opened, and any sites that were blocked —
-> right inside the Kids Corner dashboard.
+> right inside the Luminara dashboard.
 >
 > • No accounts, no ads, no third-party tracking.
-> • Turns itself on automatically once the child signs in to Kids Corner — no
+> • Turns itself on automatically once the child signs in to Luminara — no
 >   codes to enter.
 > • The learning data stays in your family's own private space and is visible
 >   only to you.
 >
 > Best on a Chromebook or computer. For a lock a child can't remove, force-install
-> it on a managed Chromebook. (On iPad, use Apple Screen Time — Kids Corner shows
+> it on a managed Chromebook. (On iPad, use Apple Screen Time — Luminara shows
 > you how.)
 >
 > Set up your family free at https://kids-corner-45fc2.firebaseapp.com
@@ -83,7 +83,7 @@ Corner, and report the child's time-on-task to that parent.
 **Remote code**
 Select **"No, I am not using remote code."** All of the extension's code is
 bundled in the package; it loads no external scripts, uses no `eval`, and pulls
-in no remote modules. (The postMessage handshake with the Kids Corner page
+in no remote modules. (The postMessage handshake with the Luminara page
 exchanges *data* — the allow-list and activity — never code.)
 
 **Data usage disclosures** (must match the privacy policy)
