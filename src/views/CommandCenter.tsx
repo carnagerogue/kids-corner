@@ -37,7 +37,9 @@ import type { ActivityIdea, KidId } from "../types";
 function dayOfYear(d: Date): number {
   const start = new Date(d.getFullYear(), 0, 0);
   const diff = d.getTime() - start.getTime();
-  return Math.floor(diff / 86_400_000);
+  // Round (not floor): a DST shift leaves the diff a whole day ± one hour, and
+  // flooring would roll the day over at 1am instead of midnight.
+  return Math.round(diff / 86_400_000);
 }
 
 /**

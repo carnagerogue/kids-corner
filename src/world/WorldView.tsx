@@ -1452,7 +1452,13 @@ export default function WorldView() {
   const [dialogue, setDialogue] = useState<Dialogue | null>(null);
   const [yardOpen, setYardOpen] = useState(false);
   const [celebrationId, setCelebrationId] = useState(0);
-  const [clockLabel, setClockLabel] = useState("8:00 AM");
+  const [clockLabel, setClockLabel] = useState(() => {
+    // Seed with the real local time so the toolbar never flashes a wrong hour
+    // before the first sky tick lands.
+    const d = new Date();
+    const h = d.getHours() % 12 || 12;
+    return `${h}:${String(d.getMinutes()).padStart(2, "0")} ${d.getHours() < 12 ? "AM" : "PM"}`;
+  });
   const [soundOn, setSoundOn] = useState(false);
   const [syncReady, setSyncReady] = useState(() => worldSyncEnabled());
   // Track the active room code too, so a code→code change (not just on/off)

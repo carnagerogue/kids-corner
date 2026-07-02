@@ -42,12 +42,20 @@ export function LivingSky({
   const groundColor = useMemo(() => new THREE.Color(), []);
   const fog = useMemo(() => new THREE.Fog(0xffffff, 24, 58), []);
   const lastUi = useRef(0);
-  const start = useRef(performance.now());
+  const midnight = useRef(0);
 
   useFrame(({ clock }, dt) => {
-    // A complete day in sixteen real minutes, beginning at a welcoming 8am.
-    const elapsed = (performance.now() - start.current) / 1000;
-    const hour = (8 + elapsed / 40) % 24;
+    // Real wall-clock time drives the sky, so day and night in the world match
+    // the day outside. Anchored to local midnight (re-anchored on rollover or a
+    // clock change) to avoid allocating a Date every frame.
+    let ms = Date.now() - midnight.current;
+    if (midnight.current === 0 || ms >= 86_400_000 || ms < 0) {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      midnight.current = d.getTime();
+      ms = Date.now() - midnight.current;
+    }
+    const hour = ms / 3_600_000;
     const sunAngle = ((hour - 6) / 24) * Math.PI * 2;
     const elevation = Math.sin(sunAngle);
     const daylight = THREE.MathUtils.smoothstep(elevation, -0.18, 0.35);
