@@ -3,6 +3,7 @@ import { useApp } from "../store/AppContext";
 import { getKid, kidList } from "../store/selectors";
 import { pinMatches } from "../lib/hash";
 import { PinDots, PinPad } from "./PinPad";
+import { AppIcon } from "./AppIcon";
 import type { KidId } from "../types";
 
 const MAX_PIN_LEN = 8;
@@ -110,7 +111,7 @@ export function LoginScreen({
 
         {!picked ? (
           <>
-            <h2 className="login__prompt">Which kid? 👋</h2>
+            <h2 className="login__prompt">Who’s learning today?</h2>
             {kidList(state).length === 0 ? (
               <p className="login__empty">
                 No kids set up yet — a grown-up can add them in the Grown-Ups
@@ -132,7 +133,9 @@ export function LoginScreen({
                       setError(false);
                     }}
                   >
-                    <span className="loginkid__avatar">{k.emoji}</span>
+                    <span className="loginkid__avatar loginkid__initial" aria-hidden="true">
+                      {k.firstName.slice(0, 1).toUpperCase()}
+                    </span>
                     <span className="loginkid__name">{k.firstName}</span>
                   </button>
                 ))}
@@ -145,7 +148,7 @@ export function LoginScreen({
                 </button>
               )}
               <button className="login__parent" onClick={onParent}>
-                🔒 Grown-Ups
+                <AppIcon name="lock" /> Grown-ups
               </button>
             </div>
             <button className="login__hint" onClick={onParent}>
@@ -161,14 +164,16 @@ export function LoginScreen({
               ["--kid-soft" as string]: kid!.colorSoft,
             }}
           >
-            <span className="login__avatarbig">{kid!.emoji}</span>
+            <span className="login__avatarbig login__initialbig" aria-hidden="true">
+              {kid!.firstName.slice(0, 1).toUpperCase()}
+            </span>
             <h2 className="login__prompt">Hi {kid!.firstName}! Enter your PIN</h2>
             <div className={error ? "is-error" : ""}>
               <PinDots count={entry.length} total={Math.max(entry.length, 4)} />
             </div>
             {locked ? (
               <p className="login__error">
-                Let's take a little break — try again in {secondsLeft}s 🐢
+                Let's take a little break — try again in {secondsLeft}s
               </p>
             ) : error ? (
               <p className="login__error">Oops, try again!</p>

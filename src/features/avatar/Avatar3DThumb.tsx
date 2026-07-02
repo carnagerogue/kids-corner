@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Avatar3DThumb — the kid's 3D avatar as a small thumbnail (top bar, home cards,
 // parent zone). It shows a cached PNG headshot rendered from the dressed VRM;
-// until that exists it shows the kid's emoji chip, so the UI is instant and
+// until that exists it shows the kid's initial, so the UI is instant and
 // works with no WebGL. The heavy Three.js renderer is dynamically imported only
 // on a cache miss, so the app chrome never pulls it in at startup.
 // ---------------------------------------------------------------------------
@@ -13,7 +13,7 @@ import { currentLoadout } from "./AvatarEconomy";
 import type { KidId, Loadout3D } from "../../types";
 
 // Cache: ONE entry per kid, holding the current loadout's signature + its PNG
-// (`null` data = "rendered, but the kid has no model" — keep the emoji, no
+// (`null` data = "rendered, but the kid has no model" — keep the initial, no
 // retry). Keyed by kidId only, so a kid trying many outfits OVERWRITES their one
 // entry instead of minting a permanent PNG per combination — otherwise the cache
 // would grow unbounded and exhaust the localStorage quota shared with the app's
@@ -40,7 +40,7 @@ function sig(l: Loadout3D): string {
 }
 
 /** undefined = no cached image for THIS look (render it); string = image;
- * null = rendered but the kid has no model (use the emoji fallback). */
+ * null = rendered but the kid has no model (use the initial fallback). */
 function readCache(kidId: string, s: string): string | null | undefined {
   let e = mem.get(kidId);
   if (!e) {
@@ -126,7 +126,7 @@ export function Avatar3DThumb({
       return;
     }
     let alive = true;
-    setSrc(undefined); // show the emoji chip while the headshot renders
+    setSrc(undefined); // show the initial while the headshot renders
     // Debounce: trying on outfits in the Avatar Studio changes the loadout
     // rapidly; wait for it to settle so we render the final look once, not every
     // intermediate try-on.
@@ -157,7 +157,7 @@ export function Avatar3DThumb({
   }
   return (
     <span
-      className={`av3thumb av3thumb--emoji ${className}`}
+      className={`av3thumb av3thumb--initial ${className}`}
       style={{
         width: size,
         height: size,
@@ -167,7 +167,7 @@ export function Avatar3DThumb({
       }}
       aria-hidden="true"
     >
-      {kid?.emoji ?? "🙂"}
+      {kid?.firstName?.slice(0, 1).toUpperCase() ?? "•"}
     </span>
   );
 }

@@ -29,6 +29,7 @@ import { ScheduleTimeline } from "../components/ScheduleTimeline";
 import { ReminderToggle } from "../components/ScheduleNotifier";
 import { MiniCalendar } from "../components/MiniCalendar";
 import { AppCard } from "../components/AppCard";
+import { AppIcon } from "../components/AppIcon";
 import { useClock, minutesSinceMidnight } from "../hooks/useClock";
 import type { TabId } from "../App";
 import type { ActivityIdea, KidId } from "../types";
@@ -100,6 +101,11 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
       : now.getHours() < 17
         ? "Good afternoon"
         : "Good evening";
+  const dateLabel = new Intl.DateTimeFormat(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(now);
 
   return (
     <div className="view">
@@ -108,7 +114,7 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
         <aside className="dash__schedule">
           <MiniCalendar />
           <div className="section-row">
-            <h3 className="section-title">🗓️ Today's Schedule</h3>
+            <h3 className="section-title"><AppIcon name="calendar" /> Today's schedule</h3>
             <div className="section-row__actions">
               <ReminderToggle />
               <button
@@ -125,20 +131,20 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
         <div className="dash__main">
           <section className="hero">
         <div className="hero__text">
-          <p className="hero__eyebrow">{greeting}, mission control 🛰️</p>
+          <p className="hero__eyebrow">{dateLabel}</p>
           <h2 className="hero__title">
-            Welcome back, {kid.emoji} {kid.firstName}!
+            {greeting}, {kid.firstName}
           </h2>
-          <p className="hero__motto">"{kid.motto}"</p>
+          <p className="hero__motto">{kid.motto}</p>
           <div className="hero__cta">
             <button className="btn btn--primary" onClick={() => onTab("schedule")}>
-              🗓️ Today's plan
+              <AppIcon name="calendar" /> Today's plan
             </button>
             <button className="btn btn--ghost" onClick={() => onTab("applications")}>
-              🧭 My apps
+              <AppIcon name="apps" /> My apps
             </button>
             <button className="btn btn--ghost" onClick={() => onTab("missions")}>
-              🎯 Missions
+              <AppIcon name="target" /> Missions
             </button>
           </div>
         </div>
@@ -146,21 +152,21 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
           {currentBlock ? (
             <>
               <span className="hero__now-tag">Happening now</span>
-              <span className="hero__now-emoji">{currentBlock.emoji}</span>
+              <span className="hero__now-emoji"><AppIcon name="calendar" /></span>
               <strong className="hero__now-title">{currentBlock.title}</strong>
               <span className="hero__now-time">{currentBlock.time}</span>
             </>
           ) : upcomingBlock ? (
             <>
               <span className="hero__now-tag">Coming up</span>
-              <span className="hero__now-emoji">{upcomingBlock.emoji}</span>
+              <span className="hero__now-emoji"><AppIcon name="calendar" /></span>
               <strong className="hero__now-title">{upcomingBlock.title}</strong>
               <span className="hero__now-time">{upcomingBlock.time}</span>
             </>
           ) : (
             <>
               <span className="hero__now-tag">All done for today</span>
-              <span className="hero__now-emoji">🌙</span>
+              <span className="hero__now-emoji"><AppIcon name="check" /></span>
               <strong className="hero__now-title">Rest up, hero!</strong>
               <span className="hero__now-time">See you tomorrow</span>
             </>
@@ -185,7 +191,7 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
                 </ProgressRing>
                 <div className="goalcard__body">
                   <strong className="goalcard__title">
-                    {goalMet ? "🎯 Daily goal complete!" : "🎯 Today's Goal"}
+                    {goalMet ? "Daily goal complete" : "Today's goal"}
                   </strong>
                   <span className="goalcard__sub">
                     {goalMet
@@ -194,7 +200,7 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
                   </span>
                   {streak > 0 && (
                     <span className="goalcard__streak">
-                      🔥 {streak}-day streak
+                      {streak}-day streak
                     </span>
                   )}
                 </div>
@@ -216,7 +222,7 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
             <>
               <div className="section-row">
                 <h3 className="section-title">
-                  ⭐ {kid.firstName}'s Main App
+                  <AppIcon name="apps" /> {kid.firstName}'s main app
                 </h3>
                 <button
                   className="btn btn--ghost btn--sm"
@@ -234,7 +240,7 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
           {chores.length > 0 && (
         <>
           <h3 className="section-title">
-            🧹 Today's Chores{" "}
+            <AppIcon name="broom" /> Today's chores{" "}
             <span className="section-tag">from a grown-up</span>
           </h3>
           <div className="chores" style={{ ["--cat" as string]: choreMeta.color }}>
@@ -276,7 +282,7 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
       <FamilyWallPreview onTab={onTab} />
 
       <div className="section-row">
-        <h3 className="section-title">🎯 Missions of the Day</h3>
+        <h3 className="section-title"><AppIcon name="target" /> Missions of the day</h3>
         <button
           className="btn btn--ghost btn--sm"
           onClick={() => onTab("missions")}
@@ -295,7 +301,7 @@ export function CommandCenter({ onTab }: { onTab: (t: TabId) => void }) {
       </div>
 
       <h3 className="section-title">
-        🎨 Pick Your Look{" "}
+        <AppIcon name="person" /> Pick your look{" "}
         <span className="section-tag">mouse &amp; background</span>
       </h3>
       <div className="themepick">
@@ -400,7 +406,7 @@ function CrewCard({ kidId, active }: { kidId: KidId; active: boolean }) {
         <div className="crewcard__id">
           <strong className="crewcard__name">{kid.firstName}</strong>
           <span className="crewcard__rank">
-            {level.rank.emoji} {level.rank.title} · Lv {level.rank.level}
+            {level.rank.title} · Lv {level.rank.level}
           </span>
         </div>
       </div>
@@ -487,7 +493,7 @@ function FamilyGoalBar() {
   const reached = done >= g.target;
   return (
     <section className={`famgoal ${reached ? "is-won" : ""}`}>
-      <span className="famgoal__icon">🏡</span>
+      <span className="famgoal__icon"><AppIcon name="home" /></span>
       <div className="famgoal__body">
         <strong className="famgoal__title">
           {reached ? "🎉 Family goal reached!" : "Family Goal — everyone helps!"}
@@ -520,7 +526,7 @@ function FamilyWallPreview({ onTab }: { onTab: (t: TabId) => void }) {
   ).length;
   return (
     <section className="wallpeek">
-      <div className="wallpeek__icon">💞</div>
+      <div className="wallpeek__icon"><AppIcon name="heart" /></div>
       <div className="wallpeek__body">
         <strong className="wallpeek__title">Family Wall</strong>
         <span className="wallpeek__sub">

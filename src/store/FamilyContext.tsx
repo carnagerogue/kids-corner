@@ -110,9 +110,22 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     needsFamily: false,
   });
 
+  // Authentication can fail when a device is offline or Firebase is
+  // temporarily unavailable. Track completion separately from `user` so that
+  // a failed anonymous sign-in reaches the safe, unbound entry experience
+  // instead of leaving the whole app on its loading screen forever.
+  const [authSettled, setAuthSettled] = useState(!FIREBASE_READY);
+
   // Baseline anonymous auth so security rules can require auth != null.
   useEffect(() => {
-    if (FIREBASE_READY) void ensureAuth();
+    if (!FIREBASE_READY) return;
+    let cancelled = false;
+    void ensureAuth().finally(() => {
+      if (!cancelled) setAuthSettled(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const [user, setUser] = useState<User | null>(null);
@@ -146,7 +159,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
       // Auth still resolving — don't sync anywhere yet, and stay unbound so
       // nothing is fetched against a stale scope in the meantime.
-      if (!user) {
+      if (!user && !authSettled) {
         if (!cancelled)
           setState((s) => ({
             ...s,
@@ -154,6 +167,24 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
             basePath: null,
             bound: false,
           }));
+        return;
+      }
+
+      // Auth attempted but no session was established. Stay deliberately
+      // unbound: no family data is fetched, while entry, retry, and setup UI
+      // remain available to explain the next step.
+      if (!user) {
+        if (!cancelled)
+          setState({
+            loading: false,
+            user: null,
+            isParent: false,
+            families: [],
+            activeFamilyId: null,
+            basePath: null,
+            bound: false,
+            needsFamily: false,
+          });
         return;
       }
 
@@ -259,7 +290,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, authSettled]);
 
   // All scope changes reload so AppProvider re-inits storage under the new
   // per-family key (no cross-family cache pollution).

@@ -47,6 +47,7 @@ import { MessageNotifier } from "../components/MessageNotifier";
 import { CopyField } from "../components/AppCard";
 import { OnboardingWizard } from "../components/OnboardingWizard";
 import { GuardianReport } from "../components/GuardianReport";
+import { AppIcon, type AppIconName } from "../components/AppIcon";
 import { isOnboarded, isSettingUp, setOnboarded } from "../store/familyScope";
 import { hashPin, pinMatches } from "../lib/hash";
 import { FIREBASE_READY, getAuthError, signInWithGoogle } from "../firebase";
@@ -70,6 +71,18 @@ import type {
   SchedulePlan,
   Submission,
 } from "../types";
+
+function ProfileInitial({ kid }: { kid: Kid }) {
+  return (
+    <span
+      className="profileinitial"
+      style={{ ["--profile-color" as string]: kid.color }}
+      aria-hidden="true"
+    >
+      {kid.firstName.slice(0, 1).toUpperCase()}
+    </span>
+  );
+}
 
 export function ParentZone({ onExit }: { onExit: () => void }) {
   const fam = useFamily();
@@ -156,7 +169,7 @@ function GrownUpGate({
   return (
     <div className="view">
       <div className="pin">
-        <span className="pin__lock">🔒</span>
+        <span className="pin__lock"><AppIcon name="lock" /></span>
         <h2 className="pin__title">Grown-Ups Only</h2>
 
         {FIREBASE_READY && (
@@ -166,7 +179,7 @@ function GrownUpGate({
               onClick={google}
               disabled={signingIn}
             >
-              {signingIn ? "Opening Google…" : "🔐 Sign in with Google"}
+              {signingIn ? "Opening Google…" : "Sign in with Google"}
             </button>
             <p className="settings__hint">
               {hasLocalFamily
@@ -269,28 +282,35 @@ type GTab =
   | "guardian"
   | "settings";
 
-const GTAB_META: Record<GTab, { emoji: string; label: string }> = {
-  home: { emoji: "🏠", label: "Home" },
-  review: { emoji: "📥", label: "Review" },
-  messages: { emoji: "💬", label: "Messages" },
-  kids: { emoji: "👧", label: "Kids" },
-  progress: { emoji: "📊", label: "Progress" },
-  avatar: { emoji: "🧢", label: "Rewards" },
-  schedule: { emoji: "🗓️", label: "Schedule" },
-  apps: { emoji: "🧭", label: "Apps" },
-  chores: { emoji: "🧹", label: "Chores" },
-  missions: { emoji: "🖼️", label: "Examples" },
-  devices: { emoji: "📱", label: "Devices" },
-  guardian: { emoji: "🛡️", label: "Safe Browsing" },
-  settings: { emoji: "⚙️", label: "Settings" },
+const GTAB_META: Record<GTab, { icon: AppIconName; label: string }> = {
+  home: { icon: "home", label: "Home" },
+  review: { icon: "inbox", label: "Review" },
+  messages: { icon: "message", label: "Messages" },
+  kids: { icon: "users", label: "Kids" },
+  progress: { icon: "chart", label: "Progress" },
+  avatar: { icon: "gift", label: "Rewards" },
+  schedule: { icon: "calendar", label: "Plan" },
+  apps: { icon: "apps", label: "Apps" },
+  chores: { icon: "broom", label: "Chores" },
+  missions: { icon: "image", label: "Mission examples" },
+  devices: { icon: "phone", label: "Devices" },
+  guardian: { icon: "shield", label: "Safe Browsing" },
+  settings: { icon: "settings", label: "Settings" },
 };
 
 // Group the sections by intent so a parent scans by what they came to do,
 // instead of hunting a flat wall of equal tabs.
 const NAV_GROUPS: { label: string; ids: GTab[] }[] = [
-  { label: "Today", ids: ["home", "review", "messages"] },
-  { label: "Family", ids: ["kids", "progress", "avatar"] },
-  { label: "Plan", ids: ["schedule", "apps", "chores", "missions"] },
+  { label: "Priority", ids: ["home", "review", "kids", "schedule"] },
+  { label: "Family", ids: ["messages", "progress", "avatar"] },
+  { label: "Manage", ids: ["apps", "chores", "missions"] },
+  { label: "Setup", ids: ["devices", "guardian", "settings"] },
+];
+
+const PARENT_PRIMARY: GTab[] = ["home", "review", "kids", "schedule"];
+const PARENT_MORE_GROUPS: { label: string; ids: GTab[] }[] = [
+  { label: "Family", ids: ["messages", "progress", "avatar"] },
+  { label: "Manage", ids: ["apps", "chores", "missions"] },
   { label: "Setup", ids: ["devices", "guardian", "settings"] },
 ];
 
@@ -299,6 +319,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
   const fam = useFamily();
   const [tab, setTab] = useState<GTab>("home");
   const [zoom, setZoom] = useState<string>("");
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const pendingN = pendingSubmissions(state).length;
   const unreadN = kidList(state).reduce(
@@ -307,6 +328,11 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
   );
   const badgeFor = (id: GTab) =>
     id === "review" ? pendingN : id === "messages" ? unreadN : 0;
+  const go = (id: GTab) => {
+    setTab(id);
+    setMoreOpen(false);
+  };
+  const moreActive = PARENT_MORE_GROUPS.some((group) => group.ids.includes(tab));
 
   // A short line under the section title telling the parent what it does.
   const eyebrow: Record<GTab, string> = {
@@ -339,9 +365,11 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
 
       <aside className="gside">
         <div className="gside__brand">
-          <span className="gside__glyph" aria-hidden="true">
-            ☀️
-          </span>
+          <img
+            className="gside__mark"
+            src={`${import.meta.env.BASE_URL}luminara-icon.png`}
+            alt=""
+          />
           <div className="gside__id">
             <span className="gside__name">{familyName}</span>
             <span className="gside__eyebrow">Grown-up dashboard</span>
@@ -352,9 +380,22 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
             title="Lock"
             aria-label="Lock the grown-up area"
           >
-            <span aria-hidden="true">🔒</span>
+            <AppIcon name="lock" />
           </button>
         </div>
+
+        <label className="gside__picker">
+          <span>Section</span>
+          <select value={tab} onChange={(event) => setTab(event.target.value as GTab)}>
+            {NAV_GROUPS.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.ids.map((id) => (
+                  <option key={id} value={id}>{GTAB_META[id].label}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </label>
 
         <nav className="gside__nav" aria-label="Grown-up sections">
           {NAV_GROUPS.map((group) => (
@@ -371,7 +412,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
                     aria-current={tab === id ? "page" : undefined}
                   >
                     <span className="gside__emoji" aria-hidden="true">
-                      {m.emoji}
+                      <AppIcon name={m.icon} />
                     </span>
                     <span className="gside__label">{m.label}</span>
                     {badge > 0 && <span className="gside__pip">{badge}</span>}
@@ -386,6 +427,85 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
         </a>
       </aside>
 
+      <nav className="gmobile" aria-label="Grown-up primary sections">
+        {PARENT_PRIMARY.map((id) => {
+          const item = GTAB_META[id];
+          const badge = badgeFor(id);
+          return (
+            <button
+              key={id}
+              className={`gmobile__item ${tab === id ? "is-active" : ""}`}
+              onClick={() => go(id)}
+              aria-current={tab === id ? "page" : undefined}
+            >
+              <span className="gmobile__icon"><AppIcon name={item.icon} /></span>
+              <span>{item.label}</span>
+              {badge > 0 && <span className="gmobile__pip">{badge}</span>}
+            </button>
+          );
+        })}
+        <button
+          className={`gmobile__item ${moreActive ? "is-active" : ""}`}
+          onClick={() => setMoreOpen((open) => !open)}
+          aria-expanded={moreOpen}
+          aria-label="More grown-up sections"
+        >
+          <span className="gmobile__icon"><AppIcon name="more" /></span>
+          <span>More</span>
+        </button>
+      </nav>
+
+      {moreOpen && (
+        <div className="moresheet parentmore" role="dialog" aria-label="More grown-up sections">
+          <button
+            className="moresheet__backdrop"
+            onClick={() => setMoreOpen(false)}
+            aria-label="Close more grown-up sections"
+          />
+          <div className="moresheet__panel parentmore__panel">
+            <div className="moresheet__handle" aria-hidden="true" />
+            <div className="moresheet__head">
+              <div>
+                <span className="moresheet__eyebrow">Grown-ups</span>
+                <h2 className="moresheet__title">More controls</h2>
+              </div>
+              <button
+                className="moresheet__close"
+                onClick={() => setMoreOpen(false)}
+                aria-label="Close more grown-up sections"
+              >
+                ×
+              </button>
+            </div>
+            <div className="parentmore__groups">
+              {PARENT_MORE_GROUPS.map((group) => (
+                <section className="parentmore__group" key={group.label}>
+                  <h3>{group.label}</h3>
+                  <div className="parentmore__items">
+                    {group.ids.map((id) => {
+                      const item = GTAB_META[id];
+                      const badge = badgeFor(id);
+                      return (
+                        <button
+                          key={id}
+                          className={`parentmore__item ${tab === id ? "is-active" : ""}`}
+                          onClick={() => go(id)}
+                        >
+                          <span className="moreitem__icon"><AppIcon name={item.icon} /></span>
+                          <span>{item.label}</span>
+                          {badge > 0 && <span className="moreitem__badge">{badge}</span>}
+                          <span aria-hidden="true">›</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="gmain">
         {state.parentPin === DEFAULT_PARENT_PIN && (
           <button
@@ -393,7 +513,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
             onClick={() => setTab("settings")}
             title="Go to Settings"
           >
-            🔑 Your grown-up PIN is still the default <strong>1234</strong> — tap
+            Your grown-up PIN is still the default <strong>1234</strong> — tap
             to set your own so kids (and guests) can't open this area.
           </button>
         )}
@@ -401,7 +521,7 @@ function ParentDashboard({ onLock }: { onLock: () => void }) {
         {tab !== "home" && eyebrow[tab] && (
           <p className="gmain__eyebrow">
             <span className="gmain__eyebrow-tab">
-              {meta.emoji} {meta.label}
+              <AppIcon name={meta.icon} /> {meta.label}
             </span>
             {eyebrow[tab]}
           </p>
@@ -486,7 +606,7 @@ function ParentHome({
   return (
     <div className="home">
       <div className="home__greet">
-        <h2 className="home__hi">{greeting} 👋</h2>
+        <h2 className="home__hi">{greeting}</h2>
         <p className="home__fam">
           {familyName ? `The ${familyName}` : "Your family"} · a quick look at
           today
@@ -497,7 +617,7 @@ function ParentHome({
         <div className="home-card home-attn">
           {pendingN > 0 && (
             <button className="home-attn__row" onClick={() => onGo("review")}>
-              <span className="home-attn__icon">📥</span>
+              <span className="home-attn__icon"><AppIcon name="inbox" /></span>
               <span className="home-attn__text">
                 {pendingN} photo{pendingN === 1 ? "" : "s"} waiting for your
                 review
@@ -507,7 +627,7 @@ function ParentHome({
           )}
           {unreadN > 0 && (
             <button className="home-attn__row" onClick={() => onGo("messages")}>
-              <span className="home-attn__icon">💬</span>
+              <span className="home-attn__icon"><AppIcon name="message" /></span>
               <span className="home-attn__text">
                 {unreadN} new message{unreadN === 1 ? "" : "s"} from the kids
               </span>
@@ -517,14 +637,14 @@ function ParentHome({
         </div>
       ) : (
         <div className="home-card home-caughtup">
-          <span className="home-caughtup__emoji">🎉</span>
+          <span className="home-caughtup__emoji"><AppIcon name="check" /></span>
           <span>You're all caught up — nothing needs you right now.</span>
         </div>
       )}
 
       {kids.length > 0 && (
         <section className="home-sec">
-          <h3 className="home-sec__title">👧 Your kids</h3>
+          <h3 className="home-sec__title"><AppIcon name="users" /> Your kids</h3>
           <div className="homekids">
             {kids.map((k) => {
               const xp = getKidXp(state, k.id);
@@ -548,7 +668,7 @@ function ParentHome({
                     <div className="homekid__id">
                       <strong className="homekid__name">{k.firstName}</strong>
                       <span className="homekid__rank">
-                        {level.rank.emoji} {level.rank.title} · Lv{" "}
+                        {level.rank.title} · Lv{" "}
                         {level.rank.level}
                       </span>
                     </div>
@@ -559,7 +679,7 @@ function ParentHome({
                     />
                   </div>
                   <div className="homekid__stats">
-                    <span>🔥 {streak}</span>
+                    <span>{streak}-day streak</span>
                     <span>
                       {done}/{DAILY_GOAL} today
                     </span>
@@ -573,7 +693,7 @@ function ParentHome({
                         kidUnread > 0 ? ` — ${kidUnread} unread from ${k.firstName}` : ""
                       }`}
                     >
-                      <span aria-hidden="true">💬</span>
+                      <AppIcon name="message" />
                       {kidUnread > 0 ? ` ${kidUnread}` : ""}
                     </button>
                     <button
@@ -583,7 +703,7 @@ function ParentHome({
                         kidPending > 0 ? ` — ${kidPending} waiting from ${k.firstName}` : ""
                       }`}
                     >
-                      <span aria-hidden="true">📥</span>
+                      <AppIcon name="inbox" />
                       {kidPending > 0 ? ` ${kidPending}` : ""}
                     </button>
                   </div>
@@ -595,7 +715,7 @@ function ParentHome({
       )}
 
       <section className="home-sec">
-        <h3 className="home-sec__title">🏡 Family goal</h3>
+        <h3 className="home-sec__title"><AppIcon name="home" /> Family goal</h3>
         {goal ? (
           <button
             className="home-card home-goal"
@@ -620,22 +740,22 @@ function ParentHome({
             className="btn btn--ghost home-goal__set"
             onClick={() => onGo("progress")}
           >
-            🏡 Set a family goal →
+            Set a family goal →
           </button>
         )}
       </section>
 
       <section className="home-sec">
-        <h3 className="home-sec__title">⚡ Quick actions</h3>
+        <h3 className="home-sec__title"><AppIcon name="sparkle" /> For today</h3>
         <div className="home-actions">
-          <button className="btn btn--ghost" onClick={() => onGo("kids")}>
-            ➕ Add a child
+          <button className="btn btn--ghost" onClick={() => onGo("review")}>
+            <AppIcon name="inbox" /> Review work
           </button>
-          <button className="btn btn--ghost" onClick={() => onGo("devices")}>
-            📱 Connect a tablet
+          <button className="btn btn--ghost" onClick={() => onGo("schedule")}>
+            <AppIcon name="calendar" /> Plan the day
           </button>
-          <button className="btn btn--ghost" onClick={() => onGo("chores")}>
-            🧹 Assign a chore
+          <button className="btn btn--ghost" onClick={() => onGo("messages")}>
+            <AppIcon name="message" /> Message the kids
           </button>
         </div>
       </section>
@@ -671,7 +791,7 @@ function ParentReview({ onZoom }: { onZoom: (src: string) => void }) {
 
   return (
     <>
-      <h3 className="section-title">📥 Waiting for Approval</h3>
+      <h3 className="section-title"><AppIcon name="inbox" /> Waiting for approval</h3>
       {pending.length === 0 ? (
         <p className="empty">All caught up — nothing to review right now. 🎉</p>
       ) : (
@@ -699,7 +819,7 @@ function ParentReview({ onZoom }: { onZoom: (src: string) => void }) {
                 )}
                 <div className="reviewcard__body">
                   <span className="reviewcard__kid">
-                    {kid.emoji} {kid.firstName}
+                    <ProfileInitial kid={kid} /> {kid.firstName}
                   </span>
                   <span className={`reviewcard__kind reviewcard__kind--${s.kind}`}>
                     {s.kind === "mission" ? "🎯 Mission" : "📚 Assignment"} · +{s.xp} XP
@@ -736,14 +856,14 @@ function ParentReview({ onZoom }: { onZoom: (src: string) => void }) {
 
       {reviewedToday.length > 0 && (
         <>
-          <h3 className="section-title">🕘 Recently Reviewed</h3>
+          <h3 className="section-title"><AppIcon name="check" /> Recently reviewed</h3>
           <div className="reviewed">
             {reviewedToday.map((s) => {
               const kid = getKid(state, s.kidId);
               return (
                 <div key={s.id} className="reviewedrow">
                   <span>
-                    {kid.emoji} {kid.firstName}
+                    <ProfileInitial kid={kid} /> {kid.firstName}
                   </span>
                   <span className="reviewedrow__title">
                     {s.emoji} {s.title}
@@ -782,7 +902,7 @@ function FamilyGoalEditor() {
 
   return (
     <>
-      <h3 className="section-title">🏡 Family Goal</h3>
+      <h3 className="section-title"><AppIcon name="home" /> Family goal</h3>
       <div className="settings">
         <p className="settings__hint">
           A shared goal every kid helps with. When the family finishes the
@@ -866,7 +986,7 @@ function ParentProgress({ onZoom }: { onZoom: (src: string) => void }) {
     <>
       <FamilyGoalEditor />
 
-      <h3 className="section-title">📊 Each Kid's Progress</h3>
+      <h3 className="section-title"><AppIcon name="chart" /> Each kid's progress</h3>
       <div className="msgtabs">
         {kids.map((k) => (
           <button
@@ -875,7 +995,7 @@ function ParentProgress({ onZoom }: { onZoom: (src: string) => void }) {
             style={{ ["--this-kid" as string]: k.color }}
             onClick={() => setSel(k.id)}
           >
-            {k.emoji} {k.firstName}
+            <ProfileInitial kid={k} /> {k.firstName}
           </button>
         ))}
       </div>
@@ -886,7 +1006,7 @@ function ParentProgress({ onZoom }: { onZoom: (src: string) => void }) {
           <div className="progcard__id">
             <strong className="progcard__name">{kid.firstName}</strong>
             <span className="progcard__rank">
-              {level.rank.emoji} {level.rank.title} · Level {level.rank.level}
+              {level.rank.title} · Level {level.rank.level}
             </span>
           </div>
           <span className="progcard__xp">{xp} XP</span>
@@ -991,7 +1111,7 @@ function MissionExamples() {
 
   return (
     <>
-      <h3 className="section-title">🖼️ Mission Example Photos</h3>
+      <h3 className="section-title"><AppIcon name="image" /> Mission example photos</h3>
       <div className="settings">
         <p className="settings__hint">
           Attach a photo of a finished example so kids can picture the result.
@@ -1141,7 +1261,7 @@ function ScheduleEditor() {
 
   return (
     <>
-      <h3 className="section-title">🗓️ Daily Schedule</h3>
+      <h3 className="section-title"><AppIcon name="calendar" /> Daily schedule</h3>
       <div className="settings">
         <div className="msgtabs">
           <button
@@ -1199,7 +1319,7 @@ function ScheduleEditor() {
                     style={{ ["--this-kid" as string]: k.color }}
                     onClick={() => toggleKid(k.id)}
                   >
-                    {k.emoji} {k.firstName} {on ? "✓" : ""}
+                    <ProfileInitial kid={k} /> {k.firstName} {on ? "✓" : ""}
                   </button>
                 );
               })}
@@ -1365,7 +1485,7 @@ function ParentKids() {
 
   return (
     <>
-      <h3 className="section-title">👧 Kids</h3>
+      <h3 className="section-title"><AppIcon name="users" /> Kids</h3>
       <div className="settings">
         <ul className="kidmanage">
           {kids.map((k) => (
@@ -1374,7 +1494,9 @@ function ParentKids() {
               className="kidmanage__row"
               style={{ ["--this-kid" as string]: k.color }}
             >
-              <span className="kidmanage__face">{k.emoji}</span>
+              <span className="kidmanage__face kidmanage__initial">
+                {k.firstName.slice(0, 1).toUpperCase()}
+              </span>
               <span className="kidmanage__name">{k.firstName}</span>
               <button
                 className="btn btn--reject btn--sm"
@@ -1450,7 +1572,7 @@ function ParentApps() {
 
   return (
     <>
-      <h3 className="section-title">🧭 Apps Each Kid Can See</h3>
+      <h3 className="section-title"><AppIcon name="apps" /> Apps each kid can see</h3>
       <div className="settings">
         <div className="msgtabs">
           {kids.map((k) => (
@@ -1460,7 +1582,7 @@ function ParentApps() {
               style={{ ["--this-kid" as string]: k.color }}
               onClick={() => setSel(k.id)}
             >
-              {k.emoji} {k.firstName}
+              <ProfileInitial kid={k} /> {k.firstName}
             </button>
           ))}
         </div>
@@ -1523,7 +1645,7 @@ function ParentExplore() {
 
   return (
     <>
-      <h3 className="section-title">🌟 Explore Sites Each Kid Can See</h3>
+      <h3 className="section-title"><AppIcon name="world" /> Explore sites each kid can see</h3>
       <div className="settings">
         <div className="msgtabs">
           {kids.map((k) => (
@@ -1533,7 +1655,7 @@ function ParentExplore() {
               style={{ ["--this-kid" as string]: k.color }}
               onClick={() => setSel(k.id)}
             >
-              {k.emoji} {k.firstName}
+              <ProfileInitial kid={k} /> {k.firstName}
             </button>
           ))}
         </div>
@@ -1629,7 +1751,7 @@ function ParentCustomSites() {
 
   return (
     <>
-      <h3 className="section-title">➕ Custom Sites You Allow</h3>
+      <h3 className="section-title"><AppIcon name="plus" /> Custom sites you allow</h3>
       <div className="settings">
         <div className="msgtabs">
           {kids.map((k) => (
@@ -1639,7 +1761,7 @@ function ParentCustomSites() {
               style={{ ["--this-kid" as string]: k.color }}
               onClick={() => setSel(k.id)}
             >
-              {k.emoji} {k.firstName}
+              <ProfileInitial kid={k} /> {k.firstName}
             </button>
           ))}
         </div>
@@ -1758,7 +1880,7 @@ function ConnectKidDevice() {
 
   return (
     <>
-      <h3 className="section-title">📱 Kids' Devices</h3>
+      <h3 className="section-title"><AppIcon name="phone" /> Kids' devices</h3>
       <div className="settings">
         {isPairedDevice ? (
           <>
@@ -1860,7 +1982,7 @@ function CloudSync() {
 
   return (
     <>
-      <h3 className="section-title">☁️ Cross-Device Sync</h3>
+      <h3 className="section-title"><AppIcon name="world" /> Cross-device sync</h3>
       <div className="settings">
         {!FIREBASE_READY ? (
           <p className="settings__hint">
@@ -1981,7 +2103,7 @@ function ParentMessages() {
   const sel = kids.some((k) => k.id === selRaw) ? selRaw : kids[0]?.id ?? "";
   return (
     <>
-      <h3 className="section-title">💬 Messages</h3>
+      <h3 className="section-title"><AppIcon name="message" /> Messages</h3>
       <div className="msgtabs">
         {kids.map((k) => {
           const unread = parentUnreadCount(state, k.id);
@@ -1992,7 +2114,7 @@ function ParentMessages() {
               style={{ ["--this-kid" as string]: k.color }}
               onClick={() => setSel(k.id)}
             >
-              {k.emoji} {k.firstName}
+              <ProfileInitial kid={k} /> {k.firstName}
               {unread > 0 && <span className="msgtab__pip">{unread}</span>}
             </button>
           );
@@ -2026,7 +2148,7 @@ function Announcer() {
 
   return (
     <>
-      <h3 className="section-title">📣 Announcements</h3>
+      <h3 className="section-title"><AppIcon name="message" /> Announcements</h3>
       <div className="settings">
         <p className="settings__hint">
           Send a note that shows up for <strong>every kid</strong> on their home
@@ -2116,7 +2238,7 @@ function ChoreAssigner() {
 
   return (
     <>
-      <h3 className="section-title">🧹 Assign Chores</h3>
+      <h3 className="section-title"><AppIcon name="broom" /> Assign chores</h3>
       <div className="settings">
         <form className="settings__row chore-assign" onSubmit={assign}>
           <select
@@ -2127,7 +2249,7 @@ function ChoreAssigner() {
           >
             {kids.map((k) => (
               <option key={k.id} value={k.id}>
-                {k.emoji} {k.firstName}
+                <ProfileInitial kid={k} /> {k.firstName}
               </option>
             ))}
           </select>
@@ -2177,7 +2299,7 @@ function ChoreAssigner() {
               return (
                 <li key={c.id} className="chore-list__row">
                   <span className="chore-list__kid">
-                    {kid.emoji} {kid.firstName}
+                    <ProfileInitial kid={kid} /> {kid.firstName}
                   </span>
                   <span className="chore-list__title">
                     🧹 {activity?.title ?? c.refId}
@@ -2261,7 +2383,7 @@ function CustomChores({ onCreated }: { onCreated: (id: string) => void }) {
 
   return (
     <>
-      <h3 className="section-title">✏️ Custom Chores</h3>
+      <h3 className="section-title"><AppIcon name="plus" /> Custom chores</h3>
       <div className="settings">
         {custom.length > 0 && (
           <ul className="kidmanage">
@@ -2368,7 +2490,7 @@ function ParentSettings() {
 
   return (
     <>
-      <h3 className="section-title">⚙️ Settings</h3>
+      <h3 className="section-title"><AppIcon name="settings" /> Settings</h3>
       <div className="settings">
         <form className="settings__row" onSubmit={savePin}>
           <label className="settings__label">
@@ -2406,7 +2528,7 @@ function ParentPins() {
   const { state } = useApp();
   return (
     <>
-      <h3 className="section-title">🔑 Kid Login PINs</h3>
+      <h3 className="section-title"><AppIcon name="lock" /> Kid login PINs</h3>
       <div className="settings">
         {kidList(state).map((k) => (
           <KidPinRow key={k.id} kidId={k.id} />
@@ -2441,7 +2563,7 @@ function KidPinRow({ kidId }: { kidId: KidId }) {
   return (
     <form className="settings__row" onSubmit={save}>
       <label className="settings__label">
-        {kid.emoji} {kid.firstName}'s PIN
+        <ProfileInitial kid={kid} /> {kid.firstName}'s PIN
         <input
           className="settings__input"
           inputMode="numeric"

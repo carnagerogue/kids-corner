@@ -22,6 +22,7 @@ import { TrophyRoom } from "./views/TrophyRoom";
 import { MessagesView } from "./views/MessagesView";
 import { FamilyWallView } from "./views/FamilyWallView";
 import { ParentZone } from "./views/ParentZone";
+import type { AppIconName } from "./components/AppIcon";
 import type { KidId } from "./types";
 
 const WorldView = lazy(() => import("./world/WorldView"));
@@ -38,16 +39,16 @@ export type TabId =
   | "messages"
   | "parent";
 
-export const TABS: { id: TabId; label: string; emoji: string }[] = [
-  { id: "home", label: "Home", emoji: "🛰️" },
-  { id: "schedule", label: "Schedule", emoji: "🗓️" },
-  { id: "applications", label: "Apps", emoji: "🧭" },
-  { id: "missions", label: "Missions", emoji: "🎯" },
-  { id: "avatar", label: "Avatar", emoji: "🧢" },
-  { id: "world", label: "World", emoji: "🌍" },
-  { id: "trophies", label: "Trophies", emoji: "🏆" },
-  { id: "family-wall", label: "Family Wall", emoji: "💞" },
-  { id: "messages", label: "Messages", emoji: "💬" },
+export const TABS: { id: TabId; label: string; icon: AppIconName }[] = [
+  { id: "home", label: "Today", icon: "home" },
+  { id: "schedule", label: "Plan", icon: "calendar" },
+  { id: "applications", label: "Apps", icon: "apps" },
+  { id: "missions", label: "Missions", icon: "target" },
+  { id: "avatar", label: "Avatar", icon: "person" },
+  { id: "world", label: "World", icon: "world" },
+  { id: "trophies", label: "Trophies", icon: "trophy" },
+  { id: "family-wall", label: "Family", icon: "heart" },
+  { id: "messages", label: "Messages", icon: "message" },
 ];
 
 export function App() {
@@ -105,10 +106,10 @@ export function App() {
   // themes restyle the page). Cleared on the login screen so it's always light.
   useEffect(() => {
     const root = document.documentElement;
-    const theme = user ? state.themes[user] : undefined;
+    const theme = user && tab !== "parent" ? state.themes[user] : undefined;
     if (theme) root.setAttribute("data-theme", theme);
     else root.removeAttribute("data-theme");
-  }, [user, state.themes]);
+  }, [user, tab, state.themes]);
 
   // While family/auth is still resolving, hold on a splash so we don't flash
   // the entry choice and then jump to the parent area.
@@ -193,14 +194,16 @@ export function App() {
   } as React.CSSProperties;
 
   return (
-    <div className="app" style={themeStyle}>
+    <div className={`app ${tab === "parent" ? "app--parent" : ""}`} style={themeStyle}>
       <ScheduleNotifier />
       <MessageNotifier viewer={user} />
       <AnnouncementNotifier />
       <ReactionNotifier user={user} />
       <Celebrations user={user} />
-      <TopBar tab={tab} onTab={setTab} user={user} onLogout={logout} />
-      <GuardianBridge kidId={user} />
+      {tab !== "parent" && (
+        <TopBar tab={tab} onTab={setTab} user={user} onLogout={logout} />
+      )}
+      {tab !== "parent" && <GuardianBridge kidId={user} />}
       <main className="app__main">
         {tab === "home" && <CommandCenter onTab={setTab} />}
         {tab === "schedule" && <ScheduleView onTab={setTab} />}
@@ -249,23 +252,27 @@ function EntryChoice({
           src={`${import.meta.env.BASE_URL}luminara-logo.png`}
           alt="Luminara — Spark curiosity, Build skills, Light tomorrow"
         />
-        <h2 className="login__prompt">Who's here? 👋</h2>
+        <p className="login__eyebrow">Welcome home</p>
+        <h2 className="login__prompt">Who’s learning today?</h2>
+        <p className="login__intro">
+          Choose your space to continue. Everything is organized around your family.
+        </p>
         <div className="entrychoice">
           <button
             className="entrychoice__btn entrychoice__btn--kid"
             onClick={onChild}
           >
-            <span className="entrychoice__emoji">🧒</span>
-            <span className="entrychoice__label">I'm a Kid</span>
-            <span className="entrychoice__sub">Pick your face &amp; PIN</span>
+            <EntryIcon kind="kid" />
+            <span className="entrychoice__label">Kid space</span>
+            <span className="entrychoice__sub">My day, missions, and world</span>
           </button>
           <button
             className="entrychoice__btn entrychoice__btn--grown"
             onClick={onGrownup}
           >
-            <span className="entrychoice__emoji">🧑</span>
-            <span className="entrychoice__label">I'm a Grown-Up</span>
-            <span className="entrychoice__sub">Sign in to your dashboard</span>
+            <EntryIcon kind="grownup" />
+            <span className="entrychoice__label">Grown-up space</span>
+            <span className="entrychoice__sub">Family setup and progress</span>
           </button>
         </div>
       </div>
@@ -273,5 +280,26 @@ function EntryChoice({
         <a href={`${import.meta.env.BASE_URL}privacy.html`}>Privacy Policy</a>
       </footer>
     </div>
+  );
+}
+
+function EntryIcon({ kind }: { kind: "kid" | "grownup" }) {
+  return (
+    <span className={`entrychoice__icon entrychoice__icon--${kind}`} aria-hidden="true">
+      {kind === "kid" ? (
+        <svg viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="12" r="5" />
+          <path d="M7.5 26c.8-5.2 3.6-8 8.5-8s7.7 2.8 8.5 8" />
+          <path className="entrychoice__spark" d="M25 5v4M23 7h4" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 32 32" fill="none">
+          <circle cx="12.5" cy="12" r="4.5" />
+          <circle cx="22.5" cy="13" r="3.5" />
+          <path d="M4.5 26c.8-5.1 3.4-7.7 8-7.7s7.2 2.6 8 7.7" />
+          <path d="M19.5 19.6c1-.6 2.1-.9 3.4-.9 3.4 0 5.4 2.2 6 6.3" />
+        </svg>
+      )}
+    </span>
   );
 }

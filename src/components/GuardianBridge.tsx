@@ -9,6 +9,7 @@ import {
   DEFAULT_NEW_KID_APPS,
 } from "../data/applications";
 import { RESOURCES } from "../data/resources";
+import { AppIcon } from "./AppIcon";
 import {
   detectGuardian,
   guardianSupported,
@@ -235,7 +236,7 @@ export function GuardianBridge({ kidId }: { kidId: KidId }) {
   return (
     <div className="guardbar" role="status">
       <span className="guardbar__icon" aria-hidden="true">
-        🛡️
+        <AppIcon name="shield" />
       </span>
       <span className="guardbar__text">
         <strong>Turn on Safe Browsing</strong> — it keeps you on your learning
