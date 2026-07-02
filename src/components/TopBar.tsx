@@ -7,7 +7,6 @@ import {
   kidUnreadCount,
 } from "../store/selectors";
 import { Avatar3DThumb } from "../features/avatar/Avatar3DThumb";
-import { LuminaraMark } from "./LuminaraMark";
 import { TABS, type TabId } from "../App";
 import type { KidId } from "../types";
 
@@ -31,7 +30,13 @@ export function TopBar({
   return (
     <header className="topbar">
       <div className="topbar__brand">
-        <LuminaraMark className="topbar__logo" size={30} />
+        <img
+          className="topbar__logo"
+          src="/luminara-icon.png"
+          alt="Luminara"
+          width={46}
+          height={46}
+        />
         <div>
           <h1 className="topbar__title">Luminara</h1>
           <p className="topbar__subtitle">Spark curiosity · Build skills · Light tomorrow</p>
